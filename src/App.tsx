@@ -11901,317 +11901,317 @@ function ReportsView({
   const [active, setActive] = useState<string | null>(null)
   const [reportDraft, setReportDraft] = useState("payroll_summary")
   const [period, setPeriod] = useState("July 2026")
-  const completedPeriods = payruns
-    .filter((p) => isFinalizedPayrun(p.status))
-    .map((p) => p.period)
-  const pr =
-    payruns.find((p) => p.period === period && isFinalizedPayrun(p.status)) ??
-    payruns.find((p) => isFinalizedPayrun(p.status))
+  const [category, setCategory] = useState("all")
+  const [search, setSearch] = useState("")
+  const [statusFilter, setStatusFilter] = useState("all")
+  const [employeeFilter, setEmployeeFilter] = useState("all")
+  const [reportPage, setReportPage] = useState(1)
+
+  const completedPeriods = Array.from(
+    new Set(
+      payruns
+        .filter((p) => isFinalizedPayrun(p.status))
+        .map((p) => p.period),
+    ),
+  )
+  const selectedPeriod = completedPeriods.includes(period)
+    ? period
+    : completedPeriods[0] ?? ""
+  const pr = payruns.find(
+    (p) => p.period === selectedPeriod && isFinalizedPayrun(p.status),
+  )
+
   const REPORT_LIST = [
-    { id: "payroll_summary", label: "Payroll Summary" },
-    { id: "employee_payroll", label: "Employee Payroll" },
-    { id: "earnings", label: "Earnings Report" },
-    { id: "deductions", label: "Deductions Report" },
-    { id: "lop", label: "LOP Report" },
-    { id: "payslip", label: "Payslip Report" },
-  ]
+    { id: "payroll_summary", label: "Payroll Summary", category: "Payroll", status: "Available", description: "Employee-wise payroll earnings, deductions and net salary." },
+    { id: "employee_payroll", label: "Employee Payroll", category: "Payroll", status: "Available", description: "Detailed employee payroll results for a finalized pay run." },
+    { id: "earnings", label: "Earnings Report", category: "Earnings & Deductions", status: "Available", description: "Basic, HRA, allowances, bonus and total earnings." },
+    { id: "deductions", label: "Deductions Report", category: "Earnings & Deductions", status: "Available", description: "PF, ESI, TDS, professional tax, LOP and total deductions." },
+    { id: "lop", label: "LOP Report", category: "Attendance & LOP", status: "Available", description: "LOP days, per-day salary, LOP deduction and net salary." },
+    { id: "payslip", label: "Payslip Report", category: "Payslips & Tax", status: "Available", description: "Employee payslip generation and PDF export." },
+    { id: "attendance", label: "Attendance Report", category: "Attendance & LOP", status: "Missing", description: "Attendance, leave, overtime and working-day report is not currently available." },
+    { id: "tax", label: "Tax / TDS Report", category: "Payslips & Tax", status: "Missing", description: "Detailed tax liability, taxable income and TDS summary is not currently available." },
+    { id: "statutory", label: "Statutory Compliance Report", category: "Compliance", status: "Missing", description: "PF, ESI, PT and other statutory filing-oriented report is not currently available." },
+    { id: "reimbursements", label: "Reimbursements Report", category: "Payroll Inputs", status: "Missing", description: "Employee reimbursement claims and payout report is not currently available." },
+    { id: "loans", label: "Loans & Advances Report", category: "Payroll Inputs", status: "Missing", description: "Employee loan balances, recoveries and outstanding amounts are not currently available." },
+    { id: "employee_master", label: "Employee Master Report", category: "Employee", status: "Missing", description: "Complete employee master data export/report is not currently available in Reports." },
+  ] as const
+
+  const categories = Array.from(new Set(REPORT_LIST.map((report) => report.category)))
+  const availableReports = REPORT_LIST.filter((report) => report.status === "Available")
+  const missingReports = REPORT_LIST.filter((report) => report.status === "Missing")
+  const reportSearchValues = REPORT_LIST.flatMap((report) => [report.label, report.category, report.description])
+  const filteredReportCatalog = REPORT_LIST.filter((report) => {
+    if (category !== "all" && report.category !== category) return false
+    if (statusFilter !== "all" && report.status !== statusFilter) return false
+    return searchMatches(search, [report.label, report.category, report.description])
+  })
+  const selectedReport = REPORT_LIST.find((report) => report.id === active)
+  const reportPageSize = 10
+  const reportTotalPages = Math.max(1, Math.ceil(filteredReportCatalog.length / reportPageSize))
+  const currentReportPage = Math.min(reportPage, reportTotalPages)
+  const paginatedReportCatalog = filteredReportCatalog.slice(
+    (currentReportPage - 1) * reportPageSize,
+    currentReportPage * reportPageSize,
+  )
+  const reportTableRows = Array.from(
+    { length: reportPageSize },
+    (_, index) => paginatedReportCatalog[index] ?? null,
+  )
+
+  const rowsForReport = pr?.rows.filter((row) =>
+    employeeFilter === "all" || row.empId === employeeFilter,
+  ) ?? []
+
+  const csvEscape = (value: unknown) => {
+    const text = String(value ?? "")
+    return /[",\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text
+  }
+
+  const downloadCsv = (filename: string, headers: string[], rows: Array<Array<unknown>>) => {
+    const csv = [headers, ...rows]
+      .map((row) => row.map(csvEscape).join(","))
+      .join("\n")
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement("a")
+    link.href = url
+    link.download = filename
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    URL.revokeObjectURL(url)
+  }
+
+  const exportReport = () => {
+    if (!selectedReport || selectedReport.status === "Missing") {
+      toast("Select an available report before exporting", "warning")
+      return
+    }
+    if (selectedReport.id === "payslip") {
+      toast("Use the payslip section to generate individual payslip PDFs", "info")
+      return
+    }
+    if (!pr) {
+      toast("No completed pay run is available for the selected period", "warning")
+      return
+    }
+
+    if (selectedReport.id === "deductions") {
+      downloadCsv(`deductions-${selectedPeriod.replace(/\s+/g, "-")}.csv`, ["Employee", "PF", "ESI", "TDS", "Professional Tax", "LOP Deduction", "Total Deductions"], rowsForReport.map((r) => [r.empName, r.pf, r.esi, r.tds, r.profTax, r.lopDeduction, r.totalDeductions]))
+    } else if (selectedReport.id === "earnings") {
+      downloadCsv(`earnings-${selectedPeriod.replace(/\s+/g, "-")}.csv`, ["Employee", "Basic", "HRA", "Fixed Allowance", "Special Allowance", "Bonus", "Total Earnings"], rowsForReport.map((r) => {
+        const s = ss.find((x) => x.name === emps.find((e) => e.id === r.empId)?.salaryStructure)
+        return [r.empName, s?.basic ?? 0, s?.hra ?? 0, s?.fixedAllowance ?? 0, s?.specialAllowance ?? 0, r.bonus, r.totalEarnings]
+      }))
+    } else if (selectedReport.id === "lop") {
+      downloadCsv(`lop-${selectedPeriod.replace(/\s+/g, "-")}.csv`, ["Employee", "Department", "LOP Days", "Per-Day Salary", "LOP Deduction", "Net Salary"], rowsForReport.map((r) => {
+        const emp = emps.find((e) => e.id === r.empId)
+        return [r.empName, emp?.department ?? "", r.lopDays, Math.round((emp?.grossSalary ?? 0) / 26), r.lopDeduction, r.netSalary]
+      }))
+    } else {
+      downloadCsv(`payroll-report-${selectedPeriod.replace(/\s+/g, "-")}.csv`, ["Employee", "Employee ID", "Department", "Gross", "Bonus", "Total Earnings", "Total Deductions", "Net Salary"], rowsForReport.map((r) => [r.empName, r.empId, r.department, r.grossSalary, r.bonus, r.totalEarnings, r.totalDeductions, r.netSalary]))
+    }
+    toast(`${selectedReport.label} exported as CSV`, "success")
+  }
+
+  const exportAllAvailable = () => {
+    if (!pr) {
+      toast("No completed pay run is available for export", "warning")
+      return
+    }
+    downloadCsv(`all-payroll-reports-${selectedPeriod.replace(/\s+/g, "-")}.csv`, ["Report", "Employee", "Employee ID", "Department", "Gross", "Bonus", "Total Earnings", "Total Deductions", "Net Salary"], rowsForReport.flatMap((r) => availableReports.filter((report) => report.id !== "payslip").map((report) => [report.label, r.empName, r.empId, r.department, r.grossSalary, r.bonus, r.totalEarnings, r.totalDeductions, r.netSalary])))
+    toast("Available reports exported as CSV", "success")
+  }
+
+  const renderReportTable = () => {
+    if (!pr) {
+      return (
+        <div style={{ padding: 32, textAlign: "center", color: F.text3, fontSize: 13 }}>
+          No completed pay runs for the selected period.
+        </div>
+      )
+    }
+
+    if (active === "payslip") {
+      return (
+        <div style={{ padding: 24 }}>
+          <p style={{ fontSize: 13, color: F.text2, marginBottom: 16 }}>
+            Generate individual payslips for any employee and period.
+          </p>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <select value={employeeFilter} onChange={(e) => setEmployeeFilter(e.target.value)} style={{ ...iSt, width: 220 }}>
+              <option value="all">All Employees</option>
+              {emps.map((e) => <option key={e.id} value={e.id}>{e.name}</option>)}
+            </select>
+            <Btn onClick={() => toast("Payslips generated and ready to download", "success")}>Generate Payslips</Btn>
+            <Btn variant="secondary" onClick={() => toast("Select an employee to generate an individual payslip PDF", "info")}>Export PDF</Btn>
+          </div>
+        </div>
+      )
+    }
+
+    if (active === "deductions") {
+      return (
+        <table style={{ width: "100%", borderCollapse: "collapse" }}>
+          <thead><tr><Th>Employee</Th><Th right>PF</Th><Th right>ESI</Th><Th right>TDS</Th><Th right>Prof. Tax</Th><Th right>LOP Ded.</Th><Th right>Total</Th></tr></thead>
+          <tbody>{rowsForReport.map((r) => <TrH key={r.empId}><Td><div style={{ fontWeight: 600 }}>{r.empName}</div><div style={{ fontSize: 11, color: F.text3 }}>{r.empId}</div></Td><Td right>{inr(r.pf)}</Td><Td right>{r.esi > 0 ? inr(r.esi) : "--"}</Td><Td right>{inr(r.tds)}</Td><Td right>{inr(r.profTax)}</Td><Td right style={{ color: r.lopDeduction > 0 ? F.error : F.text3 }}>{r.lopDeduction > 0 ? inr(r.lopDeduction) : "Nil"}</Td><Td right><strong>{inr(r.totalDeductions)}</strong></Td></TrH>)}</tbody>
+        </table>
+      )
+    }
+
+    if (active === "earnings") {
+      return (
+        <table style={{ width: "100%", borderCollapse: "collapse" }}>
+          <thead><tr><Th>Employee</Th><Th right>Basic</Th><Th right>HRA</Th><Th right>Fixed Allow.</Th><Th right>Special Allow.</Th><Th right>Bonus</Th><Th right>Gross</Th></tr></thead>
+          <tbody>{rowsForReport.map((r) => { const s = ss.find((x) => x.name === emps.find((e) => e.id === r.empId)?.salaryStructure); return <TrH key={r.empId}><Td><div style={{ fontWeight: 600 }}>{r.empName}</div></Td><Td right>{inr(s?.basic ?? 0)}</Td><Td right>{inr(s?.hra ?? 0)}</Td><Td right>{inr(s?.fixedAllowance ?? 0)}</Td><Td right>{inr(s?.specialAllowance ?? 0)}</Td><Td right style={{ color: r.bonus > 0 ? F.success : F.text3 }}>{r.bonus > 0 ? inr(r.bonus) : "--"}</Td><Td right><strong>{inr(r.totalEarnings)}</strong></Td></TrH> })}</tbody>
+        </table>
+      )
+    }
+
+    if (active === "lop") {
+      return (
+        <table style={{ width: "100%", borderCollapse: "collapse" }}>
+          <thead><tr><Th>Employee</Th><Th>Department</Th><Th right>LOP Days</Th><Th right>Per-Day Salary</Th><Th right>LOP Deduction</Th><Th right>Net After LOP</Th></tr></thead>
+          <tbody>{rowsForReport.map((r) => { const emp = emps.find((e) => e.id === r.empId); return <TrH key={r.empId}><Td><div style={{ fontWeight: 600 }}>{r.empName}</div></Td><Td>{emp?.department}</Td><Td right style={{ color: r.lopDays > 0 ? F.error : F.text3 }}>{r.lopDays > 0 ? r.lopDays : "--"}</Td><Td right>{inr(Math.round((emp?.grossSalary ?? 0) / 26))}</Td><Td right style={{ color: r.lopDeduction > 0 ? F.error : F.text3 }}>{r.lopDeduction > 0 ? inr(r.lopDeduction) : "Nil"}</Td><Td right><strong>{inr(r.netSalary)}</strong></Td></TrH> })}</tbody>
+        </table>
+      )
+    }
+
+    return (
+      <table style={{ width: "100%", borderCollapse: "collapse" }}>
+        <thead><tr><Th>Employee</Th><Th>Department</Th><Th right>Gross</Th><Th right>Bonus</Th><Th right>Total Earnings</Th><Th right>Total Deductions</Th><Th right>Net Salary</Th></tr></thead>
+        <tbody>{rowsForReport.map((r) => <TrH key={r.empId}><Td><div style={{ fontWeight: 600 }}>{r.empName}</div><div style={{ fontSize: 11, color: F.text3 }}>{r.empId}</div></Td><Td>{r.department}</Td><Td right>{inr(r.grossSalary)}</Td><Td right style={{ color: r.bonus > 0 ? F.success : F.text3 }}>{r.bonus > 0 ? inr(r.bonus) : "--"}</Td><Td right>{inr(r.totalEarnings)}</Td><Td right style={{ color: F.error }}>{inr(r.totalDeductions)}</Td><Td right><strong style={{ color: F.success }}>{inr(r.netSalary)}</strong></Td></TrH>)}</tbody>
+      </table>
+    )
+  }
 
   return (
-    <div>
+    <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
       <PH
         title="Reports"
-        sub="Payroll, earnings, deduction, and LOP reports"
+        sub="Payroll, earnings, deductions, LOP, payslip and report availability"
         action={
           <>
-            <Btn
-              variant="secondary"
-              onClick={() => toast("All reports exported", "success")}
-            >
-              Export All
-            </Btn>
+            <Btn variant="secondary" onClick={exportAllAvailable}>Export Available Reports</Btn>
             <UniversalColumnCustomizer persona="reports" inline />
           </>
         }
       />
-      <div className="report-type-selector">
-        <label>
-          Report type
-          <select value={reportDraft} onChange={(event) => setReportDraft(event.target.value)}>
-            {REPORT_LIST.map((report) => <option key={report.id} value={report.id}>{report.label}</option>)}
-          </select>
-        </label>
-        <Btn onClick={() => setActive(reportDraft)}>Go</Btn>
+
+      <div style={{ background: F.card, border: `1px solid ${F.border}`, borderRadius: 8, padding: 16 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "minmax(240px, 2fr) repeat(3, minmax(150px, 1fr)) auto", gap: 12, alignItems: "end" }}>
+          <Fld label="Search Reports">
+            <ValueHelp label="" value={search} onChange={setSearch} placeholder="Search report name or category..." values={reportSearchValues} />
+          </Fld>
+          <Fld label="Category">
+            <select value={category} onChange={(e) => setCategory(e.target.value)} style={iSt}>
+              <option value="all">All Categories</option>
+              {categories.map((item) => <option key={item} value={item}>{item}</option>)}
+            </select>
+          </Fld>
+          <Fld label="Status">
+            <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} style={iSt}>
+              <option value="all">All Reports</option>
+              <option value="Available">Available</option>
+              <option value="Missing">Missing</option>
+            </select>
+          </Fld>
+          <Fld label="Employee">
+            <select value={employeeFilter} onChange={(e) => setEmployeeFilter(e.target.value)} style={iSt}>
+              <option value="all">All Employees</option>
+              {emps.map((e) => <option key={e.id} value={e.id}>{e.name}</option>)}
+            </select>
+          </Fld>
+          <Btn variant="secondary" onClick={() => { setSearch(""); setCategory("all"); setStatusFilter("all"); setEmployeeFilter("all") }}>Clear</Btn>
+        </div>
+        <div style={{ marginTop: 14, display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <Badge label={`${availableReports.length} Available`} color={F.success} bg={F.successBg} />
+          <Badge label={`${missingReports.length} Missing`} color={F.warning} bg={F.warningBg} />
+          <span style={{ fontSize: 12, color: F.text3, alignSelf: "center" }}>Search and filters apply to the report catalog below.</span>
+        </div>
       </div>
-      {active && <div className="report-content">
-        <div
-          style={{
-            background: F.card,
-            border: `1px solid ${F.border}`,
-            borderRadius: 4,
-            overflow: "hidden",
-          }}
-        >
-          <div
-            className="report-toolbar"
-            style={{
-              padding: "12px 18px",
-              borderBottom: `1px solid ${F.border}`,
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-            }}
-          >
-            <span className="report-toolbar-title" style={{ fontSize: 14, fontWeight: 600, color: F.text1 }}>
-              {REPORT_LIST.find((r) => r.id === active)?.label}
-            </span>
-            <div className="report-toolbar-actions" style={{ display: "flex", gap: 8, alignItems: "flex-end", flexWrap: "wrap" }}>
-              <ContextDateRangeFilter />
-              <label className="report-period-field">
-                Pay period
-                <select
-                  value={period}
-                  onChange={(e) => setPeriod(e.target.value)}
-                  style={{ ...iSt, width: 160 }}
-                >
-                  {completedPeriods.map((p) => (
-                    <option key={p}>{p}</option>
-                  ))}
-                </select>
-              </label>
-              <Btn
-                small
-                onClick={() =>
-                  toast(
-                    `${REPORT_LIST.find((r) => r.id === active)?.label} exported`,
-                    "success",
-                  )
-                }
-              >
-                Export CSV
-              </Btn>
+
+      <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1.8fr) minmax(220px, 0.55fr)", gap: 14, alignItems: "stretch" }}>
+        <div style={{ background: F.card, border: `1px solid ${F.border}`, borderRadius: 8, overflow: "hidden", display: "flex", flexDirection: "column", height: 600, boxSizing: "border-box" }}>
+          <div style={{ padding: "14px 18px", borderBottom: `1px solid ${F.border}`, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+            <div>
+              <div style={{ fontSize: 15, fontWeight: 800, color: F.text1 }}>Report Catalog</div>
+              <div style={{ fontSize: 12, color: F.text3, marginTop: 3 }}>{filteredReportCatalog.length} report{filteredReportCatalog.length === 1 ? "" : "s"} found</div>
             </div>
+            <select value={reportDraft} onChange={(event) => setReportDraft(event.target.value)} style={{ ...iSt, width: 220 }}>
+              {availableReports.map((report) => <option key={report.id} value={report.id}>{report.label}</option>)}
+            </select>
           </div>
-          {!pr && (
-            <div
-              style={{
-                padding: 32,
-                textAlign: "center",
-                color: F.text3,
-                fontSize: 13,
-              }}
-            >
-              No completed pay runs for the selected period.
-            </div>
-          )}
-          {pr &&
-            (active === "payroll_summary" || active === "employee_payroll") && (
-              <table style={{ width: "100%", borderCollapse: "collapse" }}>
-                <thead>
-                  <tr>
-                    <Th>Employee</Th>
-                    <Th>Department</Th>
-                    <Th right>Gross</Th>
-                    <Th right>Bonus</Th>
-                    <Th right>Total Earnings</Th>
-                    <Th right>Total Deductions</Th>
-                    <Th right>Net Salary</Th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {pr.rows.map((r) => (
-                    <TrH key={r.empId}>
-                      <Td>
-                        <div style={{ fontWeight: 600 }}>{r.empName}</div>
-                        <div style={{ fontSize: 11, color: F.text3 }}>
-                          {r.empId}
-                        </div>
-                      </Td>
-                      <Td>{r.department}</Td>
-                      <Td right>{inr(r.grossSalary)}</Td>
-                      <Td
-                        right
-                        style={{ color: r.bonus > 0 ? F.success : F.text3 }}
-                      >
-                        {r.bonus > 0 ? inr(r.bonus) : "--"}
-                      </Td>
-                      <Td right>{inr(r.totalEarnings)}</Td>
-                      <Td right style={{ color: F.error }}>
-                        {inr(r.totalDeductions)}
-                      </Td>
-                      <Td right>
-                        <strong style={{ color: F.success }}>
-                          {inr(r.netSalary)}
-                        </strong>
-                      </Td>
-                    </TrH>
-                  ))}
-                </tbody>
-              </table>
-            )}
-          {pr && active === "deductions" && (
-            <table style={{ width: "100%", borderCollapse: "collapse" }}>
-              <thead>
-                <tr>
-                  <Th>Employee</Th>
-                  <Th right>PF</Th>
-                  <Th right>ESI</Th>
-                  <Th right>TDS</Th>
-                  <Th right>Prof. Tax</Th>
-                  <Th right>LOP Ded.</Th>
-                  <Th right>Total</Th>
-                </tr>
-              </thead>
+          <div style={{ overflow: "hidden", flex: 1, minHeight: 0 }}>
+            <table style={{ width: "100%", height: 470, tableLayout: "fixed", borderCollapse: "collapse" }}>
+              <thead><tr><Th>Report</Th><Th>Category</Th><Th>Status</Th><Th>Description</Th><Th>Action</Th></tr></thead>
               <tbody>
-                {pr.rows.map((r) => (
-                  <TrH key={r.empId}>
-                    <Td>
-                      <div style={{ fontWeight: 600 }}>{r.empName}</div>
-                    </Td>
-                    <Td right>{inr(r.pf)}</Td>
-                    <Td right>{r.esi > 0 ? inr(r.esi) : "--"}</Td>
-                    <Td right>{inr(r.tds)}</Td>
-                    <Td right>{inr(r.profTax)}</Td>
-                    <Td
-                      right
-                      style={{ color: r.lopDeduction > 0 ? F.error : F.text3 }}
-                    >
-                      {r.lopDeduction > 0 ? inr(r.lopDeduction) : "Nil"}
-                    </Td>
-                    <Td right>
-                      <strong>{inr(r.totalDeductions)}</strong>
-                    </Td>
-                  </TrH>
+                {filteredReportCatalog.length === 0 ? (
+                  <tr><Td colSpan={5}><div style={{ padding: 18, textAlign: "center", color: F.text3 }}>No reports match the selected filters.</div></Td></tr>
+                ) : reportTableRows.map((report, index) => (
+                  report ? (
+                    <TrH key={report.id}>
+                      <Td style={{ height: 40, padding: "7px 10px", overflow: "hidden" }}><div style={{ fontWeight: 700, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{report.label}</div></Td>
+                      <Td style={{ height: 40, padding: "7px 10px", overflow: "hidden" }}><span style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", display: "block" }}>{report.category}</span></Td>
+                      <Td style={{ height: 40, padding: "7px 10px", overflow: "hidden" }}>{report.status === "Available" ? <Badge label="Available" color={F.success} bg={F.successBg} /> : <Badge label="Missing" color={F.warning} bg={F.warningBg} />}</Td>
+                      <Td style={{ height: 40, padding: "7px 10px", overflow: "hidden" }}><span style={{ fontSize: 12, color: F.text2, display: "block", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{report.description}</span></Td>
+                      <Td style={{ height: 40, padding: "7px 10px", overflow: "hidden" }}>{report.status === "Available" ? <Btn small onClick={() => setActive(report.id)}>Open</Btn> : <span style={{ fontSize: 12, color: F.text3 }}>To be added</span>}</Td>
+                    </TrH>
+                  ) : (
+                    <tr key={`empty-report-row-${index}`} style={{ height: 40 }}>
+                      <Td style={{ height: 40, padding: 0, borderBottom: "none" }}><span aria-hidden="true">&nbsp;</span></Td>
+                      <Td style={{ height: 40, padding: 0, borderBottom: "none" }}><span aria-hidden="true">&nbsp;</span></Td>
+                      <Td style={{ height: 40, padding: 0, borderBottom: "none" }}><span aria-hidden="true">&nbsp;</span></Td>
+                      <Td style={{ height: 40, padding: 0, borderBottom: "none" }}><span aria-hidden="true">&nbsp;</span></Td>
+                      <Td style={{ height: 40, padding: 0, borderBottom: "none" }}><span aria-hidden="true">&nbsp;</span></Td>
+                    </tr>
+                  )
                 ))}
               </tbody>
             </table>
-          )}
-          {pr && active === "earnings" && (
-            <table style={{ width: "100%", borderCollapse: "collapse" }}>
-              <thead>
-                <tr>
-                  <Th>Employee</Th>
-                  <Th right>Basic</Th>
-                  <Th right>HRA</Th>
-                  <Th right>Fixed Allow.</Th>
-                  <Th right>Special Allow.</Th>
-                  <Th right>Bonus</Th>
-                  <Th right>Gross</Th>
-                </tr>
-              </thead>
-              <tbody>
-                {pr.rows.map((r) => {
-                  const s = ss.find(
-                    (x) =>
-                      x.name ===
-                      emps.find((e) => e.id === r.empId)?.salaryStructure,
-                  )!
-                  return (
-                    <TrH key={r.empId}>
-                      <Td>
-                        <div style={{ fontWeight: 600 }}>{r.empName}</div>
-                      </Td>
-                      <Td right>{inr(s?.basic ?? 0)}</Td>
-                      <Td right>{inr(s?.hra ?? 0)}</Td>
-                      <Td right>{inr(s?.fixedAllowance ?? 0)}</Td>
-                      <Td right>{inr(s?.specialAllowance ?? 0)}</Td>
-                      <Td
-                        right
-                        style={{ color: r.bonus > 0 ? F.success : F.text3 }}
-                      >
-                        {r.bonus > 0 ? inr(r.bonus) : "--"}
-                      </Td>
-                      <Td right>
-                        <strong>{inr(r.totalEarnings)}</strong>
-                      </Td>
-                    </TrH>
-                  )
-                })}
-              </tbody>
-            </table>
-          )}
-          {pr && active === "lop" && (
-            <table style={{ width: "100%", borderCollapse: "collapse" }}>
-              <thead>
-                <tr>
-                  <Th>Employee</Th>
-                  <Th>Department</Th>
-                  <Th right>LOP Days</Th>
-                  <Th right>Per-Day Salary</Th>
-                  <Th right>LOP Deduction</Th>
-                  <Th right>Net After LOP</Th>
-                </tr>
-              </thead>
-              <tbody>
-                {pr.rows.map((r) => {
-                  const emp = emps.find((e) => e.id === r.empId)!
-                  return (
-                    <TrH key={r.empId}>
-                      <Td>
-                        <div style={{ fontWeight: 600 }}>{r.empName}</div>
-                      </Td>
-                      <Td>{emp?.department}</Td>
-                      <Td
-                        right
-                        style={{ color: r.lopDays > 0 ? F.error : F.text3 }}
-                      >
-                        {r.lopDays > 0 ? r.lopDays : "--"}
-                      </Td>
-                      <Td right>
-                        {inr(Math.round((emp?.grossSalary ?? 0) / 26))}
-                      </Td>
-                      <Td
-                        right
-                        style={{
-                          color: r.lopDeduction > 0 ? F.error : F.text3,
-                        }}
-                      >
-                        {r.lopDeduction > 0 ? inr(r.lopDeduction) : "Nil"}
-                      </Td>
-                      <Td right>
-                        <strong>{inr(r.netSalary)}</strong>
-                      </Td>
-                    </TrH>
-                  )
-                })}
-              </tbody>
-            </table>
-          )}
-          {active === "payslip" && (
-            <div style={{ padding: 24 }}>
-              <p style={{ fontSize: 13, color: F.text2, marginBottom: 16 }}>
-                Generate individual payslips for any employee and period.
-              </p>
-              <div style={{ display: "flex", gap: 8 }}>
-                <select style={{ ...iSt, width: 200 }}>
-                  <option>All Employees</option>
-                  {emps.map((e) => (
-                    <option key={e.id}>{e.name}</option>
-                  ))}
-                </select>
-                <Btn
-                  onClick={() =>
-                    toast("Payslips generated and ready to download", "success")
-                  }
-                >
-                  Generate Payslips
-                </Btn>
-                <Btn
-                  variant="secondary"
-                  onClick={() =>
-                    toast("Payslip report exported as PDF", "success")
-                  }
-                >
-                  Export PDF
-                </Btn>
-              </div>
-            </div>
-          )}
+          </div>
+          <div style={{ marginTop: "auto", borderTop: `1px solid ${F.border}` }}>
+            <Pagination page={currentReportPage} pageSize={reportPageSize} total={filteredReportCatalog.length} onPageChange={setReportPage} />
+          </div>
         </div>
-      </div>}
+
+        <div style={{ background: F.card, border: `1px solid ${F.border}`, borderRadius: 8, padding: 18, display: "flex", flexDirection: "column", minHeight: 0, height: 600, boxSizing: "border-box" }}>
+          <div style={{ fontSize: 15, fontWeight: 800, color: F.text1 }}>Missing Reports</div>
+          <div style={{ fontSize: 12, color: F.text2, margin: "5px 0 14px" }}>Reports identified as not currently available in the Reports module.</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 9, overflowY: "auto", flex: 1, minHeight: 0, paddingRight: 4 }}>
+            {missingReports.map((report) => (
+              <div key={report.id} style={{ padding: "9px 10px", border: `1px solid ${F.border}`, borderRadius: 6, background: F.pageBg }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: F.text1 }}>{report.label}</div>
+                <div style={{ fontSize: 11, color: F.text3, marginTop: 3 }}>{report.category}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {active && (
+        <div style={{ background: F.card, border: `1px solid ${F.border}`, borderRadius: 8, overflow: "hidden" }}>
+          <div style={{ padding: "12px 18px", borderBottom: `1px solid ${F.border}`, display: "flex", justifyContent: "space-between", alignItems: "flex-end", gap: 12, flexWrap: "wrap" }}>
+            <div>
+              <div style={{ fontSize: 15, fontWeight: 800, color: F.text1 }}>{selectedReport?.label}</div>
+              <div style={{ fontSize: 12, color: F.text3, marginTop: 3 }}>{selectedReport?.description}</div>
+            </div>
+            <div style={{ display: "flex", gap: 8, alignItems: "flex-end", flexWrap: "wrap" }}>
+              <Fld label="Pay Period">
+                <select value={selectedPeriod} onChange={(e) => setPeriod(e.target.value)} style={{ ...iSt, width: 160 }}>
+                  {completedPeriods.map((p) => <option key={p}>{p}</option>)}
+                </select>
+              </Fld>
+              <Btn small onClick={exportReport}>Export CSV</Btn>
+              <Btn small variant="secondary" onClick={() => setActive(null)}>Close</Btn>
+            </div>
+          </div>
+          {renderReportTable()}
+        </div>
+      )}
     </div>
   )
 }
-
 interface UserRow {
   name: string
   role: "Org Admin" | "Employee"
