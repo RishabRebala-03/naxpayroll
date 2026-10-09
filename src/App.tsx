@@ -11903,6 +11903,13 @@ function ReportsView({
   const [period, setPeriod] = useState("July 2026")
   const [category, setCategory] = useState("all")
   const [search, setSearch] = useState("")
+  const [searchDraft, setSearchDraft] = useState("")
+  const [showFilters, setShowFilters] = useState(false)
+  const [lastVisited, setLastVisited] = useState<Record<string, string>>({})
+  const [showSearchMatches, setShowSearchMatches] = useState(false)
+  const [reportHasRun, setReportHasRun] = useState(false)
+  const [reportDateRange, setReportDateRange] = useState("Previous Month")
+  const [moreReportFilters, setMoreReportFilters] = useState(false)
   const [statusFilter, setStatusFilter] = useState("all")
   const [employeeFilter, setEmployeeFilter] = useState("all")
   const [reportPage, setReportPage] = useState(1)
@@ -11962,6 +11969,37 @@ function ReportsView({
     employeeFilter === "all" || row.empId === employeeFilter,
   ) ?? []
 
+  const openReport = (reportId: string) => {
+    const report = REPORT_LIST.find((item) => item.id === reportId)
+    if (!report) return
+    // Open the selected report directly, whether selected from search or the table.
+    setShowSearchMatches(false)
+    setEmployeeFilter("all")
+    setReportDateRange("Previous Month")
+    setMoreReportFilters(false)
+    setReportHasRun(report.status === "Available")
+    setActive(reportId)
+    setLastVisited((previous) => ({
+      ...previous,
+      [reportId]: new Date().toLocaleString(),
+    }))
+  }
+
+  const applySearch = () => {
+    setSearch(searchDraft.trim())
+    setShowSearchMatches(false)
+    setReportPage(1)
+  }
+
+  const clearReportFilters = () => {
+    setSearchDraft("")
+    setSearch("")
+    setShowSearchMatches(false)
+    setCategory("all")
+    setStatusFilter("all")
+    setReportPage(1)
+  }
+
   const csvEscape = (value: unknown) => {
     const text = String(value ?? "")
     return /[",\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text
@@ -11983,8 +12021,12 @@ function ReportsView({
   }
 
   const exportReport = () => {
-    if (!selectedReport || selectedReport.status === "Missing") {
-      toast("Select an available report before exporting", "warning")
+    if (!selectedReport) {
+      toast("Select a report before exporting", "warning")
+      return
+    }
+    if (selectedReport.status === "Missing") {
+      toast(`${selectedReport.label} is not available to export yet`, "warning")
       return
     }
     if (selectedReport.id === "payslip") {
@@ -12024,6 +12066,16 @@ function ReportsView({
   }
 
   const renderReportTable = () => {
+    if (selectedReport?.status === "Missing") {
+      return (
+        <div style={{ padding: 32, textAlign: "center", color: F.text2, fontSize: 13, border: `1px dashed ${F.border}`, borderRadius: 8, background: F.pageBg }}>
+          <div style={{ fontSize: 15, fontWeight: 800, color: F.text1, marginBottom: 8 }}>{selectedReport.label} is not available yet</div>
+          <div>{selectedReport.description}</div>
+          <div style={{ marginTop: 10 }}><Badge label="Missing report" color={F.warning} bg={F.warningBg} /></div>
+        </div>
+      )
+    }
+
     if (!pr) {
       return (
         <div style={{ padding: 32, textAlign: "center", color: F.text3, fontSize: 13 }}>
@@ -12086,84 +12138,93 @@ function ReportsView({
   }
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
       <PH
         title="Reports"
-        sub="Payroll, earnings, deductions, LOP, payslip and report availability"
-        action={
-          <>
-            <Btn variant="secondary" onClick={exportAllAvailable}>Export Available Reports</Btn>
-            <UniversalColumnCustomizer persona="reports" inline />
-          </>
-        }
+        sub={selectedReport ? <><strong>{selectedReport.label}</strong> • From {selectedPeriod || "—"}</> : "Payroll, earnings, deductions, LOP, payslip and report availability"}
+        action={selectedReport ? undefined : <><Btn variant="secondary" onClick={exportAllAvailable}>Export</Btn><UniversalColumnCustomizer persona="reports" inline /></>}
       />
 
-      <div style={{ background: F.card, border: `1px solid ${F.border}`, borderRadius: 8, padding: 16 }}>
-        <div style={{ display: "grid", gridTemplateColumns: "minmax(240px, 2fr) repeat(3, minmax(150px, 1fr)) auto", gap: 12, alignItems: "end" }}>
-          <Fld label="Search Reports">
-            <ValueHelp label="" value={search} onChange={setSearch} placeholder="Search report name or category..." values={reportSearchValues} />
-          </Fld>
-          <Fld label="Category">
-            <select value={category} onChange={(e) => setCategory(e.target.value)} style={iSt}>
-              <option value="all">All Categories</option>
-              {categories.map((item) => <option key={item} value={item}>{item}</option>)}
-            </select>
-          </Fld>
-          <Fld label="Status">
-            <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} style={iSt}>
-              <option value="all">All Reports</option>
-              <option value="Available">Available</option>
-              <option value="Missing">Missing</option>
-            </select>
-          </Fld>
-          <Fld label="Employee">
-            <select value={employeeFilter} onChange={(e) => setEmployeeFilter(e.target.value)} style={iSt}>
-              <option value="all">All Employees</option>
-              {emps.map((e) => <option key={e.id} value={e.id}>{e.name}</option>)}
-            </select>
-          </Fld>
-          <Btn variant="secondary" onClick={() => { setSearch(""); setCategory("all"); setStatusFilter("all"); setEmployeeFilter("all") }}>Clear</Btn>
+      {!active && <>
+      <div style={{ background: F.card, border: `1px solid ${F.border}`, borderRadius: 8, padding: 9 }}>
+        <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
+          <div style={{ display: "flex", gap: 8, flex: 1, minWidth: 180, maxWidth: 620 }}>
+            <input
+              value={searchDraft}
+              onChange={(event) => { setSearchDraft(event.target.value); setSearch(event.target.value); setReportPage(1); setShowSearchMatches(Boolean(event.target.value.trim())) }}
+              onFocus={() => setShowSearchMatches(Boolean(searchDraft.trim()))}
+              onKeyDown={(event) => { if (event.key === "Enter") applySearch(); if (event.key === "Escape") setShowSearchMatches(false) }}
+              placeholder="Search reports..."
+              style={{ ...iSt, flex: 1, minWidth: 0 }}
+            />
+            <Btn onClick={applySearch}>Search</Btn>
+          </div>
+          <Btn variant="secondary" onClick={() => setShowFilters((previous) => !previous)}>More Filters</Btn>
+          <Btn variant="secondary" onClick={clearReportFilters}>Clear Filters</Btn>
         </div>
-        <div style={{ marginTop: 14, display: "flex", gap: 8, flexWrap: "wrap" }}>
+        {showSearchMatches && searchDraft.trim() && (
+          <div style={{ marginTop: 8, border: `1px solid ${F.border}`, borderRadius: 7, overflow: "hidden", background: F.card, boxShadow: "0 6px 16px rgba(15,23,42,0.08)" }}>
+            {REPORT_LIST.filter((report) => searchMatches(searchDraft.trim(), [report.label, report.category, report.description])).slice(0, 7).map((report) => (
+              <button key={report.id} type="button" onClick={() => { setSearchDraft(report.label); setSearch(report.label); setShowSearchMatches(false); openReport(report.id) }} style={{ display: "flex", width: "100%", justifyContent: "space-between", alignItems: "center", textAlign: "left", padding: "10px 12px", border: 0, borderBottom: `1px solid ${F.border}`, background: "transparent", cursor: "pointer", color: F.text1 }}>
+                <span><strong>{report.label}</strong><span style={{ display: "block", fontSize: 11, color: F.text3, marginTop: 2 }}>{report.category}</span></span>
+                <Badge label={report.status} color={report.status === "Available" ? F.success : F.warning} bg={report.status === "Available" ? F.successBg : F.warningBg} />
+              </button>
+            ))}
+            {!REPORT_LIST.some((report) => searchMatches(searchDraft.trim(), [report.label, report.category, report.description])) && <div style={{ padding: 12, fontSize: 12, color: F.text3 }}>No matching reports found.</div>}
+          </div>
+        )}
+        {showFilters && (
+          <div style={{ marginTop: 14, paddingTop: 14, borderTop: `1px solid ${F.border}`, display: "flex", gap: 12, flexWrap: "wrap", alignItems: "end" }}>
+            <Fld label="Report Category">
+              <select value={category} onChange={(event) => { setCategory(event.target.value); setReportPage(1) }} style={iSt}>
+                <option value="all">All Categories</option>
+                {categories.map((item) => <option key={item} value={item}>{item}</option>)}
+              </select>
+            </Fld>
+            <Fld label="Availability">
+              <select value={statusFilter} onChange={(event) => { setStatusFilter(event.target.value); setReportPage(1) }} style={iSt}>
+                <option value="all">All Reports</option>
+                <option value="Available">Available</option>
+                <option value="Missing">Missing</option>
+              </select>
+            </Fld>
+          </div>
+        )}
+        <div style={{ marginTop: 8, display: "flex", gap: 6, flexWrap: "wrap" }}>
           <Badge label={`${availableReports.length} Available`} color={F.success} bg={F.successBg} />
           <Badge label={`${missingReports.length} Missing`} color={F.warning} bg={F.warningBg} />
-          <span style={{ fontSize: 12, color: F.text3, alignSelf: "center" }}>Search and filters apply to the report catalog below.</span>
         </div>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1.8fr) minmax(220px, 0.55fr)", gap: 14, alignItems: "stretch" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 2.15fr) minmax(270px, 0.85fr)", gap: 8, alignItems: "stretch" }}>
         <div style={{ background: F.card, border: `1px solid ${F.border}`, borderRadius: 8, overflow: "hidden", display: "flex", flexDirection: "column", height: 600, boxSizing: "border-box" }}>
-          <div style={{ padding: "14px 18px", borderBottom: `1px solid ${F.border}`, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+          <div style={{ padding: "8px 10px", borderBottom: `1px solid ${F.border}`, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
             <div>
-              <div style={{ fontSize: 15, fontWeight: 800, color: F.text1 }}>Report Catalog</div>
+              <div style={{ fontSize: 15, fontWeight: 800, color: F.text1 }}>All Reports</div>
               <div style={{ fontSize: 12, color: F.text3, marginTop: 3 }}>{filteredReportCatalog.length} report{filteredReportCatalog.length === 1 ? "" : "s"} found</div>
             </div>
-            <select value={reportDraft} onChange={(event) => setReportDraft(event.target.value)} style={{ ...iSt, width: 220 }}>
-              {availableReports.map((report) => <option key={report.id} value={report.id}>{report.label}</option>)}
-            </select>
           </div>
           <div style={{ overflow: "hidden", flex: 1, minHeight: 0 }}>
             <table style={{ width: "100%", height: 470, tableLayout: "fixed", borderCollapse: "collapse" }}>
-              <thead><tr><Th>Report</Th><Th>Category</Th><Th>Status</Th><Th>Description</Th><Th>Action</Th></tr></thead>
+              <thead><tr><Th>Report Name</Th><Th>Category</Th><Th>Created By</Th><Th>Last Visited</Th></tr></thead>
               <tbody>
                 {filteredReportCatalog.length === 0 ? (
-                  <tr><Td colSpan={5}><div style={{ padding: 18, textAlign: "center", color: F.text3 }}>No reports match the selected filters.</div></Td></tr>
+                  <tr><Td colSpan={4}><div style={{ padding: 18, textAlign: "center", color: F.text3 }}>No reports match the selected filters.</div></Td></tr>
                 ) : reportTableRows.map((report, index) => (
                   report ? (
-                    <TrH key={report.id}>
-                      <Td style={{ height: 40, padding: "7px 10px", overflow: "hidden" }}><div style={{ fontWeight: 700, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{report.label}</div></Td>
+                    <TrH key={report.id} onClick={() => openReport(report.id)}>
+                      <Td style={{ height: 40, padding: "7px 10px", overflow: "hidden" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                          <button type="button" onClick={(event) => { event.stopPropagation(); openReport(report.id) }} aria-label={`Open ${report.label}`} style={{ padding: 0, border: 0, background: "transparent", color: F.brand, cursor: "pointer", font: "inherit", fontWeight: 700, textAlign: "left", textDecoration: "none" }}>{report.label}</button>
+                        </div>
+                      </Td>
                       <Td style={{ height: 40, padding: "7px 10px", overflow: "hidden" }}><span style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", display: "block" }}>{report.category}</span></Td>
-                      <Td style={{ height: 40, padding: "7px 10px", overflow: "hidden" }}>{report.status === "Available" ? <Badge label="Available" color={F.success} bg={F.successBg} /> : <Badge label="Missing" color={F.warning} bg={F.warningBg} />}</Td>
-                      <Td style={{ height: 40, padding: "7px 10px", overflow: "hidden" }}><span style={{ fontSize: 12, color: F.text2, display: "block", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{report.description}</span></Td>
-                      <Td style={{ height: 40, padding: "7px 10px", overflow: "hidden" }}>{report.status === "Available" ? <Btn small onClick={() => setActive(report.id)}>Open</Btn> : <span style={{ fontSize: 12, color: F.text3 }}>To be added</span>}</Td>
+                      <Td style={{ height: 40, padding: "7px 10px", overflow: "hidden" }}>{report.status === "Available" ? "System" : "—"}</Td>
+                      <Td style={{ height: 40, padding: "7px 10px", overflow: "hidden" }}><span style={{ fontSize: 12, color: F.text2 }}>{lastVisited[report.id] ?? "Never"}</span></Td>
                     </TrH>
                   ) : (
                     <tr key={`empty-report-row-${index}`} style={{ height: 40 }}>
-                      <Td style={{ height: 40, padding: 0, borderBottom: "none" }}><span aria-hidden="true">&nbsp;</span></Td>
-                      <Td style={{ height: 40, padding: 0, borderBottom: "none" }}><span aria-hidden="true">&nbsp;</span></Td>
-                      <Td style={{ height: 40, padding: 0, borderBottom: "none" }}><span aria-hidden="true">&nbsp;</span></Td>
-                      <Td style={{ height: 40, padding: 0, borderBottom: "none" }}><span aria-hidden="true">&nbsp;</span></Td>
-                      <Td style={{ height: 40, padding: 0, borderBottom: "none" }}><span aria-hidden="true">&nbsp;</span></Td>
+                      <td colSpan={4} style={{ height: 40, padding: 0, borderBottom: "none" }}>&nbsp;</td>
                     </tr>
                   )
                 ))}
@@ -12175,38 +12236,43 @@ function ReportsView({
           </div>
         </div>
 
-        <div style={{ background: F.card, border: `1px solid ${F.border}`, borderRadius: 8, padding: 18, display: "flex", flexDirection: "column", minHeight: 0, height: 600, boxSizing: "border-box" }}>
+        <div style={{ background: F.card, border: `1px solid ${F.border}`, borderRadius: 8, padding: 9, display: "flex", flexDirection: "column", minHeight: 0, height: 600, boxSizing: "border-box" }}>
           <div style={{ fontSize: 15, fontWeight: 800, color: F.text1 }}>Missing Reports</div>
-          <div style={{ fontSize: 12, color: F.text2, margin: "5px 0 14px" }}>Reports identified as not currently available in the Reports module.</div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 9, overflowY: "auto", flex: 1, minHeight: 0, paddingRight: 4 }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 6, overflowY: "auto", flex: 1, minHeight: 0, paddingRight: 4 }}>
             {missingReports.map((report) => (
-              <div key={report.id} style={{ padding: "9px 10px", border: `1px solid ${F.border}`, borderRadius: 6, background: F.pageBg }}>
-                <div style={{ fontSize: 12, fontWeight: 700, color: F.text1 }}>{report.label}</div>
+              <button key={report.id} type="button" onClick={() => openReport(report.id)} style={{ width: "100%", padding: "9px 10px", border: `1px solid ${F.border}`, borderRadius: 6, background: F.pageBg, textAlign: "left", cursor: "pointer", color: F.text1 }}>
+                <div style={{ fontSize: 12, fontWeight: 700 }}>{report.label}</div>
                 <div style={{ fontSize: 11, color: F.text3, marginTop: 3 }}>{report.category}</div>
-              </div>
+              </button>
             ))}
           </div>
         </div>
       </div>
 
-      {active && (
-        <div style={{ background: F.card, border: `1px solid ${F.border}`, borderRadius: 8, overflow: "hidden" }}>
-          <div style={{ padding: "12px 18px", borderBottom: `1px solid ${F.border}`, display: "flex", justifyContent: "space-between", alignItems: "flex-end", gap: 12, flexWrap: "wrap" }}>
-            <div>
-              <div style={{ fontSize: 15, fontWeight: 800, color: F.text1 }}>{selectedReport?.label}</div>
-              <div style={{ fontSize: 12, color: F.text3, marginTop: 3 }}>{selectedReport?.description}</div>
-            </div>
-            <div style={{ display: "flex", gap: 8, alignItems: "flex-end", flexWrap: "wrap" }}>
-              <Fld label="Pay Period">
-                <select value={selectedPeriod} onChange={(e) => setPeriod(e.target.value)} style={{ ...iSt, width: 160 }}>
-                  {completedPeriods.map((p) => <option key={p}>{p}</option>)}
-                </select>
-              </Fld>
-              <Btn small onClick={exportReport}>Export CSV</Btn>
-              <Btn small variant="secondary" onClick={() => setActive(null)}>Close</Btn>
+      </>}
+
+      {active && selectedReport && (
+        <div key={selectedReport.id} style={{ background: F.card, border: `1px solid ${F.border}`, borderRadius: 8, overflow: "hidden", minHeight: 520, display: "flex", flexDirection: "column" }}>
+          <div style={{ padding: "10px 12px", borderBottom: `1px solid ${F.border}`, display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+            <div style={{ flex: 1, minWidth: 220 }}><div style={{ fontSize: 12, color: F.text2 }}>{selectedReport.category}</div><div style={{ fontSize: 17, fontWeight: 800, color: F.text1 }}>{selectedReport.label} <span style={{ fontSize: 12, fontWeight: 400, color: F.text2 }}>• {reportDateRange}</span></div></div>
+            <Btn variant="secondary" onClick={exportReport}>Export</Btn>
+            <Btn variant="ghost" onClick={() => { setActive(null); setReportHasRun(false); setMoreReportFilters(false) }}>✕</Btn>
+          </div>
+          <div style={{ padding: "8px 12px", borderBottom: `1px solid ${F.border}`, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+            <label style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 0", fontSize: 13, color: F.text1 }}>Date Range: <select value={reportDateRange} onChange={(e) => setReportDateRange(e.target.value)} style={{ ...iSt, border: 0, boxShadow: "none", outline: "none", padding: "2px 4px", width: 150, background: "transparent" }}><option>Previous Month</option><option>Current Month</option><option>Previous Quarter</option><option>Current Year</option><option>All Time</option></select></label>
+            <Btn variant="secondary" onClick={() => setMoreReportFilters((v) => !v)}>✚ More Filters</Btn>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 8, marginLeft: "auto" }}>
+              <Btn onClick={() => { setReportHasRun(true); toast(`${selectedReport.label} generated`, "success") }}>Run Report</Btn>
+              <Btn variant="secondary" onClick={() => { setActive(null); setReportHasRun(false); setMoreReportFilters(false) }}>Cancel</Btn>
             </div>
           </div>
-          {renderReportTable()}
+          {moreReportFilters && <div style={{ padding: "10px 12px", borderBottom: `1px solid ${F.border}`, display: "flex", gap: 12, flexWrap: "wrap", alignItems: "end" }}>
+            <Fld label="Department"><select style={iSt} defaultValue="all"><option value="all">All Departments</option>{Array.from(new Set(emps.map((e) => e.department).filter(Boolean))).map((d) => <option key={d}>{d}</option>)}</select></Fld>
+            <Btn variant="secondary" onClick={() => { setReportDateRange("Previous Month") }}>Clear</Btn>
+          </div>}
+          <div style={{ flex: 1, minHeight: 230, padding: 12 }}>
+            {selectedReport.status === "Missing" ? renderReportTable() : reportHasRun ? <><div style={{ marginBottom: 12, fontSize: 12, color: F.text2 }}>{selectedReport.description}</div>{renderReportTable()}</> : <div style={{ minHeight: 210, display: "flex", alignItems: "center", justifyContent: "center", textAlign: "center", color: F.text3, fontSize: 13 }}>{selectedReport.description}</div>}
+          </div>
         </div>
       )}
     </div>
@@ -21775,7 +21841,7 @@ function PayrollHistoryView({
           }}
         >
           <div style={{ background: F.card, border: `1px solid ${F.border}`, borderRadius: 8, overflow: "hidden" }}>
-            <div style={{ padding: "14px 18px", borderBottom: `1px solid ${F.border}`, fontWeight: 900 }}>
+            <div style={{ padding: "10px 12px", borderBottom: `1px solid ${F.border}`, fontWeight: 900 }}>
               Itemized Pay Statement
             </div>
             <div style={{ padding: 18, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
@@ -21814,7 +21880,7 @@ function PayrollHistoryView({
           </div>
 
           <div style={{ background: F.card, border: `1px solid ${F.border}`, borderRadius: 8, overflow: "hidden" }}>
-            <div style={{ padding: "14px 18px", borderBottom: `1px solid ${F.border}`, fontWeight: 900 }}>
+            <div style={{ padding: "10px 12px", borderBottom: `1px solid ${F.border}`, fontWeight: 900 }}>
               Employee & Cycle Details
             </div>
             <div style={{ padding: 18 }}>
