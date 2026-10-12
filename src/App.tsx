@@ -18,6 +18,7 @@ const F = {
   text2: "#475E75",
   text3: "#5B738B",
   border: "#D5DADD",
+  borderStrong: "#AEB7C2",
   success: "#188918",
   successBg: "#F5FAE5",
   warning: "#E76500",
@@ -42,11 +43,11 @@ const useToast = () => useContext(ToastCtx)
 function getTimeGreeting() {
   const hour = new Date().getHours()
   if (hour >= 4 && hour < 12) {
-    return { text: "Good morning" }
+    return { text: "Good morning", }
   } else if (hour >= 12 && hour < 17) {
-    return { text: "Good afternoon" }
+    return { text: "Good afternoon", }
   } else {
-    return { text: "Good evening" }
+    return { text: "Good evening", }
   }
 }
 
@@ -1318,7 +1319,7 @@ const iSt: React.CSSProperties = {
   fontFamily: "inherit",
 }
 
-function Fld({ label, children }: { label: string children: React.ReactNode }) {
+function Fld({ label, children }: { label: string; children?: React.ReactNode }) {
   return (
     <div className="sap-field" style={{ display: "flex", flexDirection: "column", gap: 4 }}>
       <label
@@ -1374,7 +1375,7 @@ function Td({
   colSpan,
   rowSpan,
 }: {
-  children: React.ReactNode
+  children?: React.ReactNode
   right?: boolean
   mono?: boolean
   style?: React.CSSProperties
@@ -1409,7 +1410,7 @@ function TrH({
   children,
   onClick,
 }: {
-  children: React.ReactNode
+  children?: React.ReactNode
   onClick?: () => void
 }) {
   const [h, setH] = useState(false)
@@ -1495,7 +1496,7 @@ function Btn({
   title,
   style,
 }: {
-  children: React.ReactNode
+  children?: React.ReactNode
   variant?: BtnVariant
   onClick?: React.MouseEventHandler<HTMLButtonElement>
   small?: boolean
@@ -1564,7 +1565,7 @@ function TabBar({
   active,
   onSelect,
 }: {
-  tabs: { id: string label: string }[]
+  tabs: { id: string; label: string }[]
   active: string
   onSelect: (id: string) => void
 }) {
@@ -1620,7 +1621,7 @@ function SH({ children }: { children: React.ReactNode }) {
     </div>
   )
 }
-function IR({ label, value }: { label: string value: string }) {
+function IR({ label, value }: { label: string; value: string }) {
   return (
     <div
       style={{
@@ -2468,7 +2469,7 @@ function MiniBarChart({
   data,
   color,
 }: {
-  data: { label: string value: number }[]
+  data: { label: string; value: number }[]
   color: string
 }) {
   const max = Math.max(...data.map((d) => d.value), 1)
@@ -2511,7 +2512,7 @@ function DonutChart({
   segments,
   size = 80,
 }: {
-  segments: { label: string value: number color: string }[]
+  segments: { label: string; value: number; color: string }[]
   size?: number
 }) {
   const total = segments.reduce((s, x) => s + x.value, 0)
@@ -2928,6 +2929,77 @@ function DashboardView({
   onNav: (v: string) => void
 }) {
   const toast = useToast()
+  type DashboardTask = { id: string; title: string; detail: string; target: string; done: boolean; assignedTo: string; source: "employee" | "payrun" | "error" | "custom" }
+  type ScheduledReminder = { id: string; title: string; dueAt: string; done: boolean; owner: string }
+  // Keep each signed-in user's personal task state separate. Tasks sourced from incomplete
+  // employee records are generated from the current application data, not hard-coded names.
+  const currentTaskUser = (() => {
+    try { return (localStorage.getItem("userEmail") || localStorage.getItem("user_email") || localStorage.getItem("email") || "current-user").trim().toLowerCase() } catch { return "current-user" }
+  })()
+  const taskStorageKey = `naxpayroll-dashboard-tasks:${currentTaskUser}`
+  const reminderStorageKey = `naxpayroll-dashboard-reminders:${currentTaskUser}`
+  const [customDashboardTasks, setCustomDashboardTasks] = useState<DashboardTask[]>(() => {
+    try { const saved = localStorage.getItem(taskStorageKey); return saved ? JSON.parse(saved) : [] } catch { return [] }
+  })
+  const [dashboardTasks, setDashboardTasks] = useState<DashboardTask[]>([])
+  const [showReminderForm, setShowReminderForm] = useState(false)
+  const [showTaskForm, setShowTaskForm] = useState(false)
+  const [newTaskTitle, setNewTaskTitle] = useState("")
+  const [newTaskDetail, setNewTaskDetail] = useState("")
+  const [newTaskTarget, setNewTaskTarget] = useState("employees")
+  const [reminderTitle, setReminderTitle] = useState("")
+  const [reminderDate, setReminderDate] = useState("")
+  const [reminderTime, setReminderTime] = useState("09:00")
+  const [scheduledReminders, setScheduledReminders] = useState<ScheduledReminder[]>(() => {
+    try { const saved = localStorage.getItem(reminderStorageKey); return saved ? JSON.parse(saved) : [] } catch { return [] }
+  })
+  useEffect(() => {
+    // Build the To Do list exclusively from actionable, unresolved application records.
+    // Employee profiles that are incomplete, pay runs awaiting review, and error logs
+    // that are Open/Investigating are included; resolved/approved records are excluded.
+    const employeeTasks: DashboardTask[] = emps
+      .filter((employee) => employee.status === "Incomplete")
+      .map((employee) => ({
+        id: `employee-${employee.id}`,
+        title: `Complete employee details: ${employee.name}`,
+        detail: `${employee.department || "Employee"} · ${employee.email || employee.id}`,
+        target: "employees", done: false, assignedTo: currentTaskUser, source: "employee" as const,
+      }))
+
+    const payrunTasks: DashboardTask[] = payruns
+      .filter((run) => run.status === "Under Review")
+      .map((run) => ({
+        id: `payrun-review-${run.id}`,
+        title: `Review pay run: ${run.period}`,
+        detail: `${run.id} · ${run.totalEmployees} employees · Approval required`,
+        target: "payruns", done: false, assignedTo: currentTaskUser, source: "payrun" as const,
+      }))
+
+    const errorTasks: DashboardTask[] = INIT_ERROR_LOGS
+      .filter((log) => log.role === "org_admin" && (log.status === "Open" || log.status === "Investigating"))
+      .map((log) => ({
+        id: `error-log-${log.id}`,
+        title: `${log.status}: ${log.id} — ${log.module}`,
+        detail: `${log.severity} · ${log.issue}`,
+        target: "audit", done: false, assignedTo: currentTaskUser, source: "error" as const,
+      }))
+
+    const generatedTasks = [...employeeTasks, ...payrunTasks, ...errorTasks]
+    setDashboardTasks((previous) => {
+      const doneById = new Map(previous.map((task) => [task.id, task.done]))
+      return generatedTasks.map((task) => ({ ...task, done: doneById.get(task.id) ?? false }))
+    })
+  }, [emps, payruns, currentTaskUser])
+  useEffect(() => { try { localStorage.setItem(taskStorageKey, JSON.stringify(customDashboardTasks)) } catch {} }, [customDashboardTasks, taskStorageKey])
+  useEffect(() => { try { localStorage.setItem(reminderStorageKey, JSON.stringify(scheduledReminders)) } catch {} }, [scheduledReminders, reminderStorageKey])
+  const addPersonalTask = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    if (!newTaskTitle.trim()) { toast("Enter a task title.", "error"); return }
+    const task: DashboardTask = { id: `custom-${Date.now()}`, title: newTaskTitle.trim(), detail: newTaskDetail.trim() || "Personal task", target: newTaskTarget, done: false, assignedTo: currentTaskUser, source: "custom" }
+    setCustomDashboardTasks((current) => [...current, task])
+    setNewTaskTitle(""); setNewTaskDetail(""); setNewTaskTarget("employees"); setShowTaskForm(false)
+    toast("Task added to your To Do list.", "success")
+  }
   const months = payruns
     .slice()
     .sort((a, b) => (a.year !== b.year ? a.year - b.year : a.month - b.month))
@@ -3152,6 +3224,27 @@ function DashboardView({
             : 35,
   }))
 
+  const pendingDashboardTasks = dashboardTasks.filter((task) => !task.done)
+  const completedDashboardTasks = dashboardTasks.filter((task) => task.done)
+  const addScheduledReminder = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    if (!reminderTitle.trim() || !reminderDate || !reminderTime) {
+      toast("Please enter a reminder title, date, and time.", "error")
+      return
+    }
+    const dueAt = `${reminderDate}T${reminderTime}`
+    if (new Date(dueAt).getTime() < Date.now()) {
+      toast("Please choose a future date and time for the reminder.", "error")
+      return
+    }
+    setScheduledReminders((current) => [...current, { id: String(Date.now()), title: reminderTitle.trim(), dueAt, done: false, owner: currentTaskUser }].sort((a, b) => a.dueAt.localeCompare(b.dueAt)))
+    setReminderTitle("")
+    setReminderDate("")
+    setReminderTime("09:00")
+    setShowReminderForm(false)
+    toast("Reminder scheduled successfully.", "success")
+  }
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
       {/* ── Top Header Profile & Status Banner ── */}
@@ -3359,39 +3452,45 @@ function DashboardView({
         />
       </div>
 
+      <style>{`
+        .org-dashboard-chart-row > section { min-width: 0; }
+        @media (max-width: 1100px) {
+          .org-dashboard-chart-row { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+          .org-dashboard-chart-row > section:first-child { grid-column: 1 / -1; }
+        }
+        @media (max-width: 720px) {
+          .org-dashboard-chart-row { grid-template-columns: minmax(0, 1fr) !important; }
+          .org-dashboard-chart-row > section:first-child { grid-column: auto; }
+        }
+      `}</style>
       <div
         className="org-dashboard-chart-row"
         style={{
           display: "grid",
-          gridTemplateColumns: "minmax(0, 1.35fr) minmax(320px, 0.9fr)",
-          gap: 20,
+          gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+          gap: 16,
         }}
       >
-        <section style={cardStyle}>
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "flex-start",
-              gap: 12,
-              marginBottom: 10,
-            }}
-          >
+        <section style={{ ...cardStyle, minHeight: 250 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, marginBottom: 14 }}>
             <div>
-              <h2 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: F.text1 }}>
-                Payroll Readiness Trend
-              </h2>
-              <p style={{ margin: "4px 0 0", fontSize: 12, color: F.text2 }}>
-                Line chart showing payroll approval readiness across recent cycles
-              </p>
+              <h2 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: F.text1 }}>Payroll Readiness Trend</h2>
+              <p style={{ margin: "4px 0 0", fontSize: 12, color: F.text2 }}>Payroll approval readiness across recent cycles</p>
             </div>
-            <Badge
-              label={`${payrollReadiness}% ready`}
-              color={payrollReadiness >= 85 ? F.success : F.warning}
-              bg={payrollReadiness >= 85 ? F.successBg : F.warningBg}
-            />
+            <Badge label={`${readinessTrend[readinessTrend.length - 1]?.value ?? 0}% ready`} color="#D97706" bg="#FEF3C7" />
           </div>
-          <ProductAdminLineChart data={readinessTrend} suffix="%" color={F.brand} />
+          <div style={{ width: "100%", padding: "8px 8px 0" }}>
+            <svg viewBox="0 0 560 190" role="img" aria-label="Payroll readiness trend chart" style={{ display: "block", width: "100%", height: "auto", overflow: "visible" }}>
+              {[25, 75, 125, 175].map((y) => <line key={y} x1="24" y1={y} x2="536" y2={y} stroke="#D7DEE8" strokeDasharray="4 5" />)}
+              <polygon points={`24,175 ${readinessTrend.map((point, i) => `${24 + (i * 512 / Math.max(1, readinessTrend.length - 1))},${175 - point.value * 1.45}`).join(" ")} 536,175`} fill="#DBEAFE" opacity="0.7" />
+              <polyline points={readinessTrend.map((point, i) => `${24 + (i * 512 / Math.max(1, readinessTrend.length - 1))},${175 - point.value * 1.45}`).join(" ")} fill="none" stroke="#0875F5" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" />
+              {readinessTrend.map((point, i) => {
+                const x = 24 + (i * 512 / Math.max(1, readinessTrend.length - 1));
+                const y = 175 - point.value * 1.45;
+                return <g key={`${point.label}-${i}`}><circle cx={x} cy={y} r="5" fill="#FFFFFF" stroke="#0875F5" strokeWidth="3" /><text x={x} y={y - 12} textAnchor="middle" fontSize="11" fontWeight="700" fill="#334155">{point.value}%</text><text x={x} y="189" textAnchor="middle" fontSize="10" fill="#64748B">{point.label}</text></g>;
+              })}
+            </svg>
+          </div>
         </section>
 
         <section style={cardStyle}>
@@ -3421,6 +3520,92 @@ function DashboardView({
             centerLabel="Employees"
             valueFormatter={(value) => String(value)}
           />
+        </section>
+
+        <section
+          style={{
+            ...cardStyle,
+            minHeight: 250,
+            padding: 0,
+            overflow: "hidden",
+            border: "1px solid #BFDBFE",
+            background: "#FFFFFF",
+            borderRadius: 14,
+            boxShadow: "0 4px 14px rgba(37, 99, 235, 0.07)",
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              gap: 12,
+              padding: "18px 20px",
+              background: "linear-gradient(135deg, #EAF3FF 0%, #DCEBFF 100%)",
+              borderBottom: "1px solid #BFDBFE",
+            }}
+          >
+            <div style={{ minWidth: 0 }}>
+              <h2 style={{ margin: 0, fontSize: 17, fontWeight: 800, color: "#1E3A8A", letterSpacing: "-0.2px" }}>
+                To Do Tasks
+              </h2>
+              <p style={{ margin: "5px 0 0", fontSize: 12, lineHeight: 1.5, color: "#1D4ED8" }}>
+                A quick overview of work that needs attention
+              </p>
+            </div>
+            <div style={{ flexShrink: 0, padding: "6px 10px", borderRadius: 8, background: "#FFFFFF", border: "1px solid #C7DDFF", color: "#1D4ED8", fontSize: 12, fontWeight: 800 }}>
+              5 items
+            </div>
+          </div>
+
+          <div style={{ padding: "12px 14px 8px", display: "grid", gridTemplateColumns: "1fr", gap: 9 }}>
+            {[
+              { id: "employee", title: "Employee", detail: "2 modules are incomplete", count: 2, target: "employees", icon: "👥", tone: "#1D4ED8", bg: "#EFF6FF", border: "#BFDBFE", action: "Review employees" },
+              { id: "payroll", title: "Payroll", detail: "1 payroll is pending", count: 1, target: "payruns", icon: "₹", tone: "#B45309", bg: "#FFFBEB", border: "#FDE68A", action: "Review pay runs" },
+              { id: "errors", title: "Error Logs", detail: "2 tasks are under work", count: 2, target: "audit", icon: "!", tone: "#B91C1C", bg: "#FEF2F2", border: "#FECACA", action: "Review error logs" },
+            ].map((task) => (
+              <div
+                key={task.id}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 12,
+                  padding: "12px",
+                  border: `1px solid ${task.border}`,
+                  borderRadius: 11,
+                  background: task.bg,
+                  transition: "transform 140ms ease, box-shadow 140ms ease",
+                }}
+              >
+                <div aria-hidden="true" style={{ width: 40, height: 40, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, color: task.tone, background: "#FFFFFF", border: `1px solid ${task.border}`, fontSize: 17, fontWeight: 800 }}>
+                  {task.icon}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => onNav(task.target)}
+                  aria-label={`${task.action}: ${task.count} items`}
+                  style={{ flex: 1, minWidth: 0, textAlign: "left", background: "transparent", border: 0, padding: 0, font: "inherit", cursor: "pointer" }}
+                >
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                    <span style={{ fontSize: 13, fontWeight: 800, color: "#1F2937" }}>{task.title}</span>
+                    <span style={{ minWidth: 24, height: 22, padding: "0 7px", boxSizing: "border-box", display: "inline-flex", alignItems: "center", justifyContent: "center", borderRadius: 7, color: task.tone, background: "#FFFFFF", border: `1px solid ${task.border}`, fontSize: 11, fontWeight: 800 }}>{task.count}</span>
+                  </div>
+                  <div style={{ fontSize: 11, lineHeight: 1.5, color: "#4B5563", marginTop: 4 }}>{task.detail}</div>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onNav(task.target)}
+                  style={{ background: "#FFFFFF", borderRadius: 7, padding: "7px 9px", color: task.tone, border: `1px solid ${task.border}`, fontSize: 11, fontWeight: 800, whiteSpace: "nowrap", cursor: "pointer", flexShrink: 0 }}
+                >
+                  {task.action} ↗
+                </button>
+              </div>
+            ))}
+          </div>
+          <div style={{ margin: "2px 14px 0", padding: "11px 4px 13px", borderTop: "1px solid #E5E7EB", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+            <span style={{ fontSize: 11, color: "#6B7280" }}>Prioritized items across key modules</span>
+            <span style={{ fontSize: 11, color: "#1D4ED8", fontWeight: 800 }}>5 items to review</span>
+          </div>
         </section>
       </div>
 
@@ -6526,7 +6711,7 @@ function EmployeesView({
     sortBy: "name-asc",
   })
   const [showAdv, setShowAdv] = useState(false)
-  const [subPage, setSubPage] = useState<{ type: "detail" emp: Employee } | {
+  const [subPage, setSubPage] = useState<{ type: "detail"; emp: Employee } | {
     type: "bulk"
   } | { type: "new" } | null>(null)
   const [showAdd, setShowAdd] = useState(false)
@@ -11324,7 +11509,7 @@ function PayslipsView({
   const depts = ["All", ...Array.from(new Set(emps.map((e) => e.department)))]
   const empNames = emps.map((e) => e.name)
 
-  const allRows: { row: PayrunInputRow run: Payrun emp: Employee }[] = []
+  const allRows: { row: PayrunInputRow; run: Payrun; emp: Employee }[] = []
   completed.forEach((run) =>
     run.rows.forEach((row) => {
       const emp = emps.find((e) => e.id === row.empId)
@@ -18930,6 +19115,7 @@ const ORG_NAV = [
   { id: "reports", label: "Reports" },
   { id: "access", label: "Access Management" },
   { id: "audit", label: "Audit History" },
+  { id: "settings", label: "Settings" },
 ]
 const PROD_NAV = [
   { id: "dashboard", label: "Dashboard" },
@@ -18967,7 +19153,7 @@ function employeeRows(emp: Employee, payruns: Payrun[]) {
       run,
       row: run.rows.find((item) => item.empId === emp.id),
     }))
-    .filter((item): item is { run: Payrun row: PayrunInputRow } =>
+    .filter((item): item is { run: Payrun; row: PayrunInputRow } =>
       Boolean(item.row),
     )
     .sort((a, b) =>
@@ -24732,6 +24918,2219 @@ function LoginPage({ onLogin }: { onLogin: (persona: Persona) => void }) {
   )
 }
 
+type SettingsItem = {
+  id: string
+  label: string
+  description?: string
+}
+
+type SettingsGroup = {
+  id: string
+  title: string
+  icon: string
+  tone: string
+  items: SettingsItem[]
+}
+
+const ZOHO_STYLE_SETTINGS: SettingsGroup[] = [
+  {
+    id: "organisation",
+    title: "Organisation",
+    icon: "▣",
+    tone: "#E8F8F3",
+    items: [
+      { id: "organisation-profile", label: "Profile", description: "Manage organisation identity, address, contact and regional details." },
+      { id: "branding", label: "Branding", description: "Manage logo, colours, company identity and document branding." },
+      { id: "work-locations", label: "Work Locations", description: "Create and manage office and remote work locations." },
+      { id: "departments", label: "Departments", description: "Manage departments used across employees and payroll." },
+      { id: "designations", label: "Designations", description: "Manage employee designations and job titles." },
+      
+      
+    ],
+  },
+  // {
+  //   id: "users-roles",
+  //   title: "Users and Roles",
+  //   icon: "◉",
+  //   tone: "#EAF1FF",
+  //   items: [
+  //     { id: "users", label: "Usersas", description: "Invite users and control account status and access." },
+  //     { id: "roles", label: "Roles", description: "Create roles and assign module-level permissions." },
+  //   ],
+  // },
+  {
+    id: "taxes",
+    title: "Taxes",
+    icon: "▥",
+    tone: "#FFF0F2",
+    items: [
+      { id: "tax-details", label: "Tax Details", description: "Manage PAN, TAN, TDS and tax deductor information." },
+    ],
+  },
+  {
+    id: "setup",
+    title: "Setup & Configurations",
+    icon: "☷",
+    tone: "#FFF5E8",
+    items: [
+      { id: "pay-schedule", label: "Pay Schedule", description: "Configure payroll frequency, pay day, working days and pay groups." },
+      { id: "statutory-components", label: "Statutory Components", description: "Configure EPF, ESI, Professional Tax, LWF and statutory bonus." },
+      { id: "salary-components", label: "Salary Components", description: "Configure earnings, benefits, deductions and component rules." },
+      // { id: "employee-portal", label: "Employee Portal", description: "Manage portal access, contacts and employee self-service preferences." },
+      { id: "claims-declarations", label: "Claims and Declarations", description: "Configure investment declarations, POI, FBP and claim rules." },
+      { id: "employees-contractors", label: "Employees & Contractors", description: "Configure employee lifecycle, onboarding, exits and contractor settings." },
+      { id: "pay-runs", label: "Pay Runs", description: "Configure payroll approval, processing and locking rules." },
+      { id: "salary-revisions", label: "Salary Revisions", description: "Configure salary revision workflow and effective-date rules." },
+      { id: "leave-attendance", label: "Leave", description: "Configure attendance, leave approval and LOP rules." },
+      { id: "loans", label: "Loans", description: "Configure employee loan and payroll deduction rules." },
+    ],
+  },
+  {
+    id: "customisations",
+    title: "Customisations",
+    icon: "♧",
+    tone: "#E9F8F2",
+    items: [
+      
+      { id: "sender-email", label: "Sender Email Preferences", description: "Configure verified sender addresses and default sender." },
+      
+      
+      { id: "reporting-tags", label: "Reporting Tags", description: "Create tags for reporting and payroll segmentation." },
+      { id: "custom-fields", label: "Custom Fields", description: "Add organisation-specific employee and payroll fields." },
+    ],
+  },
+  {
+    id: "automations",
+    title: "Automations",
+    icon: "ϟ",
+    tone: "#EAF1FF",
+    items: [
+      { id: "workflow-rules", label: "Workflow Rules", description: "Automate actions when payroll or employee conditions are met." },
+      
+     
+      { id: "approvals", label: "Approvals", description: "Configure approval workflows for pay runs and salary revisions." },
+      { id: "schedules", label: "Schedules", description: "Schedule automated payroll and notification actions." },
+      { id: "workflow-logs", label: "Workflow Logs", description: "Review automation execution history and status." },
+      { id: "direct-deposits", label: "Direct Deposits", description: "Configure salary transfer and payment processing." },
+      { id: "bank-accounts", label: "Bank Accounts", description: "Manage payroll funding and settlement accounts." },
+      
+    ],
+  },
+  {
+    id: "extensions",
+    title: "Extensions & Developer Data",
+    icon: "⌘",
+    tone: "#F1F4F8",
+    items: [
+      { id: "integrations", label: "Integrations", description: "Connect payroll with external systems and services." },
+      { id: "developer-data", label: "Developer Data", description: "Manage developer-facing data and API-related configuration." },
+    ],
+  },
+]
+
+function settingsFindItem(id: string) {
+  for (const group of ZOHO_STYLE_SETTINGS) {
+    const item = group.items.find((x) => x.id === id)
+    if (item) return { group, item }
+  }
+  return null
+}
+
+function SettingsTopBar({ onBack, search, setSearch, onClose }: { onBack?: () => void; search: string; setSearch: (v: string) => void; onClose?: () => void }) {
+  return (
+    <div style={{ height: 76, background: "#FFFFFF", borderBottom: `1px solid ${F.border}`, display: "flex", alignItems: "center", padding: "0 30px", gap: 14, position: "sticky", top: 0, zIndex: 30 }}>
+      <div style={{ width: 38, height: 38, borderRadius: 8, background: "#FFF0F2", color: "#F04444", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 19, fontWeight: 900 }}>⚙</div>
+      {onBack && <button onClick={onBack} aria-label="Back to settings" style={{ width: 38, height: 38, border: `1px solid ${F.border}`, borderRadius: 7, background: "#fff", cursor: "pointer", fontSize: 22, color: F.text2 }}>‹</button>}
+      <div style={{ minWidth: 250 }}>
+        {/* Keep the Settings workspace name constant on every Settings page. */}
+        <div style={{ fontSize: 21, fontWeight: 800, color: F.text1, lineHeight: 1.1 }}>All Settings</div>
+        <div style={{ fontSize: 12, color: F.text2, marginTop: 5 }}>Naxrita Solutions Pvt. Ltd.</div>
+      </div>
+      <div style={{ flex: 1, display: "flex", justifyContent: "center" }}>
+        <div style={{ width: 430, maxWidth: "100%", height: 42, background: "#F6F7FB", borderRadius: 9, display: "flex", alignItems: "center", gap: 10, padding: "0 15px", boxSizing: "border-box" }}>
+          <span style={{ color: "#2377FF", fontSize: 17 }}>⌕</span>
+          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search settings  ( / )" style={{ border: 0, outline: 0, background: "transparent", width: "100%", fontSize: 14, color: F.text1 }} />
+        </div>
+      </div>
+      <button onClick={onClose} style={{ height: 40, padding: "0 16px", border: `1px solid ${F.border}`, borderRadius: 7, background: "#FFFFFF", color: F.text1, cursor: "pointer", fontSize: 13 }}>Close Settings <span style={{ color: "#F04444", marginLeft: 4 }}>×</span></button>
+    </div>
+  )
+}
+
+const SETTINGS_LANDING_GROUPS = [
+  {
+    id: "organisation",
+    title: "Organisation",
+    icon: "▣",
+    tone: "#E8F8F3",
+    items: ["organisation-profile", "branding", "work-locations", "departments", "designations", "ai-integration", "subscriptions"],
+  },
+  // {
+  //   id: "users-roles",
+  //   title: "Users and Roles",
+  //   icon: "◉",
+  //   tone: "#EAF1FF",
+  //   items: ["users", "roles"],
+  // },
+  {
+    id: "taxes",
+    title: "Taxes",
+    icon: "▥",
+    tone: "#FFF0F2",
+    items: ["tax-details"],
+  },
+  {
+    id: "setup",
+    title: "Setup & Configurations",
+    icon: "☷",
+    tone: "#FFF5E8",
+    items: ["pay-schedule", "statutory-components", "salary-components", "employee-portal", "claims-declarations"],
+  },
+  {
+    id: "customisations",
+    title: "Customisations",
+    icon: "♧",
+    tone: "#E9F8F2",
+    items: ["email-templates", "sender-email", "salary-templates", "pdf-templates", "reporting-tags", "custom-fields"],
+  },
+  {
+    id: "automations",
+    title: "Automations",
+    icon: "ϟ",
+    tone: "#EAF1FF",
+    items: ["workflow-rules", "actions", "custom-functions", "approvals", "schedules", "workflow-logs"],
+  },
+  {
+    id: "extensions",
+    title: "Extensions & Developer Data",
+    icon: "⌘",
+    tone: "#F1F4F8",
+    items: ["integrations", "developer-data"],
+  },
+]
+
+const SETTINGS_MODULE_GROUPS = [
+  {
+    id: "general",
+    title: "General",
+    icon: "⚙",
+    tone: "#EAF1FF",
+    items: ["employees-contractors", "pay-runs", "salary-revisions", "leave-attendance", "loans"],
+  },
+  {
+    id: "payments",
+    title: "Payments",
+    icon: "₹",
+    tone: "#E9F8F2",
+    items: ["direct-deposits", "bank-accounts"],
+  },
+  {
+    id: "developer-data",
+    title: "Developer Data",
+    icon: "⌘",
+    tone: "#F1F4F8",
+    items: ["data-backup"],
+  },
+]
+
+function getSettingsLandingItem(id: string) {
+  return settingsFindItem(id)?.item || null
+}
+
+function SettingsLanding({ onOpen, search, setSearch, onClose }: { onOpen: (id: string) => void; search: string; setSearch: (v: string) => void; onClose: () => void }) {
+  const query = search.trim().toLowerCase()
+  const filterGroup = (group: typeof SETTINGS_LANDING_GROUPS[number]) => {
+    const items = group.items.map(getSettingsLandingItem).filter(Boolean).filter((item) => {
+      if (!query) return true
+      return `${item!.label} ${item!.description || ""}`.toLowerCase().includes(query)
+    })
+    return { ...group, items }
+  }
+  const organisationGroups = SETTINGS_LANDING_GROUPS.map(filterGroup).filter((group) => group.items.length)
+  const moduleGroups = SETTINGS_MODULE_GROUPS.map(filterGroup).filter((group) => group.items.length)
+  const totalItems = organisationGroups.reduce((n, g) => n + g.items.length, 0) + moduleGroups.reduce((n, g) => n + g.items.length, 0)
+
+  const groupCard = (group: any) => (
+    <div key={group.id} style={{
+      background: "#FFFFFF",
+      border: `1px solid ${F.border}`,
+      borderRadius: 10,
+      overflow: "hidden",
+      boxShadow: "0 1px 3px rgba(15, 42, 70, .04)",
+      minWidth: 0,
+    }}>
+      <div style={{
+        minHeight: 54,
+        padding: "0 16px",
+        background: group.tone,
+        borderBottom: `1px solid ${F.border}`,
+        display: "flex",
+        alignItems: "center",
+        gap: 10,
+        boxSizing: "border-box",
+      }}>
+        <span style={{ width: 28, height: 28, borderRadius: 7, background: "rgba(255,255,255,.82)", color: F.brand, display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 14, fontWeight: 900, flex: "0 0 auto" }}>{group.icon}</span>
+        <span style={{ fontSize: 16, fontWeight: 800, color: "#15385F", lineHeight: 1.15 }}>{group.title}</span>
+      </div>
+      <div style={{ padding: "6px 0" }}>
+        {group.items.map((item: SettingsItem) => (
+          <button
+            key={item.id}
+            type="button"
+            onClick={() => onOpen(item.id)}
+            style={{
+              width: "100%",
+              minHeight: 44,
+              padding: "0 16px 0 19px",
+              border: 0,
+              background: "transparent",
+              cursor: "pointer",
+              fontFamily: "inherit",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: 10,
+              textAlign: "left",
+              color: "#15385F",
+            }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = "#F5F8FC"; e.currentTarget.style.color = "#1677D2" }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "#15385F" }}
+          >
+            <span style={{ fontSize: 14, fontWeight: 500, lineHeight: 1.3 }}>{item.label}</span>
+            <span style={{ color: "#8CA2B8", fontSize: 20, lineHeight: 1, flex: "0 0 auto" }}>›</span>
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+
+  return (
+    <div style={{ minHeight: "100vh", background: "#F7F8FA", overflow: "visible" }}>
+      <SettingsTopBar search={search} setSearch={setSearch} onClose={onClose} />
+      <div style={{ maxWidth: 1500, margin: "0 auto", padding: "38px 34px 64px", boxSizing: "border-box" }}>
+        <div style={{ fontSize: 28, fontWeight: 500, color: "#15385F", lineHeight: 1.2 }}>Organisation Settings</div>
+        <div style={{ marginTop: 7, fontSize: 14, color: "#58718E" }}>Configure your organisation, users, payroll setup, customisations and automation.</div>
+
+        {totalItems === 0 ? (
+          <div style={{ background: F.card, border: `1px solid ${F.border}`, borderRadius: 10, padding: 48, marginTop: 32, textAlign: "center", color: F.text2 }}>
+            No settings found for “{search}”.
+          </div>
+        ) : (
+          <>
+            {organisationGroups.length > 0 && (
+              <>
+                <div style={{ marginTop: 34, marginBottom: 16, fontSize: 20, fontWeight: 800, color: "#15385F" }}>Organisation Settings</div>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(5, minmax(190px, 1fr))", gap: 16, alignItems: "start" }}>
+                  {organisationGroups.map(groupCard)}
+                </div>
+              </>
+            )}
+
+            {moduleGroups.length > 0 && (
+              <>
+                <div style={{ marginTop: 34, marginBottom: 16, fontSize: 20, fontWeight: 800, color: "#15385F" }}>Module Settings</div>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(250px, 1fr))", gap: 16, alignItems: "start", maxWidth: 1000 }}>
+                  {moduleGroups.map(groupCard)}
+                </div>
+              </>
+            )}
+          </>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function SettingsSideNav({ selectedId, onSelect }: { selectedId: string; onSelect: (id: string) => void }) {
+  const [open, setOpen] = useState<Record<string, boolean>>({ organisation: true, "users-roles": false, taxes: false, setup: false, customisations: false, automations: false, extensions: false })
+  useEffect(() => {
+    const selectedGroup = ZOHO_STYLE_SETTINGS.find((group) => group.items.some((entry) => entry.id === selectedId))
+    if (selectedGroup) setOpen((previous) => ({ ...previous, [selectedGroup.id]: true }))
+  }, [selectedId])
+  return (
+    <aside style={{ width: 255, minWidth: 255, background: "#FFFFFF", borderRight: `1px solid ${F.border}`, height: "calc(100vh - 76px)", overflowY: "auto", position: "sticky", top: 76 }}>
+      <div style={{ padding: "28px 16px 10px", fontSize: 11, letterSpacing: ".08em", textTransform: "uppercase", color: "#77869A", fontWeight: 800 }}>Organisation Settings</div>
+      {ZOHO_STYLE_SETTINGS.map((group) => {
+        const expanded = open[group.id]
+        return (
+          <div key={group.id}>
+            <button onClick={() => setOpen((p) => ({ ...p, [group.id]: !p[group.id] }))} style={{ width: "100%", border: 0, background: expanded ? "#F0F1F8" : "#fff", padding: "10px 16px", display: "flex", alignItems: "center", gap: 9, fontSize: 14, color: "#15385F", cursor: "pointer", textAlign: "left" }}>
+              <span style={{ width: 13 }}>{expanded ? "⌄" : "›"}</span><span style={{ fontWeight: 650 }}>{group.title}</span>
+            </button>
+            {expanded && group.items.map((item) => <button key={item.id} onClick={() => onSelect(item.id)} style={{ width: "100%", border: 0, padding: "10px 16px 10px 36px", textAlign: "left", background: selectedId === item.id ? F.brand : "#fff", color: selectedId === item.id ? "#fff" : "#15385F", cursor: "pointer", fontSize: 14, fontFamily: "inherit" }}>{item.label}</button>)}
+          </div>
+        )
+      })}
+    </aside>
+  )
+}
+
+function SettingsField({ label, value, options, multiline, onChange }: { label: string; value: string; options?: string[]; multiline?: boolean; onChange?: (v: string) => void }) {
+  return <Fld label={label}>{options ? <select style={iSt} value={value} onChange={(e) => onChange?.(e.target.value)}>{options.map((o) => <option key={o}>{o}</option>)}</select> : multiline ? <textarea style={{ ...iSt, minHeight: 88, resize: "vertical" }} value={value} onChange={(e) => onChange?.(e.target.value)} /> : <input style={iSt} value={value} onChange={(e) => onChange?.(e.target.value)} />}</Fld>
+}
+
+function SettingToggle({ label, enabled, onChange }: { label: string; enabled: boolean; onChange: (v: boolean) => void }) {
+  return <button type="button" onClick={() => onChange(!enabled)} style={{ border: 0, background: "transparent", display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%", padding: 0, cursor: "pointer", textAlign: "left" }}><span style={{ fontSize: 13, color: F.text1 }}>{label}</span><span style={{ width: 38, height: 22, borderRadius: 12, background: enabled ? F.brand : "#AEB7C2", display: "inline-flex", alignItems: "center", justifyContent: enabled ? "flex-end" : "flex-start", padding: 2, boxSizing: "border-box" }}><span style={{ width: 18, height: 18, borderRadius: "50%", background: "#fff", boxShadow: "0 1px 3px rgba(0,0,0,.2)" }} /></span></button>
+}
+
+
+type SettingsEntityType = "work-locations" | "departments"
+
+type WorkLocationRecord = {
+  id: number
+  name: string
+  address: string
+  city: string
+  state: string
+  country: string
+  postalCode: string
+  employees: number
+  status: "Active" | "Inactive"
+  filingAddress: boolean
+}
+
+type DepartmentRecord = {
+  id: number
+  name: string
+  code: string
+  description: string
+  head: string
+  employees: number
+  status: "Active" | "Inactive"
+}
+
+const INITIAL_WORK_LOCATIONS: WorkLocationRecord[] = [
+  { id: 1, name: "Head Office", address: "Road No. 10, Banjara Hills", city: "Hyderabad", state: "Telangana", country: "India", postalCode: "500034", employees: 8, status: "Active", filingAddress: true },
+  { id: 2, name: "Remote", address: "Multiple locations", city: "Multiple", state: "Multiple", country: "India", postalCode: "-", employees: 3, status: "Active", filingAddress: false },
+]
+
+const INITIAL_DEPARTMENTS: DepartmentRecord[] = [
+  { id: 1, name: "Engineering", code: "ENG", description: "Product and engineering team", head: "Arjun Rao", employees: 4, status: "Active" },
+  { id: 2, name: "Finance", code: "FIN", description: "Finance and payroll operations", head: "Meena Iyer", employees: 2, status: "Active" },
+  { id: 3, name: "Human Resources", code: "HR", description: "People operations and employee support", head: "Anita Sharma", employees: 2, status: "Active" },
+  { id: 4, name: "Operations", code: "OPS", description: "Business operations", head: "Vikram Singh", employees: 3, status: "Active" },
+]
+
+function SettingsEntityModal({
+  type,
+  onClose,
+  onSave,
+  initial,
+}: {
+  type: SettingsEntityType
+  onClose: () => void
+  onSave: (data: any) => void
+  initial?: Record<string, string>
+}) {
+  const isLocation = type === "work-locations"
+  const [form, setForm] = useState<Record<string, string>>(
+    initial || (isLocation
+      ? {
+          name: "",
+          address: "",
+          city: "",
+          state: "Telangana",
+          country: "India",
+          postalCode: "",
+          contactPerson: "",
+          phone: "",
+          email: "",
+          filingAddress: "No",
+        }
+      : { name: "", code: "", description: "", head: "", status: "Active" })
+  )
+  const [error, setError] = useState("")
+  const update = (key: string, value: string) => setForm((p) => ({ ...p, [key]: value }))
+  const submit = () => {
+    if (!form.name.trim()) {
+      setError(`${isLocation ? "Work location" : "Department"} name is required.`)
+      return
+    }
+    onSave(form)
+    onClose()
+  }
+  const field = (label: string, key: string, required = false, placeholder = "") => (
+    <Fld label={`${label}${required ? " *" : ""}`}>
+      <input
+        style={iSt}
+        value={form[key] || ""}
+        onChange={(e) => update(key, e.target.value)}
+        placeholder={placeholder}
+        autoFocus={key === "name"}
+      />
+    </Fld>
+  )
+  return (
+    <div style={{ position: "fixed", inset: 0, zIndex: 9999, background: "rgba(20,32,48,.56)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+      <div style={{ width: "min(820px, 96vw)", maxHeight: "90vh", overflowY: "auto", background: "#fff", border: `1px solid ${F.border}`, borderRadius: 10, boxShadow: "0 20px 60px rgba(0,0,0,.22)" }}>
+        <div style={{ padding: "20px 24px", borderBottom: `1px solid ${F.border}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div style={{ fontSize: 21, fontWeight: 500, color: "#15385F" }}>{isLocation ? "New Work Location" : "New Department"}</div>
+          <button onClick={onClose} style={{ border: 0, background: "transparent", fontSize: 28, lineHeight: 1, color: "#1677D2", cursor: "pointer" }}>×</button>
+        </div>
+        <div style={{ padding: 24 }}>
+          {error && <div style={{ marginBottom: 16, padding: "10px 12px", borderRadius: 6, background: "#FFF1F1", color: "#D92D20", fontSize: 13 }}>{error}</div>}
+          {isLocation ? (
+            <>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 18 }}>
+                {field("Location Name", "name", true, "e.g. Head Office")}
+                {field("Contact Person", "contactPerson", false, "e.g. Meena Iyer")}
+                {field("Address Line 1", "address", true, "Street, building, area")}
+                {field("Phone Number", "phone", false, "+91 90000 00000")}
+                {field("City", "city", true, "Hyderabad")}
+                {field("Email Address", "email", false, "office@naxrita.com")}
+                <Fld label="State *"><select style={iSt} value={form.state} onChange={(e) => update("state", e.target.value)}>{["Andaman and Nicobar Islands","Andhra Pradesh","Delhi","Karnataka","Kerala","Maharashtra","Tamil Nadu","Telangana","Uttar Pradesh","West Bengal"].map((x) => <option key={x}>{x}</option>)}</select></Fld>
+                {field("Postal Code", "postalCode", true, "500034")}
+                <Fld label="Country *"><select style={iSt} value={form.country} onChange={(e) => update("country", e.target.value)}><option>India</option><option>United Arab Emirates</option><option>United States</option><option>United Kingdom</option></select></Fld>
+                <Fld label="Filing Address"><select style={iSt} value={form.filingAddress} onChange={(e) => update("filingAddress", e.target.value)}><option>No</option><option>Yes</option></select></Fld>
+              </div>
+              <div style={{ marginTop: 18, padding: 14, background: "#F7FAFC", border: `1px solid ${F.border}`, borderRadius: 7, fontSize: 12, color: F.text2 }}>
+                Employees can be assigned to this location after it is created. Only one location can be marked as the filing address.
+              </div>
+            </>
+          ) : (
+            <>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 180px", gap: 18 }}>
+                {field("Department Name", "name", true, "e.g. Engineering")}
+                {field("Department Code", "code", false, "ENG")}
+              </div>
+              <div style={{ marginTop: 18 }}>{field("Department Head", "head", false, "Select or enter department head")}</div>
+              <div style={{ marginTop: 2 }}><Fld label="Description"><textarea style={{ ...iSt, minHeight: 100, resize: "vertical" }} value={form.description} onChange={(e) => update("description", e.target.value)} placeholder="Max 250 characters" maxLength={250} /></Fld></div>
+              <div style={{ marginTop: 2 }}><Fld label="Status"><select style={iSt} value={form.status} onChange={(e) => update("status", e.target.value)}><option>Active</option><option>Inactive</option></select></Fld></div>
+            </>
+          )}
+        </div>
+        <div style={{ padding: "16px 24px", borderTop: `1px solid ${F.border}`, display: "flex", alignItems: "center", gap: 10 }}>
+          <Btn onClick={submit}>Save</Btn>
+          <Btn variant="secondary" onClick={onClose}>Cancel</Btn>
+          <span style={{ marginLeft: "auto", color: "#FF3344", fontSize: 12 }}>* indicates mandatory fields</span>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function SettingsBulkUpload({
+  type,
+  onClose,
+  onImport,
+}: {
+  type: SettingsEntityType
+  onClose: () => void
+  onImport: (rows: Record<string, string>[]) => void
+}) {
+  const isLocation = type === "work-locations"
+  const [file, setFile] = useState<File | null>(null)
+  const [encoding, setEncoding] = useState("UTF-8 (Unicode)")
+  const [error, setError] = useState("")
+  const [dragging, setDragging] = useState(false)
+
+  const sampleHeaders = isLocation
+    ? ["Location Name", "Address Line 1", "City", "State", "Country", "Postal Code", "Contact Person", "Phone", "Email", "Filing Address"]
+    : ["Department Name", "Department Code", "Department Head", "Description", "Status"]
+  const sampleRow = isLocation
+    ? ["Head Office", "Road No. 10, Banjara Hills", "Hyderabad", "Telangana", "India", "500034", "Meena Iyer", "+91 90000 00000", "office@naxrita.com", "Yes"]
+    : ["Engineering", "ENG", "Arjun Rao", "Product and engineering team", "Active"]
+
+  const downloadSample = () => {
+    const csv = `${sampleHeaders.join(",")}\n${sampleRow.map((v) => `"${v.replace(/"/g, '""')}"`).join(",")}\n`
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement("a")
+    a.href = url
+    a.download = `${isLocation ? "work_locations" : "departments"}_sample.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  const parseCsv = (text: string) => {
+    const lines = text.replace(/^\uFEFF/, "").split(/\r?\n/).filter((line) => line.trim())
+    if (!lines.length) return []
+    const parseLine = (line: string) => {
+      const result: string[] = []
+      let current = ""
+      let quoted = false
+      for (let i = 0; i < line.length; i += 1) {
+        const ch = line[i]
+        if (ch === '"' && line[i + 1] === '"' && quoted) { current += '"'; i += 1; continue }
+        if (ch === '"') { quoted = !quoted; continue }
+        if ((ch === "," || ch === "\t") && !quoted) { result.push(current.trim()); current = ""; continue }
+        current += ch
+      }
+      result.push(current.trim())
+      return result
+    }
+    const headers = parseLine(lines[0]).map((h) => h.toLowerCase().replace(/[^a-z0-9]/g, ""))
+    return lines.slice(1).map((line) => {
+      const values = parseLine(line)
+      const row: Record<string, string> = {}
+      headers.forEach((h, i) => { row[h] = values[i] || "" })
+      return row
+    })
+  }
+
+  const selectFile = (selected: File | null) => {
+    setError("")
+    if (!selected) return
+    const valid = /\.(csv|tsv|xls|xlsx)$/i.test(selected.name)
+    if (!valid) { setError("Please select a CSV, TSV, XLS or XLSX file."); return }
+    setFile(selected)
+  }
+
+  const next = async () => {
+    if (!file) { setError("Please select a file before continuing."); return }
+    if (/\.(xls|xlsx)$/i.test(file.name)) {
+      setError("The upload is selected successfully. Connect your XLS/XLSX parser/API here to import spreadsheet rows; CSV/TSV files can be imported directly in this page.")
+      return
+    }
+    const text = await file.text()
+    const rows = parseCsv(text)
+    if (!rows.length) { setError("No data rows were found in the selected file."); return }
+    onImport(rows)
+    onClose()
+  }
+
+  return (
+    <div style={{ position: "fixed", inset: 0, zIndex: 9999, background: "rgba(20,32,48,.56)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+      <div style={{ width: "min(760px, 96vw)", maxHeight: "90vh", overflowY: "auto", background: "#fff", border: `1px solid ${F.border}`, borderRadius: 10, boxShadow: "0 20px 60px rgba(0,0,0,.22)" }}>
+        <div style={{ padding: "20px 24px", borderBottom: `1px solid ${F.border}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div style={{ fontSize: 21, fontWeight: 500, color: "#15385F" }}>{isLocation ? "Work Locations - Select File" : "Departments - Select File"}</div>
+          <button onClick={onClose} style={{ border: 0, background: "transparent", fontSize: 28, lineHeight: 1, color: "#1677D2", cursor: "pointer" }}>×</button>
+        </div>
+        <div style={{ padding: 24 }}>
+          <div style={{ fontSize: 14, lineHeight: 1.6, color: F.text1, marginBottom: 18 }}>
+            Download a <button onClick={downloadSample} style={{ border: 0, background: "transparent", color: "#1677D2", textDecoration: "underline", cursor: "pointer", padding: 0, font: "inherit" }}>sample file</button> and compare it with your import file to ensure that the file is ready to import.
+          </div>
+          <div
+            onDragOver={(e) => { e.preventDefault(); setDragging(true) }}
+            onDragLeave={() => setDragging(false)}
+            onDrop={(e) => { e.preventDefault(); setDragging(false); selectFile(e.dataTransfer.files?.[0] || null) }}
+            onClick={() => document.getElementById(`bulk-${type}-file`)?.click()}
+            style={{ minHeight: 150, border: `1px dashed ${dragging ? F.brand : "#C9D2DD"}`, background: dragging ? F.infoBg : "#fff", borderRadius: 6, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", cursor: "pointer", textAlign: "center" }}
+          >
+            <div style={{ fontSize: 36, color: "#9AA7B5", lineHeight: 1 }}>☁</div>
+            <div style={{ marginTop: 10, fontSize: 16, color: F.text1 }}>Drop files here or click here to upload</div>
+            <div style={{ marginTop: 7, fontSize: 12, color: F.text2 }}>Maximum File Size: 5 MB | File Format: CSV or TSV or XLS</div>
+            <input id={`bulk-${type}-file`} type="file" accept=".csv,.tsv,.xls,.xlsx" style={{ display: "none" }} onChange={(e) => selectFile(e.target.files?.[0] || null)} />
+          </div>
+          {file && <div style={{ marginTop: 12, padding: "10px 12px", background: "#F4F8FF", border: `1px solid #D9E5F8`, borderRadius: 6, fontSize: 13, color: F.text1 }}><strong>{file.name}</strong> · {(file.size / 1024).toFixed(1)} KB</div>}
+          {error && <div style={{ marginTop: 12, padding: "10px 12px", borderRadius: 6, background: "#FFF1F1", color: "#D92D20", fontSize: 12, lineHeight: 1.5 }}>{error}</div>}
+          <div style={{ marginTop: 28, maxWidth: 330 }}><Fld label="Character Encoding *"><select style={iSt} value={encoding} onChange={(e) => setEncoding(e.target.value)}><option>UTF-8 (Unicode)</option><option>UTF-16</option><option>ISO-8859-1</option></select></Fld></div>
+        </div>
+        <div style={{ padding: "16px 24px", borderTop: `1px solid ${F.border}`, display: "flex", gap: 10, alignItems: "center" }}>
+          <Btn onClick={next}>Next</Btn>
+          <Btn variant="secondary" onClick={onClose}>Cancel</Btn>
+          <span style={{ marginLeft: "auto", color: "#FF3344", fontSize: 12 }}>* indicates mandatory fields</span>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function SettingsEntityWorkspace({
+  type,
+  item,
+  showToast,
+}: {
+  type: SettingsEntityType
+  item: SettingsItem
+  showToast: (msg: string, type?: ToastType) => void
+}) {
+  const isLocation = type === "work-locations"
+  const [locations, setLocations] = useState<WorkLocationRecord[]>(INITIAL_WORK_LOCATIONS)
+  const [departments, setDepartments] = useState<DepartmentRecord[]>(INITIAL_DEPARTMENTS)
+  const [modal, setModal] = useState<"add" | "bulk" | null>(null)
+  const [editing, setEditing] = useState<number | null>(null)
+  const [menu, setMenu] = useState<number | null>(null)
+  const [query, setQuery] = useState("")
+
+  const add = (data: Record<string, string>) => {
+    if (isLocation) {
+      setLocations((prev) => [...prev, { id: Date.now(), name: data.name, address: data.address, city: data.city, state: data.state, country: data.country, postalCode: data.postalCode, employees: 0, status: "Active", filingAddress: data.filingAddress === "Yes" }])
+    } else {
+      setDepartments((prev) => [...prev, { id: Date.now(), name: data.name, code: data.code || "-", description: data.description || "", head: data.head || "-", employees: 0, status: data.status === "Inactive" ? "Inactive" : "Active" }])
+    }
+    showToast(`${isLocation ? "Work location" : "Department"} created successfully`, "success")
+  }
+
+  const updateRecord = (data: Record<string, string>) => {
+    if (editing === null) return
+    if (isLocation) {
+      setLocations((prev) => prev.map((x) => x.id === editing ? { ...x, name: data.name, address: data.address, city: data.city, state: data.state, country: data.country, postalCode: data.postalCode, filingAddress: data.filingAddress === "Yes", } : x))
+    } else {
+      setDepartments((prev) => prev.map((x) => x.id === editing ? { ...x, name: data.name, code: data.code || "-", description: data.description || "", head: data.head || "-", status: data.status === "Inactive" ? "Inactive" : "Active", } : x))
+    }
+    setEditing(null)
+    showToast(`${isLocation ? "Work location" : "Department"} updated successfully`, "success")
+  }
+
+  const bulkImport = (rows: Record<string, string>[]) => {
+    if (isLocation) {
+      const imported = rows.map((r, index) => ({
+        id: Date.now() + index,
+        name: r.locationname || r.name || `Location ${index + 1}`,
+        address: r.addressline1 || r.address || "-",
+        city: r.city || "-",
+        state: r.state || "-",
+        country: r.country || "India",
+        postalCode: r.postalcode || "-",
+        employees: 0,
+        status: "Active" as const,
+        filingAddress: (r.filingaddress || "no").toLowerCase() === "yes",
+      }))
+      setLocations((prev) => [...prev, ...imported])
+    } else {
+      const imported = rows.map((r, index) => ({
+        id: Date.now() + index,
+        name: r.departmentname || r.name || `Department ${index + 1}`,
+        code: r.departmentcode || r.code || "-",
+        description: r.description || "",
+        head: r.departmenthead || r.head || "-",
+        employees: 0,
+        status: (r.status || "Active").toLowerCase() === "inactive" ? "Inactive" as const : "Active" as const,
+      }))
+      setDepartments((prev) => [...prev, ...imported])
+    }
+    showToast(`${rows.length} ${isLocation ? "work location" : "department"}${rows.length === 1 ? "" : "s"} imported successfully`, "success")
+  }
+
+  const remove = (id: number) => {
+    if (isLocation) setLocations((p) => p.filter((x) => x.id !== id))
+    else setDepartments((p) => p.filter((x) => x.id !== id))
+    setMenu(null)
+    showToast(`${isLocation ? "Work location" : "Department"} deleted`, "success")
+  }
+
+  const locationRows = locations.filter((x) => `${x.name} ${x.city} ${x.state}`.toLowerCase().includes(query.toLowerCase()))
+  const departmentRows = departments.filter((x) => `${x.name} ${x.code} ${x.head}`.toLowerCase().includes(query.toLowerCase()))
+  const rows = isLocation ? locationRows : departmentRows
+
+  return (
+    <div>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 16, marginBottom: 20 }}>
+        <div><div style={{ fontSize: 25, fontWeight: 500, color: "#15385F" }}>{item.label}</div><div style={{ fontSize: 13, color: F.text2, marginTop: 5 }}>{item.description}</div></div>
+        <div style={{ display: "flex", gap: 9, alignItems: "center" }}>
+          <button onClick={() => setModal("add")} style={{ border: 0, background: F.brand, color: "#fff", borderRadius: 6, padding: "10px 15px", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>＋ {isLocation ? "Add Work Location" : "New Department"}</button>
+          <button onClick={() => setModal("bulk")} title="Bulk import" style={{ width: 42, height: 38, border: `1px solid ${F.border}`, background: "#fff", borderRadius: 6, color: "#15385F", fontSize: 19, cursor: "pointer" }}>⇩</button>
+        </div>
+      </div>
+      <div style={{ background: F.card, border: `1px solid ${F.border}`, borderRadius: 9, overflow: "hidden" }}>
+        <div style={{ padding: "16px 18px", borderBottom: `1px solid ${F.border}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div style={{ fontSize: 15, fontWeight: 800, color: F.text1 }}>{isLocation ? "Work Locations" : "Departments"}</div>
+          <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder={`Search ${isLocation ? "locations" : "departments"}`} style={{ ...iSt, width: 250, height: 36 }} />
+        </div>
+        {isLocation ? (
+          <div style={{ padding: 20, display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(390px, 1fr))", gap: 18 }}>
+            {locationRows.map((x) => <div key={x.id} style={{ minHeight: 250, position: "relative", background: "#fff", borderRadius: 7, boxShadow: "0 8px 28px rgba(30,55,80,.08)", border: "1px solid #F0F2F5", padding: 24, boxSizing: "border-box" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}><div style={{ fontSize: 19, fontWeight: 600, color: "#152D49" }}>{x.name}</div><div style={{ display: "flex", gap: 8 }}><button onClick={() => setEditing(x.id)} style={{ width: 38, height: 38, border: 0, borderRadius: "50%", background: "#F4F5F7", cursor: "pointer", fontSize: 18 }}>✎</button><button onClick={() => setMenu(menu === x.id ? null : x.id)} style={{ width: 38, height: 38, border: 0, borderRadius: "50%", background: "#F4F5F7", cursor: "pointer", fontSize: 18 }}>•••</button></div></div>
+              <div style={{ marginTop: 24, fontSize: 15, color: F.text1 }}>{x.address}</div><div style={{ marginTop: 12, fontSize: 15, color: F.text1 }}>{x.city}, {x.state}</div>
+              <div style={{ position: "absolute", left: 24, bottom: 18, fontSize: 14, color: F.text1 }}>♧ &nbsp;{x.employees} Employees</div>
+              {x.filingAddress && <div style={{ position: "absolute", right: 0, bottom: 0, background: "#12B6A1", color: "#fff", fontSize: 11, fontWeight: 800, padding: "8px 12px 7px 18px", borderRadius: "16px 0 0 0" }}>FILING ADDRESS</div>}
+              {menu === x.id && <div style={{ position: "absolute", right: 24, top: 68, zIndex: 5, background: "#fff", border: `1px solid ${F.border}`, borderRadius: 7, boxShadow: "0 8px 25px rgba(0,0,0,.14)", minWidth: 130, overflow: "hidden" }}><button onClick={() => { setEditing(x.id); setMenu(null) }} style={{ width: "100%", padding: "10px 13px", border: 0, background: "#fff", textAlign: "left", cursor: "pointer" }}>Edit</button><button onClick={() => remove(x.id)} style={{ width: "100%", padding: "10px 13px", border: 0, background: "#fff", color: "#D92D20", textAlign: "left", cursor: "pointer" }}>Delete</button></div>}
+            </div>)}
+            {!locationRows.length && <div style={{ gridColumn: "1/-1", padding: 45, textAlign: "center", color: F.text2 }}>No work locations found.</div>}
+          </div>
+        ) : (
+          <div style={{ overflowX: "auto" }}><table style={{ width: "100%", borderCollapse: "collapse" }}><thead><tr>{["Department Name","Department Code","Description","Total Employees","Status",""].map((h) => <Th key={h}>{h}</Th>)}</tr></thead><tbody>{departmentRows.map((x) => <TrH key={x.id}><Td><button onClick={() => setEditing(x.id)} style={{ border: 0, background: "transparent", color: "#1677D2", cursor: "pointer", padding: 0, fontSize: 14 }}>{x.name}</button></Td><Td>{x.code}</Td><Td>{x.description || "-"}</Td><Td>{x.employees}</Td><Td>{x.status}</Td><Td><button onClick={() => setMenu(menu === x.id ? null : x.id)} style={{ border: 0, background: "transparent", cursor: "pointer", fontSize: 17 }}>•••</button>{menu === x.id && <div style={{ position: "absolute", marginTop: -8, right: 40, background: "#fff", border: `1px solid ${F.border}`, borderRadius: 7, boxShadow: "0 8px 25px rgba(0,0,0,.14)", overflow: "hidden", zIndex: 4 }}><button onClick={() => { setEditing(x.id); setMenu(null) }} style={{ display: "block", width: 100, padding: "9px 12px", border: 0, background: "#fff", textAlign: "left" }}>Edit</button><button onClick={() => remove(x.id)} style={{ display: "block", width: 100, padding: "9px 12px", border: 0, background: "#fff", color: "#D92D20", textAlign: "left" }}>Delete</button></div>}</Td></TrH>)}</tbody></table>{!departmentRows.length && <div style={{ padding: 45, textAlign: "center", color: F.text2 }}>No departments found.</div>}</div>
+        )}
+      </div>
+      {modal === "add" && <SettingsEntityModal type={type} onClose={() => setModal(null)} onSave={add} />}
+      {modal === "bulk" && <SettingsBulkUpload type={type} onClose={() => setModal(null)} onImport={bulkImport} />}
+      {editing !== null && <SettingsEntityModal type={type} initial={isLocation ? (() => { const x = locations.find((v) => v.id === editing); return x ? { name: x.name, address: x.address, city: x.city, state: x.state, country: x.country, postalCode: x.postalCode, contactPerson: "", phone: "", email: "", filingAddress: x.filingAddress ? "Yes" : "No" } : undefined })() : (() => { const x = departments.find((v) => v.id === editing); return x ? { name: x.name, code: x.code, description: x.description, head: x.head, status: x.status } : undefined })()} onClose={() => setEditing(null)} onSave={updateRecord} />}
+    </div>
+  )
+}
+
+
+
+type SettingsManageType =
+  | "designations"
+  | "users"
+  | "roles"
+  | "salary-components"
+  | "sender-email"
+  | "bank-accounts"
+
+type ManageField = { key: string; label: string; required?: boolean; placeholder?: string; options?: string[] }
+
+const SETTINGS_MANAGE_CONFIG: Record<SettingsManageType, {
+  title: string
+  addLabel: string
+  description: string
+  columns: { key: string; label: string }[]
+  fields: ManageField[]
+  sample: Record<string, string>
+}> = {
+  designations: {
+    title: "Designations",
+    addLabel: "New Designation",
+    description: "Create and manage employee designations and job titles.",
+    columns: [{ key: "name", label: "DESIGNATION NAME" }, { key: "code", label: "DESIGNATION CODE" }, { key: "department", label: "DEPARTMENT" }, { key: "employees", label: "TOTAL EMPLOYEES" }, { key: "status", label: "STATUS" }],
+    fields: [
+      { key: "name", label: "Designation Name", required: true, placeholder: "e.g. Software Engineer" },
+      { key: "code", label: "Designation Code", placeholder: "e.g. SE-001" },
+      { key: "department", label: "Department", options: ["Engineering", "Human Resources", "Finance", "Operations", "Sales"] },
+      { key: "description", label: "Description", placeholder: "Max 250 characters" },
+      { key: "status", label: "Status", options: ["Active", "Inactive"] },
+    ],
+    sample: { name: "Software Engineer", code: "SE-001", department: "Engineering", description: "Software development role", status: "Active" },
+  },
+  users: {
+    title: "Users",
+    addLabel: "New User",
+    description: "Invite users and manage account status, roles and access.",
+    columns: [{ key: "name", label: "USER NAME" }, { key: "email", label: "EMAIL" }, { key: "role", label: "ROLE" }, { key: "status", label: "STATUS" }, { key: "lastAccess", label: "LAST ACCESS" }],
+    fields: [
+      { key: "name", label: "User Name", required: true, placeholder: "Enter full name" },
+      { key: "email", label: "Work Email", required: true, placeholder: "name@company.com" },
+      { key: "role", label: "Role", options: ["Org Admin", "HR Admin", "Payroll Admin", "Employee"] },
+      { key: "status", label: "Status", options: ["Active", "Inactive", "Invited"] },
+    ],
+    sample: { name: "Anita Sharma", email: "anita.sharma@naxrita.com", role: "HR Admin", status: "Active" },
+  },
+  roles: {
+    title: "Roles",
+    addLabel: "New Role",
+    description: "Create roles and assign module-level permissions.",
+    columns: [{ key: "name", label: "ROLE" }, { key: "description", label: "DESCRIPTION" }, { key: "users", label: "USERS" }, { key: "access", label: "ACCESS" }, { key: "status", label: "STATUS" }],
+    fields: [
+      { key: "name", label: "Role Name", required: true, placeholder: "e.g. Payroll Manager" },
+      { key: "description", label: "Description", placeholder: "Describe this role" },
+      { key: "access", label: "Access Level", options: ["All Modules", "Employees + Settings", "Pay Runs + Payslips", "Selected Modules"] },
+      { key: "status", label: "Status", options: ["Active", "Inactive"] },
+    ],
+    sample: { name: "Payroll Manager", description: "Payroll processing and approvals", users: "0", access: "Pay Runs + Payslips", status: "Active" },
+  },
+  "salary-components": {
+    title: "Salary Components",
+    addLabel: "New Salary Component",
+    description: "Create earnings, benefits and deduction components used in salary structures.",
+    columns: [{ key: "name", label: "COMPONENT" }, { key: "type", label: "TYPE" }, { key: "calculation", label: "CALCULATION" }, { key: "taxable", label: "TAXABLE" }, { key: "status", label: "STATUS" }],
+    fields: [
+      { key: "name", label: "Component Name", required: true, placeholder: "e.g. Basic Salary" },
+      { key: "type", label: "Component Type", options: ["Earnings", "Benefit", "Deduction", "Reimbursement"] },
+      { key: "calculation", label: "Calculation Method", options: ["Fixed Amount", "% of Basic", "% of Gross", "Balance", "Formula"] },
+      { key: "taxable", label: "Taxable", options: ["Yes", "No"] },
+      { key: "status", label: "Status", options: ["Active", "Inactive"] },
+    ],
+    sample: { name: "HRA", type: "Earnings", calculation: "% of Basic", taxable: "Yes", status: "Active" },
+  },
+  "sender-email": {
+    title: "Sender Email Preferences",
+    addLabel: "Add Sender Email",
+    description: "Manage verified sender email addresses and default sender preferences.",
+    columns: [{ key: "name", label: "SENDER NAME" }, { key: "email", label: "EMAIL ADDRESS" }, { key: "status", label: "VERIFICATION" }, { key: "defaultSender", label: "DEFAULT" }],
+    fields: [
+      { key: "name", label: "Sender Name", required: true, placeholder: "Naxrita Payroll" },
+      { key: "email", label: "Sender Email", required: true, placeholder: "payroll@naxrita.com" },
+      { key: "status", label: "Verification Status", options: ["Verified", "Pending"] },
+      { key: "defaultSender", label: "Default Sender", options: ["Yes", "No"] },
+    ],
+    sample: { name: "Naxrita Payroll", email: "payroll@naxrita.com", status: "Verified", defaultSender: "Yes" },
+  },
+  "bank-accounts": {
+    title: "Bank Accounts",
+    addLabel: "Add Bank Account",
+    description: "Manage payroll funding, salary settlement and operating bank accounts.",
+    columns: [{ key: "bank", label: "BANK" }, { key: "account", label: "ACCOUNT NUMBER" }, { key: "ifsc", label: "IFSC" }, { key: "purpose", label: "PURPOSE" }, { key: "status", label: "STATUS" }],
+    fields: [
+      { key: "bank", label: "Bank Name", required: true, placeholder: "e.g. HDFC Bank" },
+      { key: "account", label: "Account Number", required: true, placeholder: "Enter account number" },
+      { key: "ifsc", label: "IFSC Code", required: true, placeholder: "e.g. HDFC0001234" },
+      { key: "purpose", label: "Purpose", options: ["Primary Payroll", "Payroll Backup", "Operating", "Other"] },
+      { key: "status", label: "Status", options: ["Primary", "Active", "Inactive"] },
+    ],
+    sample: { bank: "HDFC Bank", account: "XXXX XXXX 1234", ifsc: "HDFC0001234", purpose: "Primary Payroll", status: "Primary" },
+  },
+}
+
+type RolePermission = {
+  module: string
+  feature: string
+  fullAccess: boolean
+  view: boolean
+  create: boolean
+  edit: boolean
+  delete: boolean
+}
+
+type RoleRecord = {
+  id: string
+  name: string
+  description: string
+  permissions: RolePermission[]
+  system?: boolean
+}
+
+const ROLE_MODULES: { module: string; features: string[] }[] = [
+  {
+    module: "Employee",
+    features: [
+      "Basic And Personal Details",
+      "Salary Details",
+      "Payment Information",
+      "Salary Revision",
+      "Leave",
+      "Attendance",
+      "Loans",
+      "Documents",
+    ],
+  },
+  {
+    module: "Payroll",
+    features: ["Pay Runs", "Payslips", "Payroll Reports", "Payroll Settings"],
+  },
+  {
+    module: "Salary Management",
+    features: ["Salary Components", "Salary Structures", "Structure Assignment"],
+  },
+  {
+    module: "Organisation",
+    features: ["Organisation Profile", "Departments", "Designations", "Work Locations"],
+  },
+  {
+    module: "Users and Roles",
+    features: ["Users", "Roles"],
+  },
+  {
+    module: "Reports",
+    features: ["Payroll Summary", "Employee Payroll", "Statutory Reports"],
+  },
+]
+
+const rolePermissionRows = (enabled = false): RolePermission[] =>
+  ROLE_MODULES.flatMap(({ module, features }) =>
+    features.map((feature) => ({
+      module,
+      feature,
+      fullAccess: enabled,
+      view: enabled,
+      create: enabled,
+      edit: enabled,
+      delete: enabled,
+    })),
+  )
+
+const clonePermissions = (permissions: RolePermission[]) =>
+  permissions.map((permission) => ({ ...permission }))
+
+const DEFAULT_ROLES: RoleRecord[] = [
+  {
+    id: "ROLE-001",
+    name: "Admin",
+    description: "Unrestricted access to all modules.",
+    permissions: rolePermissionRows(true),
+    system: true,
+  },
+  {
+    id: "ROLE-002",
+    name: "Manager",
+    description: "Access to all modules except organisation settings.",
+    permissions: rolePermissionRows(true).map((permission) =>
+      ["Organisation Profile", "Departments", "Designations", "Work Locations", "Roles"].includes(permission.feature)
+        ? { ...permission, fullAccess: false, create: false, edit: false, delete: false }
+        : permission,
+    ),
+    system: true,
+  },
+  {
+    id: "ROLE-003",
+    name: "Reimbursements and POI Reviewer",
+    description: "View and approve reimbursements and proof of investments.",
+    permissions: rolePermissionRows(false).map((permission) =>
+      ["Documents", "Payroll Reports"].includes(permission.feature)
+        ? { ...permission, view: true, edit: true, fullAccess: false }
+        : permission,
+    ),
+    system: true,
+  },
+]
+
+function RolesSettingsWorkspace({ showToast }: { showToast: (msg: string, type?: ToastType) => void }) {
+  const [roles, setRoles] = useState<RoleRecord[]>(DEFAULT_ROLES)
+  const [openRoleId, setOpenRoleId] = useState<string | null>(null)
+  const [draft, setDraft] = useState<RoleRecord | null>(null)
+  const [isNewRole, setIsNewRole] = useState(false)
+  const [isEditingRole, setIsEditingRole] = useState(false)
+  const [menuRoleId, setMenuRoleId] = useState<string | null>(null)
+
+  const openedRole = openRoleId ? roles.find((role) => role.id === openRoleId) ?? null : null
+
+  const openView = (role: RoleRecord) => {
+    setOpenRoleId(role.id)
+    setIsNewRole(false)
+    setIsEditingRole(false)
+    setDraft({ ...role, permissions: clonePermissions(role.permissions) })
+    setMenuRoleId(null)
+  }
+
+  const openCreate = () => {
+    setOpenRoleId(null)
+    setIsNewRole(true)
+    setIsEditingRole(true)
+    setDraft({
+      id: `ROLE-${Date.now()}`,
+      name: "",
+      description: "",
+      permissions: rolePermissionRows(false),
+      system: false,
+    })
+    setMenuRoleId(null)
+  }
+
+  const closeDetail = () => {
+    setOpenRoleId(null)
+    setDraft(null)
+    setIsNewRole(false)
+    setIsEditingRole(false)
+  }
+
+  const startEditingRole = () => {
+    if (!draft) return
+    if (draft.name === "Admin") {
+      showToast("Admin role cannot be edited", "warning")
+      return
+    }
+    setIsEditingRole(true)
+  }
+
+  const cancelEditingRole = () => {
+    if (!draft) return
+    const original = roles.find((role) => role.id === draft.id)
+    if (original) {
+      setDraft({ ...original, permissions: clonePermissions(original.permissions) })
+    }
+    setIsEditingRole(false)
+  }
+
+  const updatePermission = (
+    feature: string,
+    key: keyof Omit<RolePermission, "module" | "feature">,
+    value: boolean,
+  ) => {
+    if (!draft) return
+
+    setDraft({
+      ...draft,
+      permissions: draft.permissions.map((permission) => {
+        if (permission.feature !== feature) return permission
+
+        if (key === "fullAccess") {
+          return {
+            ...permission,
+            fullAccess: value,
+            view: value,
+            create: value,
+            edit: value,
+            delete: value,
+          }
+        }
+
+        const next = { ...permission, [key]: value }
+        next.fullAccess = next.view && next.create && next.edit && next.delete
+        return next
+      }),
+    })
+  }
+
+  const toggleModule = (moduleName: string, value: boolean) => {
+    if (!draft) return
+
+    setDraft({
+      ...draft,
+      permissions: draft.permissions.map((permission) =>
+        permission.module === moduleName
+          ? {
+              ...permission,
+              fullAccess: value,
+              view: value,
+              create: value,
+              edit: value,
+              delete: value,
+            }
+          : permission,
+      ),
+    })
+  }
+
+  const saveRole = () => {
+    if (!draft) return
+
+    if (!draft.name.trim()) {
+      showToast("Role Name is required", "warning")
+      return
+    }
+
+    if (isNewRole) {
+      const created = {
+        ...draft,
+        name: draft.name.trim(),
+        description: draft.description.trim(),
+        system: false,
+      }
+      setRoles((current) => [...current, created])
+      setOpenRoleId(created.id)
+      setIsNewRole(false)
+      setIsEditingRole(false)
+      setDraft({ ...created, permissions: clonePermissions(created.permissions) })
+      showToast("Role created successfully", "success")
+      return
+    }
+
+    setRoles((current) =>
+      current.map((role) =>
+        role.id === draft.id
+          ? { ...draft, name: draft.name.trim(), description: draft.description.trim() }
+          : role,
+      ),
+    )
+    const updatedDraft = { ...draft, name: draft.name.trim(), description: draft.description.trim() }
+    setDraft(updatedDraft)
+    setIsEditingRole(false)
+    showToast("Role updated successfully", "success")
+  }
+
+  const deleteRole = (role: RoleRecord) => {
+    if (role.system) {
+      showToast("System roles cannot be deleted", "warning")
+      return
+    }
+
+    setRoles((current) => current.filter((item) => item.id !== role.id))
+    setMenuRoleId(null)
+    showToast("Role deleted successfully", "success")
+  }
+
+  const renderPermissionMatrix = (moduleName: string, editable: boolean) => {
+    if (!draft) return null
+
+    const permissions = draft.permissions.filter((permission) => permission.module === moduleName)
+    const moduleEnabled = permissions.length > 0 && permissions.every((permission) => permission.fullAccess)
+
+    return (
+      <div
+        style={{
+          background: "#FFFFFF",
+          border: "1px solid #E1E5EA",
+          borderRadius: 7,
+          overflow: "hidden",
+          marginBottom: 18,
+        }}
+      >
+        <div
+          style={{
+            minHeight: 60,
+            padding: "0 18px 0 22px",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            borderBottom: "1px solid #E1E5EA",
+          }}
+        >
+          <div style={{ fontSize: 18, fontWeight: 600, color: "#1D2D3E" }}>{moduleName}</div>
+          <label
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 9,
+              fontSize: 12,
+              color: "#475E75",
+              cursor: editable ? "pointer" : "default",
+            }}
+          >
+            <span>{moduleEnabled ? "Enabled" : "Disabled"}</span>
+            <input
+              type="checkbox"
+              checked={moduleEnabled}
+              disabled={!editable}
+              onChange={(event) => toggleModule(moduleName, event.target.checked)}
+              style={{ width: 17, height: 17, accentColor: "#79AEF2", cursor: editable ? "pointer" : "default" }}
+            />
+          </label>
+        </div>
+
+        <div style={{ overflowX: "auto" }}>
+          <table style={{ width: "100%", minWidth: 820, borderCollapse: "collapse" }}>
+            <thead>
+              <tr style={{ background: "#FFFFFF" }}>
+                <th
+                  style={{
+                    width: "42%",
+                    textAlign: "left",
+                    padding: "16px 22px",
+                    fontSize: 12,
+                    fontWeight: 500,
+                    color: "#475E75",
+                    borderBottom: "1px solid #E8EBEF",
+                  }}
+                >
+                  {moduleName === "Employee" ? "" : "PERMISSION"}
+                </th>
+                {[
+                  ["fullAccess", "FULL ACCESS"],
+                  ["view", "VIEW"],
+                  ["create", "CREATE"],
+                  ["edit", "EDIT"],
+                  ["delete", "DELETE"],
+                ].map(([key, label]) => (
+                  <th
+                    key={key}
+                    style={{
+                      textAlign: "center",
+                      padding: "16px 8px",
+                      fontSize: 12,
+                      fontWeight: 500,
+                      color: "#475E75",
+                      borderBottom: "1px solid #E8EBEF",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {label}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {permissions.map((permission) => (
+                <tr key={`${moduleName}-${permission.feature}`}>
+                  <td
+                    style={{
+                      padding: "15px 22px",
+                      fontSize: 14,
+                      color: "#1D2D3E",
+                      borderBottom: "1px solid #F0F2F4",
+                    }}
+                  >
+                    {permission.feature}
+                  </td>
+                  {(["fullAccess", "view", "create", "edit", "delete"] as const).map((key) => (
+                    <td
+                      key={key}
+                      style={{
+                        textAlign: "center",
+                        padding: "12px 8px",
+                        borderBottom: "1px solid #F0F2F4",
+                      }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={permission[key]}
+                        disabled={!editable}
+                        onChange={(event) => updatePermission(permission.feature, key, event.target.checked)}
+                        style={{
+                          width: 17,
+                          height: 17,
+                          accentColor: "#8CB8F4",
+                          cursor: editable ? "pointer" : "default",
+                        }}
+                        aria-label={`${permission.feature} ${key}`}
+                      />
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    )
+  }
+
+  // Zoho-style second page: clicking a role opens a dedicated permissions page.
+  if (draft) {
+    const editable = isNewRole || isEditingRole
+
+    return (
+      <div style={{ background: "#FFFFFF" }}>
+        <div
+          style={{
+            minHeight: 70,
+            padding: "0 28px",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            borderBottom: "1px solid #E3E7EB",
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <div style={{ fontSize: 23, fontWeight: 500, color: "#1D2D3E" }}>
+              {isNewRole ? "New Role" : isEditingRole ? "Edit Role" : "View Roles"}
+            </div>
+            {!isNewRole && draft.system && draft.name !== "Admin" && !isEditingRole && (
+              <button
+                type="button"
+                onClick={startEditingRole}
+                style={{
+                  border: "1px solid #20B67A",
+                  background: "#FFFFFF",
+                  color: "#159A66",
+                  borderRadius: 6,
+                  padding: "7px 16px",
+                  fontSize: 13,
+                  fontWeight: 700,
+                  cursor: "pointer",
+                }}
+              >
+                Edit
+              </button>
+            )}
+          </div>
+          <button
+            onClick={closeDetail}
+            title="Close"
+            style={{
+              width: 34,
+              height: 34,
+              border: 0,
+              borderRadius: "50%",
+              background: "#EEF2F6",
+              color: "#607080",
+              fontSize: 25,
+              lineHeight: 1,
+              cursor: "pointer",
+            }}
+          >
+            ×
+          </button>
+        </div>
+
+        <div style={{ padding: "24px 34px 100px", overflowY: "auto", maxHeight: "calc(100vh - 200px)" }}>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "minmax(300px, 1fr) minmax(300px, 1fr)",
+              gap: 34,
+              paddingBottom: 28,
+              borderBottom: "1px solid #E3E7EB",
+              marginBottom: 28,
+            }}
+          >
+            <Fld label="Role Name*">
+              <input
+                value={draft.name}
+                disabled={!editable}
+                onChange={(event) => setDraft({ ...draft, name: event.target.value })}
+                placeholder="Enter role name"
+                style={{
+                  ...iSt,
+                  background: editable ? "#FFFFFF" : "#F8F9FA",
+                  color: "#475E75",
+                  height: 44,
+                  boxSizing: "border-box",
+                }}
+              />
+            </Fld>
+            <Fld label="Description">
+              <textarea
+                value={draft.description}
+                disabled={!editable}
+                onChange={(event) => setDraft({ ...draft, description: event.target.value })}
+                placeholder="Enter role description"
+                style={{
+                  ...iSt,
+                  background: editable ? "#FFFFFF" : "#F8F9FA",
+                  color: "#475E75",
+                  minHeight: 92,
+                  resize: "vertical",
+                  boxSizing: "border-box",
+                  paddingTop: 12,
+                }}
+              />
+            </Fld>
+          </div>
+
+          {ROLE_MODULES.map((module) => renderPermissionMatrix(module.module, editable))}
+
+          {editable && (
+            <div
+              style={{
+                marginTop: 28,
+                padding: "18px 0 8px",
+                borderTop: "1px solid #E3E7EB",
+                display: "flex",
+                justifyContent: "flex-end",
+                alignItems: "center",
+                gap: 10,
+              }}
+            >
+              {!isNewRole && isEditingRole && (
+                <Btn variant="secondary" onClick={cancelEditingRole}>Cancel</Btn>
+              )}
+              <Btn onClick={saveRole}>{isNewRole ? "Save Role" : "Save Changes"}</Btn>
+            </div>
+          )}
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div style={{ background: "#FFFFFF" }}>
+      <div
+        style={{
+          padding: "22px 30px 18px",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          borderBottom: "1px solid #E3E7EB",
+        }}
+      >
+        <div style={{ fontSize: 24, fontWeight: 500, color: "#1D2D3E" }}>Roles</div>
+        <button
+          onClick={openCreate}
+          style={{
+            border: 0,
+            background: F.brand,
+            color: "#FFFFFF",
+            borderRadius: 6,
+            padding: "10px 16px",
+            fontSize: 14,
+            fontWeight: 700,
+            cursor: "pointer",
+          }}
+        >
+          ＋ New Role
+        </button>
+      </div>
+
+      <div style={{ overflowX: "auto" }}>
+        <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 760 }}>
+          <thead>
+            <tr>
+              <th style={{ textAlign: "left", padding: "17px 30px", fontSize: 12, fontWeight: 600, color: "#1D2D3E", borderBottom: "1px solid #E3E7EB" }}>ROLE NAME</th>
+              <th style={{ textAlign: "left", padding: "17px 20px", fontSize: 12, fontWeight: 600, color: "#1D2D3E", borderBottom: "1px solid #E3E7EB" }}>DESCRIPTION</th>
+              <th style={{ width: 70, borderBottom: "1px solid #E3E7EB" }} />
+            </tr>
+          </thead>
+          <tbody>
+            {roles.map((role) => (
+              <tr key={role.id}>
+                <td style={{ padding: "22px 30px", borderBottom: "1px solid #E3E7EB" }}>
+                  <button
+                    onClick={() => openView(role)}
+                    style={{
+                      border: 0,
+                      background: "transparent",
+                      padding: 0,
+                      color: "#1677D2",
+                      fontSize: 16,
+                      cursor: "pointer",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 7,
+                    }}
+                  >
+                    {role.name}
+                    {role.system && <span style={{ color: "#9AA0A6", fontSize: 14 }}></span>}
+                  </button>
+                </td>
+                <td style={{ padding: "22px 20px", borderBottom: "1px solid #E3E7EB", color: "#1D2D3E", fontSize: 15 }}>
+                  {role.description}
+                </td>
+                <td style={{ padding: "22px 20px", borderBottom: "1px solid #E3E7EB", textAlign: "center", position: "relative" }}>
+                  <button
+                    onClick={() => setMenuRoleId(menuRoleId === role.id ? null : role.id)}
+                    aria-label={`${role.name} actions`}
+                    style={{
+                      width: 24,
+                      height: 24,
+                      border: "1px solid #D6DCE2",
+                      borderRadius: "50%",
+                      background: "#FFFFFF",
+                      color: "#9AA0A6",
+                      cursor: "pointer",
+                      fontSize: 12,
+                      lineHeight: 1,
+                    }}
+                  >
+                    •••
+                  </button>
+                  {menuRoleId === role.id && (
+                    <div
+                      style={{
+                        position: "absolute",
+                        right: 25,
+                        top: 52,
+                        zIndex: 20,
+                        minWidth: 130,
+                        background: "#FFFFFF",
+                        border: "1px solid #D5DADD",
+                        borderRadius: 7,
+                        boxShadow: "0 8px 25px rgba(0,0,0,.14)",
+                        overflow: "hidden",
+                      }}
+                    >
+                      <button
+                        onClick={() => {
+                          openView(role)
+                          if (role.system && role.name !== "Admin") {
+                            setTimeout(() => setIsEditingRole(true), 0)
+                          }
+                        }}
+                        style={{ width: "100%", padding: "10px 13px", border: 0, background: "#FFFFFF", textAlign: "left", cursor: "pointer", fontSize: 13 }}
+                      >
+                        {role.system && role.name === "Admin" ? "View" : "Edit"}
+                      </button>
+                      {!role.system && (
+                        <button
+                          onClick={() => deleteRole(role)}
+                          style={{ width: "100%", padding: "10px 13px", border: 0, background: "#FFFFFF", textAlign: "left", cursor: "pointer", fontSize: 13, color: "#D92D20" }}
+                        >
+                          Delete
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  )
+}
+
+function SettingsManageWorkspace({ type, item, showToast }: { type: SettingsManageType; item: SettingsItem; showToast: (msg: string, type?: ToastType) => void }) {
+  const config = SETTINGS_MANAGE_CONFIG[type]
+  if (!config) {
+    return <div style={{ padding: 32, color: F.error }}>Settings configuration is unavailable for this page.</div>
+  }
+  const initialRows: Record<string, string>[] = {
+    designations: [
+      { name: "Software Engineer", code: "SE-001", department: "Engineering", employees: "3", status: "Active" },
+      { name: "HR Manager", code: "HR-001", department: "Human Resources", employees: "1", status: "Active" },
+      { name: "Payroll Specialist", code: "PAY-001", department: "Finance", employees: "1", status: "Active" },
+    ],
+    users: [
+      { name: "Meena Iyer", email: "meena.iyer@naxrita.com", role: "Org Admin", status: "Active", lastAccess: "Today" },
+      { name: "Anita Sharma", email: "anita.sharma@naxrita.com", role: "HR Admin", status: "Active", lastAccess: "Today" },
+      { name: "Vikram Singh", email: "vikram.singh@naxrita.com", role: "Payroll Admin", status: "Active", lastAccess: "Yesterday" },
+    ],
+    roles: [
+      { name: "Org Admin", description: "Full organisation administration", users: "1", access: "All Modules", status: "Active" },
+      { name: "HR Admin", description: "Employee and HR operations", users: "1", access: "Employees + Settings", status: "Active" },
+      { name: "Payroll Admin", description: "Payroll processing", users: "1", access: "Pay Runs + Payslips", status: "Active" },
+    ],
+    "salary-components": [
+      { name: "Basic Salary", type: "Earnings", calculation: "Fixed Amount", taxable: "Yes", status: "Active" },
+      { name: "HRA", type: "Earnings", calculation: "% of Basic", taxable: "Yes", status: "Active" },
+      { name: "PF", type: "Deduction", calculation: "% of PF Wage", taxable: "No", status: "Active" },
+    ],
+    "sender-email": [
+      { name: "Naxrita Payroll", email: "payroll@naxrita.com", status: "Verified", defaultSender: "Yes" },
+      { name: "Naxrita HR", email: "hr@naxrita.com", status: "Verified", defaultSender: "No" },
+    ],
+    "bank-accounts": [
+      { bank: "HDFC Bank", account: "XXXX XXXX 1234", ifsc: "HDFC0001234", purpose: "Primary Payroll", status: "Primary" },
+      { bank: "ICICI Bank", account: "XXXX XXXX 5678", ifsc: "ICIC0000456", purpose: "Payroll Backup", status: "Active" },
+      { bank: "Axis Bank", account: "XXXX XXXX 9012", ifsc: "UTIB0000789", purpose: "Operating", status: "Active" },
+    ],
+  }[type]
+  const [rows, setRows] = useState<Record<string, string>[]>(initialRows)
+  const [query, setQuery] = useState("")
+  const [modal, setModal] = useState(false)
+  const [bulk, setBulk] = useState(false)
+  const [editing, setEditing] = useState<number | null>(null)
+  const [menu, setMenu] = useState<number | null>(null)
+  const [form, setForm] = useState<Record<string, string>>({ ...config.sample })
+  const [bulkError, setBulkError] = useState("")
+  const [bulkFile, setBulkFile] = useState<File | null>(null)
+
+  const openAdd = () => { setEditing(null); setForm({ ...config.sample }); setModal(true) }
+  const openEdit = (i: number) => { setEditing(i); setForm({ ...rows[i] }); setModal(true); setMenu(null) }
+  const save = () => {
+    const required = config.fields.filter((f) => f.required)
+    const missing = required.find((f) => !(form[f.key] || "").trim())
+    if (missing) { showToast(`${missing.label} is required`, "warning"); return }
+    const value = { ...form }
+    if (type === "users") value.lastAccess = value.lastAccess || "Never"
+    if (type === "roles") value.users = value.users || "0"
+    if (type === "designations") value.employees = value.employees || "0"
+    setRows((prev) => editing === null ? [...prev, value] : prev.map((r, i) => i === editing ? value : r))
+    setModal(false)
+    showToast(`${config.title.slice(0, -1)} ${editing === null ? "created" : "updated"} successfully`, "success")
+  }
+  const remove = (i: number) => { setRows((p) => p.filter((_, idx) => idx !== i)); setMenu(null); showToast(`${config.title.slice(0, -1)} deleted`, "success") }
+  const filtered = rows.filter((r) => Object.values(r).join(" ").toLowerCase().includes(query.toLowerCase()))
+
+  const downloadSample = () => {
+    const headers = config.fields.map((f) => f.label)
+    const vals = config.fields.map((f) => config.sample[f.key] || "")
+    const csv = `${headers.join(",")}\n${vals.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(",")}\n`
+    const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" })); a.download = `${type}_sample.csv`; a.click(); URL.revokeObjectURL(a.href)
+  }
+  const importBulk = async () => {
+    if (!bulkFile) { setBulkError("Please select a file before continuing."); return }
+    if (/\.(xls|xlsx)$/i.test(bulkFile.name)) { setBulkError("XLS/XLSX selected. Connect your spreadsheet parser/API here. CSV/TSV files can be imported directly."); return }
+    const text = await bulkFile.text(); const lines = text.replace(/^\uFEFF/, "").split(/\r?\n/).filter(Boolean)
+    if (lines.length < 2) { setBulkError("No data rows were found in the selected file."); return }
+    const parse = (line: string) => { const out: string[] = []; let cur="", q=false; for(let i=0;i<line.length;i++){const c=line[i]; if(c==='"' && line[i+1]==='"' && q){cur+='"';i++;continue} if(c==='"'){q=!q;continue} if((c===','||c==='\t')&&!q){out.push(cur.trim());cur=""} else cur+=c} out.push(cur.trim()); return out }
+    const headers = parse(lines[0]).map((h) => h.toLowerCase().replace(/[^a-z0-9]/g,""))
+    const imported = lines.slice(1).map((line) => { const vals=parse(line); const r:Record<string,string>={}; config.fields.forEach((f) => { const idx=headers.indexOf(f.label.toLowerCase().replace(/[^a-z0-9]/g,"")); r[f.key]=idx>=0 ? (vals[idx]||"") : (config.sample[f.key]||"") }); return r })
+    setRows((p)=>[...p,...imported]); setBulk(false); setBulkFile(null); setBulkError(""); showToast(`${imported.length} ${config.title.toLowerCase()} imported successfully`, "success")
+  }
+
+  return <div>
+    <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", gap:16, marginBottom:20 }}>
+      <div><div style={{ fontSize:25, fontWeight:500, color:"#15385F" }}>{config.title}</div><div style={{ fontSize:13, color:F.text2, marginTop:5 }}>{config.description}</div></div>
+      <div style={{ display:"flex", gap:9 }}>
+        <button onClick={openAdd} style={{ border:0, background:"#1677D2", color:"#fff", borderRadius:6, padding:"10px 15px", fontSize:13, fontWeight:700, cursor:"pointer" }}>＋ {config.addLabel}</button>
+        <button onClick={()=>setBulk(true)} title="Bulk upload" style={{ width:42,height:38,border:`1px solid ${F.border}`,background:"#fff",borderRadius:6,color:"#15385F",fontSize:19,cursor:"pointer" }}>⇩</button>
+      </div>
+    </div>
+    <div style={{ background:F.card,border:`1px solid ${F.border}`,borderRadius:9,overflow:"hidden" }}>
+      <div style={{ padding:"16px 18px",borderBottom:`1px solid ${F.border}`,display:"flex",justifyContent:"space-between",alignItems:"center" }}><div style={{fontSize:15,fontWeight:800,color:F.text1}}>{config.title}</div><input value={query} onChange={(e)=>setQuery(e.target.value)} placeholder={`Search ${config.title.toLowerCase()}`} style={{...iSt,width:270,height:36}} /></div>
+      <div style={{overflowX:"auto"}}><table style={{width:"100%",borderCollapse:"collapse"}}><thead><tr>{config.columns.map(c=><Th key={c.key}>{c.label}</Th>)}<Th></Th></tr></thead><tbody>{filtered.map((r,i)=><TrH key={i}>{config.columns.map(c=><Td key={c.key}>{c.key === "name" && ["designations","users","roles","salary-components","sender-email"].includes(type) ? <button onClick={()=>openEdit(rows.indexOf(r))} style={{border:0,background:"transparent",color:"#1677D2",cursor:"pointer",padding:0,fontSize:14}}>{r[c.key] || "-"}</button> : r[c.key] || "-"}</Td>)}<Td><div style={{position:"relative"}}><button onClick={()=>setMenu(menu===rows.indexOf(r)?null:rows.indexOf(r))} style={{border:0,background:"transparent",cursor:"pointer",fontSize:17}}>•••</button>{menu===rows.indexOf(r)&&<div style={{position:"absolute",right:20,top:22,zIndex:5,background:"#fff",border:`1px solid ${F.border}`,borderRadius:7,boxShadow:"0 8px 25px rgba(0,0,0,.14)",overflow:"hidden",minWidth:120}}><button onClick={()=>openEdit(rows.indexOf(r))} style={{display:"block",width:"100%",padding:"9px 12px",border:0,background:"#fff",textAlign:"left",cursor:"pointer"}}>Edit</button><button onClick={()=>remove(rows.indexOf(r))} style={{display:"block",width:"100%",padding:"9px 12px",border:0,background:"#fff",color:"#D92D20",textAlign:"left",cursor:"pointer"}}>Delete</button></div>}</div></Td></TrH>)}</tbody></table>{!filtered.length&&<div style={{padding:45,textAlign:"center",color:F.text2}}>No records found.</div>}</div>
+    </div>
+    {modal&&<div style={{position:"fixed",inset:0,zIndex:10000,background:"rgba(20,32,48,.56)",display:"flex",alignItems:"center",justifyContent:"center",padding:20}}><div style={{width:"min(700px,96vw)",maxHeight:"90vh",overflowY:"auto",background:"#fff",borderRadius:10,boxShadow:"0 20px 60px rgba(0,0,0,.22)"}}><div style={{padding:"20px 24px",borderBottom:`1px solid ${F.border}`,display:"flex",justifyContent:"space-between"}}><div style={{fontSize:21,fontWeight:500,color:"#15385F"}}>{editing===null?config.addLabel:`Edit ${config.title.slice(0,-1)}`}</div><button onClick={()=>setModal(false)} style={{border:0,background:"transparent",fontSize:28,color:"#1677D2",cursor:"pointer"}}>×</button></div><div style={{padding:24,display:"grid",gridTemplateColumns:"1fr 1fr",gap:18}}>{config.fields.map((f)=><div key={f.key} style={{gridColumn:f.key==="description"?"1 / -1":"auto"}}><Fld label={`${f.label}${f.required?" *":""}`}>{f.key==="description"?<textarea value={form[f.key]||""} onChange={e=>setForm({...form,[f.key]:e.target.value})} placeholder={f.placeholder} maxLength={250} style={{...iSt,minHeight:88,resize:"vertical"}}/>:f.options?<select value={form[f.key]||f.options[0]} onChange={e=>setForm({...form,[f.key]:e.target.value})} style={iSt}>{f.options.map(o=><option key={o}>{o}</option>)}</select>:<input value={form[f.key]||""} onChange={e=>setForm({...form,[f.key]:e.target.value})} placeholder={f.placeholder} style={iSt}/>}</Fld></div>)}</div><div style={{padding:"16px 24px",borderTop:`1px solid ${F.border}`,display:"flex",gap:10}}><Btn onClick={save}>Save</Btn><Btn variant="secondary" onClick={()=>setModal(false)}>Cancel</Btn><span style={{marginLeft:"auto",color:"#FF3344",fontSize:12}}>* indicates mandatory fields</span></div></div></div>}
+    {bulk&&<div style={{position:"fixed",inset:0,zIndex:10000,background:"rgba(20,32,48,.56)",display:"flex",alignItems:"center",justifyContent:"center",padding:20}}><div style={{width:"min(760px,96vw)",background:"#fff",borderRadius:10,boxShadow:"0 20px 60px rgba(0,0,0,.22)"}}><div style={{padding:"20px 24px",borderBottom:`1px solid ${F.border}`,display:"flex",justifyContent:"space-between"}}><div style={{fontSize:21,fontWeight:500,color:"#15385F"}}>{config.title} - Select File</div><button onClick={()=>setBulk(false)} style={{border:0,background:"transparent",fontSize:28,color:"#1677D2",cursor:"pointer"}}>×</button></div><div style={{padding:24}}><div style={{fontSize:14,lineHeight:1.6,marginBottom:18}}>Download a <button onClick={downloadSample} style={{border:0,background:"transparent",color:"#1677D2",textDecoration:"underline",cursor:"pointer",padding:0,font:"inherit"}}>sample file</button> and compare it with your import file.</div><div onDragOver={e=>e.preventDefault()} onDrop={e=>{e.preventDefault();setBulkFile(e.dataTransfer.files?.[0]||null)}} onClick={()=>document.getElementById(`bulk-manage-${type}`)?.click()} style={{minHeight:150,border:`1px dashed #C9D2DD`,borderRadius:6,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",cursor:"pointer",textAlign:"center"}}><div style={{fontSize:36,color:"#9AA7B5"}}>☁</div><div style={{marginTop:10,fontSize:16}}>Drop files here or click here to upload</div><div style={{marginTop:7,fontSize:12,color:F.text2}}>Maximum File Size: 5 MB | File Format: CSV or TSV or XLS/XLSX</div><input id={`bulk-manage-${type}`} type="file" accept=".csv,.tsv,.xls,.xlsx" style={{display:"none"}} onChange={e=>setBulkFile(e.target.files?.[0]||null)}/></div>{bulkFile&&<div style={{marginTop:12,padding:10,background:"#F4F8FF",border:`1px solid #D9E5F8`,borderRadius:6,fontSize:13}}><strong>{bulkFile.name}</strong> · {(bulkFile.size/1024).toFixed(1)} KB</div>}{bulkError&&<div style={{marginTop:12,padding:10,borderRadius:6,background:"#FFF1F1",color:"#D92D20",fontSize:12}}>{bulkError}</div>}</div><div style={{padding:"16px 24px",borderTop:`1px solid ${F.border}`,display:"flex",gap:10}}><Btn onClick={importBulk}>Next</Btn><Btn variant="secondary" onClick={()=>setBulk(false)}>Cancel</Btn><span style={{marginLeft:"auto",color:"#FF3344",fontSize:12}}>* indicates mandatory fields</span></div></div></div>}
+  </div>
+}
+
+function EnhancedSettingsField({
+  label,
+  value,
+  onChange,
+  options,
+  multiline = false,
+  required = false,
+  type = "text",
+  editable = true,
+}: {
+  label: string
+  value: string
+  onChange: (value: string) => void
+  options?: string[]
+  multiline?: boolean
+  required?: boolean
+  type?: string
+  editable?: boolean
+}) {
+  return (
+    <Fld label={`${label}${required ? " *" : ""}`}>
+      {!editable ? (
+        <div style={{ minHeight: 38, display: "flex", alignItems: "center", padding: "8px 0", color: F.text1, fontSize: 14, lineHeight: 1.5, whiteSpace: multiline ? "pre-wrap" : "normal", overflowWrap: "anywhere" }}>{value || "—"}</div>
+      ) : options ? (
+        <select value={value} onChange={(e) => onChange(e.target.value)} style={iSt}>
+          {options.map((option) => <option key={option} value={option}>{option}</option>)}
+        </select>
+      ) : multiline ? (
+        <textarea value={value} onChange={(e) => onChange(e.target.value)} style={{ ...iSt, minHeight: 92, resize: "vertical" }} />
+      ) : (
+        <input type={type} value={value} onChange={(e) => onChange(e.target.value)} style={iSt} />
+      )}
+    </Fld>
+  )
+}
+
+function EnhancedSection({ title, children, action }: { title: string; children: React.ReactNode; action?: React.ReactNode }) {
+  return (
+    <section style={{ background: "#fff", border: `1px solid ${F.border}`, borderRadius: 8, marginBottom: 18, overflow: "hidden" }}>
+      <div style={{ padding: "17px 20px", borderBottom: `1px solid ${F.border}`, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <div style={{ fontSize: 18, fontWeight: 650, color: F.text1 }}>{title}</div>
+        {action}
+      </div>
+      <div style={{ padding: 20 }}>{children}</div>
+    </section>
+  )
+}
+
+function EnhancedTabs({ tabs, active, onChange }: { tabs: string[]; active: string; onChange: (tab: string) => void }) {
+  return (
+    <div style={{ display: "flex", gap: 30, borderBottom: `1px solid ${F.border}`, marginBottom: 20, overflowX: "auto" }}>
+      {tabs.map((tab) => (
+        <button key={tab} onClick={() => onChange(tab)} style={{ border: 0, background: "transparent", padding: "0 2px 13px", color: active === tab ? "#1D2D3E" : "#1677D2", borderBottom: active === tab ? "3px solid #20B67A" : "3px solid transparent", cursor: "pointer", fontSize: 14, fontWeight: active === tab ? 650 : 500, whiteSpace: "nowrap" }}>
+          {tab}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+function EnhancedCheck({ label, checked, onChange, disabled = false, description }: { label: string; checked: boolean; onChange: (v: boolean) => void; disabled?: boolean; description?: string }) {
+  return (
+    <label style={{ display: "flex", gap: 9, alignItems: "flex-start", marginBottom: 14, cursor: disabled ? "default" : "pointer", color: F.text1 }}>
+      <input type="checkbox" checked={checked} disabled={disabled} onChange={(e) => onChange(e.target.checked)} style={{ width: 17, height: 17, accentColor: "#6EA8F2", marginTop: 1 }} />
+      <span><span style={{ fontSize: 14 }}>{label}</span>{description && <span style={{ display: "block", color: F.text2, fontSize: 12, lineHeight: 1.45, marginTop: 3 }}>{description}</span>}</span>
+    </label>
+  )
+}
+
+function EnhancedRadio({ label, checked, onChange }: { label: string; checked: boolean; onChange: () => void }) {
+  return <label style={{ display: "inline-flex", alignItems: "center", gap: 8, marginRight: 24, fontSize: 14, cursor: "pointer" }}><input type="radio" checked={checked} onChange={onChange} />{label}</label>
+}
+
+function EnhancedSaveBar({ onSave, onCancel, note = "* indicates mandatory fields" }: { onSave: () => void; onCancel?: () => void; note?: string }) {
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 10, borderTop: `1px solid ${F.border}`, paddingTop: 18, marginTop: 22 }}>
+      <Btn onClick={onSave}>Save</Btn>
+      {onCancel && <Btn variant="secondary" onClick={onCancel}>Cancel</Btn>}
+      <span style={{ marginLeft: "auto", color: "#C62A5B", fontSize: 12 }}>{note}</span>
+    </div>
+  )
+}
+
+function EnhancedTable({ headers, rows, onRowClick }: { headers: string[]; rows: string[][]; onRowClick?: (index: number) => void }) {
+  return (
+    <div style={{ overflowX: "auto" }}>
+      <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 760 }}>
+        <thead><tr>{headers.map((h) => <Th key={h}>{h}</Th>)}</tr></thead>
+        <tbody>{rows.map((row, index) => <TrH key={index}>{row.map((cell, cellIndex) => <Td key={cellIndex}>{onRowClick && cellIndex === 0 ? <button onClick={() => onRowClick(index)} style={{ border: 0, background: "transparent", color: "#1677D2", cursor: "pointer", padding: 0, fontSize: 14 }}>{cell}</button> : cell}</Td>)}</TrH>)}</tbody>
+      </table>
+    </div>
+  )
+}
+
+function SettingsDetail({ item, group, onBack, onSelect, showToast }: { item: SettingsItem; group: SettingsGroup; onBack: () => void; onSelect: (id: string) => void; showToast: (msg: string, type?: ToastType) => void }) {
+  const [search, setSearch] = useState("")
+  const [activeTab, setActiveTab] = useState("")
+  const [profileEdit, setProfileEdit] = useState(false)
+  const [brandingEdit, setBrandingEdit] = useState(false)
+  const [profileFields, setProfileFields] = useState<Record<string, string>>({ organisationName: "Naxrita Solutions Pvt. Ltd.", industry: "Information Technology", email: "payroll@naxrita.com", phone: "+91 98765 43210", country: "India", timeZone: "Asia/Kolkata", address: "Road No. 10, Banjara Hills, Hyderabad, Telangana - 500034" })
+  const [brandingFields, setBrandingFields] = useState<Record<string, string>>({ displayName: "Naxrita Solutions Pvt. Ltd.", theme: "Blue", payslipHeader: "Naxrita Payroll", footerText: "We commit and we deliver" })
+  const [bankModal, setBankModal] = useState(false)
+  const [salaryModal, setSalaryModal] = useState(false)
+  const [editingSalary, setEditingSalary] = useState<number | null>(null)
+  const [taxType, setTaxType] = useState("Employee")
+  const [payMode, setPayMode] = useState("day")
+  const [payDay, setPayDay] = useState("1")
+  const [firstPayrollMonth, setFirstPayrollMonth] = useState("September-2026")
+  const [firstPayrollDate, setFirstPayrollDate] = useState("01/10/2026")
+  const [toggles, setToggles] = useState<Record<string, boolean>>({
+    employerContribution: true, edli: false, adminCharges: false, employeeOverride: false, proratePF: false,
+    salaryStructure: true, taxable: true, prorata: true, epf: true, esi: true, payslip: true, portalDocs: true,
+    portalAccess: true, emailReminders: true, approval: true, locking: true, offCycle: false, retroactive: false,
+    notifyEmployee: true, halfDay: true, onboarding: true, exitClearance: true, contractor: true, payrollDeduction: true,
+    preClosure: false, documentsRequired: true, automaticBackup: true, makerChecker: true, defaultSender: true,
+  })
+  const [fields, setFields] = useState<Record<string, string>>({
+    pan: "AAAAA1234U", tan: "AAAA00000A", tds1: "AAA", tds2: "AA", tds3: "000", tds4: "00", taxFrequency: "Monthly", deductorName: "", fatherName: "",
+    epfNumber: "AA/AAA/0000000/XXX", epfEmployeeRate: "12% of Actual PF Wage", epfEmployerRate: "12% of Actual PF Wage",
+    earningName: "Basic", payslipName: "Basic", calculationType: "Percentage of CTC", percentage: "70.00",
+    portalMessage: "Welcome to Naxrita Employee Self-Service", portalDate: "", portalContactName: "Pavani", portalContactEmail: "payroll@naxrita.com",
+    declarationLock: "15 January", reminderFrequency: "5 days and 1 day before lock date", employeeIdFormat: "EMP-{000}", defaultStatus: "Active", employmentType: "Full-Time",
+    workflowApproval: "Simple Approval", revisionWorkflow: "Manager + HR", revisionEffective: "Next Payroll Cycle", lopCalculation: "Gross / 26",
+    loanApproval: "HR Approval", maxLoans: "2", interest: "Reducing Balance", paymentMode: "Bank Transfer", paymentSchedule: "After Payroll Approval", paymentFormat: "CSV / Bank Format", referencePrefix: "NAX-PAY",
+    bankAccountName: "Zoho Payroll - Bank Account", bankName: "", accountNumber: "", reAccountNumber: "", ifsc: "", accountCode: "", accountType: "Current",
+    backupFrequency: "Daily", retention: "30 Days", encryption: "AES-256", restoreVerification: "Monthly", backupLocation: "Secure Cloud Storage",
+    senderName: "Naxrita Payroll", senderEmail: "payroll@naxrita.com", defaultSenderValue: "Yes",
+    tagName: "Business Unit", tagValues: "Engineering, Finance, HR", customFieldName: "Employee Code", customFieldModule: "Employees", customFieldType: "Text",
+  })
+  const [salaryRows, setSalaryRows] = useState([
+    ["Basic", "Basic", "Fixed; 70% of CTC", "Yes", "Yes", "Active"],
+    ["earning", "Basic", "Fixed; Flat amount of 10018", "Yes", "Yes", "Active"],
+    ["House Rent Allowance", "House Rent Allowance", "Fixed; 50% of Basic", "No", "Yes", "Active"],
+    ["Conveyance Allowance", "Conveyance Allowance", "Fixed; Flat Amount", "Yes (If PF Wage < ₹15,000)", "No", "Active"],
+    ["Children Education Allowance", "Children Education Allowance", "Fixed; Flat Amount", "Yes (If PF Wage < ₹15,000)", "Yes", "Inactive"],
+    ["Transport Allowance", "Transport Allowance", "Fixed; Flat amount of 1600", "Yes (If PF Wage < ₹15,000)", "Yes", "Inactive"],
+    ["Travelling Allowance", "Travelling Allowance", "Fixed; Flat Amount", "Yes (If PF Wage < ₹15,000)", "No", "Inactive"],
+    ["Fixed Allowance", "Fixed Allowance", "Fixed; Flat Amount", "Yes (If PF Wage < ₹15,000)", "Yes", "Active"],
+    ["Statutory Bonus", "Statutory Bonus", "Fixed; 19.79% of Basic", "No", "No", "Active"],
+    ["Overtime Allowance", "Overtime Allowance", "Variable; Flat Amount", "No", "Yes", "Inactive"],
+  ])
+  const [deductionRows, setDeductionRows] = useState<string[][]>([
+    ["Withheld Salary", "Withheld Salary", "One Time", "Active"],
+    ["Notice Pay Deduction", "Notice Pay Deduction", "One Time", "Active"],
+  ])
+  const [benefitRows, setBenefitRows] = useState<string[][]>([
+    ["Voluntary Provident Fund", "Voluntary Provident Fund", "Recurring", "Active"],
+  ])
+  const [reimbursementRows, setReimbursementRows] = useState<string[][]>([
+    ["Fuel Reimbursement", "Fuel Reimbursement", "0", "Inactive"],
+    ["Driver Reimbursement", "Driver Reimbursement", "0", "Inactive"],
+    ["Vehicle Maintenance Reimbursement", "Vehicle Maintenance Reimbursement", "0", "Inactive"],
+    ["Telephone Reimbursement", "Telephone Reimbursement", "0", "Inactive"],
+    ["Leave Travel Allowance", "Leave Travel Allowance", "0", "Inactive"],
+  ])
+  const [bankAccounts, setBankAccounts] = useState<string[][]>([["Zoho Payroll - Bank Account", "-", "-", "-", "-", "Current"]])
+  const [activeAutomation, setActiveAutomation] = useState("Email Alerts")
+  const [settingsAction, setSettingsAction] = useState<{
+    title: string
+    description: string
+    fields: string[]
+  } | null>(null)
+  const [settingsActionValues, setSettingsActionValues] = useState<Record<string, string>>({})
+
+  const openSettingsAction = (title: string, description: string, fields: string[]) => {
+    setSettingsAction({ title, description, fields })
+    setSettingsActionValues(Object.fromEntries(fields.map((field) => [field, ""])))
+  }
+
+  const closeSettingsAction = () => {
+    setSettingsAction(null)
+    setSettingsActionValues({})
+  }
+
+  const saveSettingsAction = () => {
+    if (!settingsAction) return
+    showToast(`${settingsAction.title} has been saved.`, "success")
+    closeSettingsAction()
+  }
+
+  const setField = (key: string, value: string) => setFields((prev) => ({ ...prev, [key]: value }))
+  const setToggle = (key: string, value: boolean) => setToggles((prev) => ({ ...prev, [key]: value }))
+  const save = (message = `${item.label} settings have been updated.`) => showToast(message, "success")
+
+  useEffect(() => {
+    const defaults: Record<string, string> = {
+      "statutory-components": "EPF", "salary-components": "Earnings", "employee-portal": "Preferences", "claims-declarations": "Flexible Benefit Plan",
+      "pay-runs": "Approvals", "leave-attendance": "Leave Types", "pdf-templates": "Regular Payslips", "actions": "Email Alerts", "loans": "Custom Field",
+      "customisations": "", "automations": "",
+    }
+    setActiveTab(defaults[item.id] || "")
+  }, [item.id])
+
+  const title = item.label
+  const header = <SettingsTopBar onBack={onBack} search={search} setSearch={setSearch} onClose={onBack} />
+  const shell = (content: React.ReactNode) => (
+    <div style={{ minHeight: "100vh", background: "#F7F8FA" }}>
+      {header}
+      <div style={{ display: "flex", alignItems: "stretch" }}>
+        <SettingsSideNav selectedId={item.id} onSelect={onSelect}/>
+        <main style={{ flex: 1, minWidth: 0, padding: "24px 34px 70px", overflow: "auto", height: "calc(100vh - 76px)", boxSizing: "border-box" }}>
+          <div style={{ maxWidth: 1400, margin: "0 auto" }}>{content}</div>
+        </main>
+      </div>
+      {settingsAction && (
+        <Modal title={settingsAction.title} onClose={closeSettingsAction}>
+          <div style={{ padding: "22px 24px" }}>
+            <p style={{ margin: "0 0 18px", color: F.text2, fontSize: 13, lineHeight: 1.5 }}>
+              {settingsAction.description}
+            </p>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+              {settingsAction.fields.map((field) => (
+                <Fld key={field} label={field}>
+                  <input
+                    value={settingsActionValues[field] || ""}
+                    onChange={(e) => setSettingsActionValues((prev) => ({ ...prev, [field]: e.target.value }))}
+                    placeholder={`Enter ${field.toLowerCase()}`}
+                    style={iSt}
+                  />
+                </Fld>
+              ))}
+            </div>
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 22, paddingTop: 16, borderTop: `1px solid ${F.border}` }}>
+              <Btn variant="secondary" onClick={closeSettingsAction}>Cancel</Btn>
+              <Btn onClick={saveSettingsAction}>Save</Btn>
+            </div>
+          </div>
+        </Modal>
+      )}
+    </div>
+  )
+
+  // Users, Roles, Work Locations, Departments, Designations and Sender Email
+  // stay inside the Settings shell with the left navigation visible.
+  if (item.id === "roles") return shell(<RolesSettingsWorkspace showToast={showToast} />)
+  if (item.id === "users" || item.id === "designations" || item.id === "sender-email") {
+    return shell(<SettingsManageWorkspace type={item.id as SettingsManageType} item={item} showToast={showToast} />)
+  }
+  if (item.id === "work-locations" || item.id === "departments") {
+    return shell(<SettingsEntityWorkspace type={item.id as SettingsEntityType} item={item} showToast={showToast} />)
+  }
+  const grid = (children: React.ReactNode, columns = 2) => <div style={{ display: "grid", gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`, gap: 18 }}>{children}</div>
+  const statCard = (label: string, value: string, sub: string) => <div style={{ border: `1px solid ${F.border}`, borderRadius: 8, padding: 16, background: "#fff" }}><div style={{ fontSize: 12, color: F.text2 }}>{label}</div><div style={{ fontSize: 20, fontWeight: 700, marginTop: 6 }}>{value}</div><div style={{ fontSize: 12, color: F.text2, marginTop: 3 }}>{sub}</div></div>
+
+  if (item.id === "tax-details") return shell(<><EnhancedSection title="Organisation Tax Details">{grid(<><EnhancedSettingsField label="PAN" value={fields.pan} onChange={(v)=>setField("pan",v)} required/><EnhancedSettingsField label="TAN" value={fields.tan} onChange={(v)=>setField("tan",v)}/><div><Fld label="TDS circle / AO code"><div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:8}}>{["tds1","tds2","tds3","tds4"].map((k)=><input key={k} value={fields[k]} onChange={e=>setField(k,e.target.value)} style={iSt}/>)}</div></Fld></div><EnhancedSettingsField label="Tax Payment Frequency" value={fields.taxFrequency} onChange={(v)=>setField("taxFrequency",v)} options={["Monthly","Quarterly"]}/></>)}</EnhancedSection><EnhancedSection title="Tax Deductor Details"><div style={{marginBottom:18}}><div style={{fontSize:13,fontWeight:650,marginBottom:10}}>Deductor's Type</div><EnhancedRadio label="Employee" checked={taxType==="Employee"} onChange={()=>setTaxType("Employee")}/><EnhancedRadio label="Non-Employee" checked={taxType==="Non-Employee"} onChange={()=>setTaxType("Non-Employee")}/></div>{grid(<><EnhancedSettingsField label="Deductor's Name" value={fields.deductorName} onChange={(v)=>setField("deductorName",v)} options={["Select a Tax Deductor","Meena Iyer","Anita Sharma"]}/><EnhancedSettingsField label="Deductor's Father's Name" value={fields.fatherName} onChange={(v)=>setField("fatherName",v)}/></>)}</EnhancedSection><EnhancedSaveBar onSave={()=>save("Tax details have been updated.")}/></>)
+
+  if (item.id === "pay-schedule") return shell(<><EnhancedSection title="Pay Schedule"><div style={{fontSize:14,fontWeight:600,marginBottom:12}}>Select when employees should be paid.<span style={{color:"#D32F2F"}}>*</span></div><div style={{marginBottom:22}}><EnhancedRadio label="On the last day of every month" checked={payMode==="last"} onChange={()=>setPayMode("last")}/><EnhancedRadio label="On Day" checked={payMode==="day"} onChange={()=>setPayMode("day")}/>{payMode==="day"&&<select value={payDay} onChange={e=>setPayDay(e.target.value)} style={{...iSt,width:120,display:"inline-block"}}>{Array.from({length:31},(_,i)=><option key={i+1}>{i+1}</option>)}</select>}<span style={{marginLeft:8}}>of every month</span></div><div style={{borderLeft:"3px solid #E6A700",padding:"8px 12px",background:"#FFFBEA",fontSize:13}}>Note: If the selected pay date falls on a non-working day or holiday, payment will be processed on the previous working day.</div></EnhancedSection><EnhancedSection title="First Payroll Setup">{grid(<><EnhancedSettingsField label="Start your first payroll from" value={firstPayrollMonth} onChange={setFirstPayrollMonth} options={["July-2026","August-2026","September-2026","October-2026","November-2026"]}/><div></div><EnhancedSettingsField label="Select a pay date for your first payroll" value={firstPayrollDate} onChange={setFirstPayrollDate}/><div style={{border:"1px solid #DCE2E8",borderRadius:8,padding:16,background:"#FAFBFC"}}><div style={{fontWeight:650}}>Pay Period: {firstPayrollMonth}</div><div style={{fontSize:13,color:F.text2,marginTop:8}}>Selected first payroll date: {firstPayrollDate}</div></div></>)}</EnhancedSection><EnhancedSaveBar onSave={()=>save("Pay schedule has been updated.")} onCancel={onBack} note="All fields are mandatory"/></>)
+
+  if (item.id === "statutory-components") {
+    const tabs=["EPF","ESI","Professional Tax","Labour Welfare Fund","Statutory Bonus"]
+    const tab=activeTab||"EPF"
+    const epf=(<><EnhancedSection title="Employees' Provident Fund" >{grid(<><EnhancedSettingsField label="EPF Number" value={fields.epfNumber} onChange={v=>setField("epfNumber",v)}/><EnhancedSettingsField label="Deduction Cycle" value="Monthly" onChange={()=>{}} options={["Monthly"]}/><EnhancedSettingsField label="Employee Contribution Rate" value={fields.epfEmployeeRate} onChange={v=>setField("epfEmployeeRate",v)} options={["12% of Actual PF Wage","Restrict Contribution to ₹15,000 of PF Wage"]}/><EnhancedSettingsField label="Employer Contribution Rate" value={fields.epfEmployerRate} onChange={v=>setField("epfEmployerRate",v)} options={["12% of Actual PF Wage","Restrict Contribution to ₹15,000 of PF Wage"]}/></>)}</EnhancedSection><EnhancedSection title="Contribution Preferences"><EnhancedCheck label="Include employer's contribution in employee's salary structure." checked={toggles.employerContribution} onChange={v=>setToggle("employerContribution",v)}/><EnhancedCheck label="Include employer's EDLI contribution in employee's salary structure." checked={toggles.edli} onChange={v=>setToggle("edli",v)}/><EnhancedCheck label="Include admin charges in employee's salary structure." checked={toggles.adminCharges} onChange={v=>setToggle("adminCharges",v)}/><EnhancedCheck label="Override PF contribution rate at employee level" checked={toggles.employeeOverride} onChange={v=>setToggle("employeeOverride",v)}/><div style={{fontWeight:650,fontSize:14,margin:"20px 0 10px"}}>PF Configuration when LOP Applied</div><EnhancedCheck label="Pro-rate Restricted PF Wage" checked={toggles.proratePF} onChange={v=>setToggle("proratePF",v)} description="PF contribution will be pro-rated based on the number of days worked by the employee."/></EnhancedSection><EnhancedSaveBar onSave={()=>save("EPF settings have been updated.")}/></>)
+    const esi=(<><EnhancedSection title="Employees' State Insurance"><div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:18}}><EnhancedSettingsField label="ESI Number" value="ESI/Registration 67890" onChange={()=>{}}/><EnhancedSettingsField label="Deduction Cycle" value="Monthly" onChange={()=>{}} options={["Monthly"]}/><EnhancedSettingsField label="Employee Contribution" value="0.75%" onChange={()=>{}}/><EnhancedSettingsField label="Employer Contribution" value="3.25%" onChange={()=>{}}/></div></EnhancedSection><EnhancedSection title="ESI Preferences"><EnhancedCheck label="Include employer contribution in employee salary structure" checked={toggles.employerContribution} onChange={v=>setToggle("employerContribution",v)}/><EnhancedCheck label="Consider applicable salary components for ESI contribution" checked={toggles.esi} onChange={v=>setToggle("esi",v)}/></EnhancedSection><EnhancedSaveBar onSave={()=>save("ESI settings have been updated.")}/></>)
+    const pt=(<><EnhancedSection title="Professional Tax"><div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:18}}><EnhancedSettingsField label="Registration Number" value="PT/TS/2026/001" onChange={()=>{}}/><EnhancedSettingsField label="Deduction Cycle" value="Monthly" onChange={()=>{}} options={["Monthly","Quarterly"]}/><EnhancedSettingsField label="State" value="Telangana" onChange={()=>{}} options={["Telangana","Karnataka","Maharashtra"]}/><EnhancedSettingsField label="Calculation" value="State Slabs" onChange={()=>{}}/></div></EnhancedSection><EnhancedSaveBar onSave={()=>save("Professional Tax settings have been updated.")}/></>)
+    const lwf=(<><EnhancedSection title="Labour Welfare Fund"><div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:18}}><EnhancedSettingsField label="Registration Number" value="LWF/TS/2026/001" onChange={()=>{}}/><EnhancedSettingsField label="State" value="Telangana" onChange={()=>{}}/><EnhancedSettingsField label="Employee Contribution" value="As per state rules" onChange={()=>{}}/><EnhancedSettingsField label="Employer Contribution" value="As per state rules" onChange={()=>{}}/></div></EnhancedSection><EnhancedSaveBar onSave={()=>save("Labour Welfare Fund settings have been updated.")}/></>)
+    const bonus=(<><EnhancedSection title="Statutory Bonus"><div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:18}}><EnhancedSettingsField label="Bonus Payment Cycle" value="Monthly" onChange={()=>{}} options={["Monthly","Quarterly","Yearly"]}/><EnhancedSettingsField label="Percentage of Bonus" value="19.79%" onChange={()=>{}}/></div><div style={{fontSize:18,fontWeight:650,marginTop:24}}>Minimum Wage in Each State</div><p style={{color:F.text2,fontSize:13}}>Statutory Bonus is a percentage of either the minimum wage or Basic + DA (whichever is higher).</p><div style={{border:"1px solid #E4E8ED",borderRadius:8,padding:20,marginTop:14}}><div style={{fontSize:16,fontWeight:650}}>Andaman and Nicobar Islands</div><div style={{marginTop:14,padding:26,border:"1px dashed #CBD5DF",borderRadius:8,textAlign:"center",color:F.text2}}>⚠ Minimum wage details are not added for Andaman and Nicobar Islands</div></div><div style={{marginTop:18,color:"#1677D2",cursor:"pointer"}} onClick={()=>showToast("Statutory Bonus disabled","info")}>♧ Disable Statutory Bonus</div></EnhancedSection><EnhancedSaveBar onSave={()=>save("Statutory Bonus settings have been updated.")}/></>)
+    return shell(<><EnhancedTabs tabs={tabs} active={tab} onChange={setActiveTab}/>{tab==="EPF"?epf:tab==="ESI"?esi:tab==="Professional Tax"?pt:tab==="Labour Welfare Fund"?lwf:bonus}</>)
+  }
+
+  if (item.id === "salary-components") {
+    // IMPORTANT: SettingsDetail stays mounted while the selected settings item
+    // changes. activeTab can therefore temporarily contain a tab from the
+    // previously opened settings page. Never use that stale value as a key.
+    const salaryTabs = ["Earnings", "Deductions", "Benefits", "Reimbursements"] as const
+    const salaryTab = (salaryTabs as readonly string[]).includes(activeTab)
+      ? activeTab
+      : "Earnings"
+    const rowsByTab = {
+      Earnings: salaryRows,
+      Deductions: deductionRows,
+      Benefits: benefitRows,
+      Reimbursements: reimbursementRows,
+    } as const
+    const setRowsByTab = {
+      Earnings: setSalaryRows,
+      Deductions: setDeductionRows,
+      Benefits: setBenefitRows,
+      Reimbursements: setReimbursementRows,
+    } as const
+    const tabRows = rowsByTab[salaryTab as keyof typeof rowsByTab] || []
+    const setTabRows = setRowsByTab[salaryTab as keyof typeof setRowsByTab] as React.Dispatch<React.SetStateAction<string[][]>>
+    const editSalary = (index: number) => { setEditingSalary(index); setSalaryModal(true) }
+    const currentRow = editingSalary === null ? null : tabRows[editingSalary]
+
+    const tabConfig: Record<string, {
+      headers: string[]
+      rows: string[][]
+      description?: string
+      typeLabel: string
+      frequencyLabel?: string
+    }> = {
+      Earnings: {
+        headers: ["NAME", "EARNING TYPE", "CALCULATION TYPE", "CONSIDER FOR EPF", "CONSIDER FOR ESI", "STATUS"],
+        rows: tabRows,
+        typeLabel: "Earning Type",
+      },
+      Deductions: {
+        headers: ["NAME", "DEDUCTION TYPE", "DEDUCTION FREQUENCY", "STATUS"],
+        rows: tabRows,
+        typeLabel: "Deduction Type",
+        frequencyLabel: "Deduction Frequency",
+      },
+      Benefits: {
+        headers: ["NAME", "BENEFIT TYPE", "BENEFIT FREQUENCY", "STATUS"],
+        rows: tabRows,
+        typeLabel: "Benefit Type",
+        frequencyLabel: "Benefit Frequency",
+      },
+      Reimbursements: {
+        headers: ["NAME", "REIMBURSEMENT TYPE", "MAXIMUM REIMBURSABLE AMOUNT", "STATUS"],
+        rows: tabRows,
+        typeLabel: "Reimbursement Type",
+      },
+    }
+    // Keep the configuration lookup defensive as well. This prevents a
+    // transient/invalid tab value from ever causing config.headers/config.rows
+    // to throw during React rendering.
+    const config = tabConfig[salaryTab] || tabConfig.Earnings
+
+    return shell(
+      <>
+      
+        <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 10 }}>
+          
+          <Btn onClick={() => { setEditingSalary(null); setSalaryModal(true) }}>Add Component ▾</Btn>
+        </div>
+         
+        <EnhancedTabs
+          tabs={["Earnings", "Deductions", "Benefits", "Reimbursements"]}
+          active={salaryTab}
+          onChange={(tab) => { setActiveTab(tab); setEditingSalary(null) }}
+        />
+
+        {salaryTab === "Reimbursements" && (
+          <div style={{
+            background: "#FFF7DF",
+            borderTop: "1px solid #F0E2B5",
+            borderBottom: "1px solid #F0E2B5",
+            padding: "12px 18px",
+            fontSize: 13,
+            color: "#222",
+            display: "flex",
+            alignItems: "center",
+            gap: 10,
+            marginBottom: 0
+          }}>
+            <span style={{ color: "#E68A00", fontSize: 16 }}>●</span>
+            <span>With these reimbursement components, employees can claim reimbursements for the components which are part of the payroll and not for other expenses reimbursements.</span>
+          </div>
+        )}
+
+        <EnhancedSection title="Salary Components">
+          <EnhancedTable
+            headers={config.headers}
+            rows={config.rows}
+            onRowClick={editSalary}
+          />
+        </EnhancedSection>
+
+        {salaryModal && (
+          <div style={{ position: "fixed", inset: 0, zIndex: 10000, background: "rgba(20,32,48,.56)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+            <div style={{ width: "min(1000px,96vw)", maxHeight: "92vh", overflowY: "auto", background: "#fff", borderRadius: 10 }}>
+              <div style={{ padding: "20px 24px", borderBottom: `1px solid ${F.border}`, display: "flex", justifyContent: "space-between" }}>
+                <div style={{ fontSize: 23, fontWeight: 500 }}>
+                  {editingSalary === null ? `Add ${salaryTab === "Earnings" ? "Earning" : salaryTab === "Deductions" ? "Deduction" : salaryTab === "Benefits" ? "Benefit" : "Reimbursement"}` : `Edit ${salaryTab === "Earnings" ? "Earning" : salaryTab === "Deductions" ? "Deduction" : salaryTab === "Benefits" ? "Benefit" : "Reimbursement"}`}
+                </div>
+                <button onClick={() => setSalaryModal(false)} style={{ border: 0, background: "transparent", fontSize: 28, cursor: "pointer", color: "#1677D2" }}>×</button>
+              </div>
+
+              <div style={{ padding: 24 }}>
+                {salaryTab === "Earnings" && (
+                  <>
+                    <EnhancedSettingsField label="Earning Type" value={currentRow?.[1] || "Basic"} onChange={() => {}} required />
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24, marginTop: 20 }}>
+                      <div>
+                        <EnhancedSettingsField label="Name" value={fields.earningName} onChange={(v) => setField("earningName", v)} required />
+                        <div style={{ marginTop: 16 }}><EnhancedSettingsField label="Name in Payslip" value={fields.payslipName} onChange={(v) => setField("payslipName", v)} required /></div>
+                        <div style={{ marginTop: 18 }}>
+                          <div style={{ fontWeight: 650, fontSize: 13, marginBottom: 10 }}>Calculation Type *</div>
+                          <EnhancedRadio label="Flat Amount" checked={fields.calculationType === "Flat Amount"} onChange={() => setField("calculationType", "Flat Amount")} />
+                          <EnhancedRadio label="Percentage of CTC" checked={fields.calculationType === "Percentage of CTC"} onChange={() => setField("calculationType", "Percentage of CTC")} />
+                        </div>
+                        <div style={{ marginTop: 18 }}><EnhancedSettingsField label="Enter Percentage / Amount" value={fields.percentage} onChange={(v) => setField("percentage", v)} type="number" /></div>
+                      </div>
+                      <div>
+                        <div style={{ fontSize: 17, fontWeight: 650, marginBottom: 14 }}>Other Configurations</div>
+                        <EnhancedCheck label="Mark this as Active" checked={true} onChange={() => {}} disabled />
+                        <EnhancedCheck label="Make this component a part of the employee's salary structure" checked={toggles.salaryStructure} onChange={(v) => setToggle("salaryStructure", v)} />
+                        <EnhancedCheck label="This component is taxable" checked={toggles.taxable} onChange={(v) => setToggle("taxable", v)} />
+                        <EnhancedCheck label="Calculate on pro-rata basis" checked={toggles.prorata} onChange={(v) => setToggle("prorata", v)} />
+                        <EnhancedCheck label="Consider for EPF Contribution" checked={toggles.epf} onChange={(v) => setToggle("epf", v)} />
+                        <EnhancedCheck label="Consider for ESI Contribution" checked={toggles.esi} onChange={(v) => setToggle("esi", v)} />
+                        <EnhancedCheck label="Show this component in payslip" checked={toggles.payslip} onChange={(v) => setToggle("payslip", v)} />
+                      </div>
+                    </div>
+                  </>
+                )}
+
+                {salaryTab === "Deductions" && (
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
+                    <EnhancedSettingsField label="Deduction Type" value={currentRow?.[1] || "Withheld Salary"} onChange={() => {}} required />
+                    <EnhancedSettingsField label="Name" value={fields.earningName} onChange={(v) => setField("earningName", v)} required />
+                    <EnhancedSettingsField label="Deduction Frequency" value={currentRow?.[2] || "One Time"} onChange={() => {}} options={["One Time", "Recurring"]} required />
+                    <EnhancedCheck label="Mark this as Active" checked={true} onChange={() => {}} disabled />
+                  </div>
+                )}
+
+                {salaryTab === "Benefits" && (
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
+                    <EnhancedSettingsField label="Benefit Type" value={currentRow?.[1] || "Voluntary Provident Fund"} onChange={() => {}} required />
+                    <EnhancedSettingsField label="Name" value={fields.earningName} onChange={(v) => setField("earningName", v)} required />
+                    <EnhancedSettingsField label="Benefit Frequency" value={currentRow?.[2] || "Recurring"} onChange={() => {}} options={["Recurring", "One Time"]} required />
+                    <EnhancedCheck label="Mark this as Active" checked={true} onChange={() => {}} disabled />
+                  </div>
+                )}
+
+                {salaryTab === "Reimbursements" && (
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
+                    <EnhancedSettingsField label="Reimbursement Type" value={currentRow?.[1] || "Fuel Reimbursement"} onChange={() => {}} required />
+                    <EnhancedSettingsField label="Name" value={fields.earningName} onChange={(v) => setField("earningName", v)} required />
+                    <EnhancedSettingsField label="Maximum Reimbursable Amount" value={currentRow?.[2] || "0"} onChange={() => {}} type="number" required />
+                    <EnhancedCheck label="Mark this as Active" checked={true} onChange={() => {}} disabled />
+                  </div>
+                )}
+
+                <EnhancedSaveBar onSave={() => {
+                  let row: string[]
+                  if (salaryTab === "Earnings") {
+                    const calculation = fields.calculationType === "Flat Amount"
+                      ? `Fixed; Flat amount of ${fields.percentage}`
+                      : `Fixed; ${fields.percentage}% of CTC`
+                    row = [fields.earningName, currentRow?.[1] || "Basic", calculation, toggles.epf ? "Yes" : "No", toggles.esi ? "Yes" : "No", "Active"]
+                  } else if (salaryTab === "Deductions") {
+                    row = [fields.earningName, currentRow?.[1] || "Withheld Salary", currentRow?.[2] || "One Time", "Active"]
+                  } else if (salaryTab === "Benefits") {
+                    row = [fields.earningName, currentRow?.[1] || "Voluntary Provident Fund", currentRow?.[2] || "Recurring", "Active"]
+                  } else {
+                    row = [fields.earningName, currentRow?.[1] || "Fuel Reimbursement", currentRow?.[2] || "0", "Active"]
+                  }
+
+                  if (editingSalary === null) setTabRows((rows) => [row, ...rows])
+                  else setTabRows((rows) => rows.map((r, i) => i === editingSalary ? row : r))
+
+                  showToast(`${salaryTab.slice(0, -1)} component has been ${editingSalary === null ? "added" : "updated"}.`, "success")
+                  setSalaryModal(false)
+                }} onCancel={() => setSalaryModal(false)} />
+              </div>
+            </div>
+          </div>
+        )}
+      </>
+    )
+  }
+
+  if (item.id === "employee-portal") return shell(<><EnhancedTabs tabs={["Preferences","Web Tabs"]} active={activeTab||"Preferences"} onChange={setActiveTab}/><EnhancedSection title="Portal Preferences">{grid(<><EnhancedSettingsField label="Portal Welcome Message" value={fields.portalMessage} onChange={v=>setField("portalMessage",v)} multiline/><EnhancedSettingsField label="Select till when this message must be displayed in the portal" value={fields.portalDate} onChange={v=>setField("portalDate",v)}/></>)}</EnhancedSection><EnhancedSection title="Portal Contact Information"><p style={{color:F.text2,fontSize:13}}>This is the email address to which your employees can send queries through the portal.</p><div style={{border:"1px solid #E4E8ED",borderRadius:8,padding:18,display:"flex",justifyContent:"space-between",alignItems:"center"}}><div><div style={{fontWeight:650}}>{fields.portalContactName}</div><div style={{marginTop:6}}>{fields.portalContactEmail}</div></div><button onClick={()=>showToast("Portal contact management opened","info")} style={{border:0,background:"transparent",color:"#1677D2",cursor:"pointer",fontSize:14}}>⚙ Manage Contacts</button></div></EnhancedSection><EnhancedSection title="Document Management"><EnhancedCheck label="Show documents in employee portal" checked={toggles.portalDocs} onChange={v=>setToggle("portalDocs",v)} description="Enable this option to make documents visible for employees to access in the employee portal."/></EnhancedSection><EnhancedSaveBar onSave={()=>save("Employee Portal settings have been updated.")}/></>)
+
+  if (item.id === "claims-declarations") {
+    const declarationTab = activeTab || "Flexible Benefit Plan"
+    const claims = [
+      ["Medical Reimbursement", "₹40,000", "₹18,000", "₹22,000", "Active"],
+      ["Telephone Reimbursement", "₹24,000", "₹12,000", "₹12,000", "Active"],
+      ["Fuel Reimbursement", "₹30,000", "₹10,000", "₹20,000", "Active"],
+      ["Leave Travel Allowance", "₹50,000", "₹20,000", "₹30,000", "Active"],
+    ]
+    const declarations = [
+      ["Section 123 (formerly 80C)", "₹1,50,000", "Investment / savings declarations", "Enabled"],
+      ["Section 126 (formerly 80D)", "₹1,00,000", "Medical insurance declarations", "Enabled"],
+      ["Other Investments", "As applicable", "Other eligible investments", "Enabled"],
+      ["Other Sources of Income", "As declared", "Additional income details", "Enabled"],
+    ]
+    const pois = [
+      ["Section 123 (formerly 80C)", "₹1,50,000", "₹1,20,000", "₹1,10,000", "Pending"],
+      ["Section 126 (formerly 80D)", "₹1,00,000", "₹60,000", "₹60,000", "Pending"],
+      ["Other Investments", "₹50,000", "₹35,000", "₹30,000", "Pending"],
+    ]
+    return shell(
+      <>
+        <EnhancedTabs tabs={["Flexible Benefit Plan", "Reimbursement Claims", "Income Tax Declaration", "Proof Of Investments"]} active={declarationTab} onChange={setActiveTab} />
+
+        {declarationTab === "Flexible Benefit Plan" && (
+          <EnhancedSection title="Flexible Benefit Plan">
+            <div style={{ padding: "55px 20px", textAlign: "center", border: "1px solid #E5E8ED", borderRadius: 8 }}>
+              <div style={{ fontSize: 46 }}>◎</div>
+              <div style={{ fontSize: 20, fontWeight: 650, marginTop: 10 }}>No Active FBP component</div>
+              <p style={{ maxWidth: 720, margin: "10px auto", color: F.text2 }}>
+                Your organisation does not have an active FBP component associated to an employee. Mark a reimbursement as FBP component under Salary Components &gt; Reimbursements and associate it to the employee's salary.
+              </p>
+            </div>
+          </EnhancedSection>
+        )}
+
+        {declarationTab === "Reimbursement Claims" && (
+          <>
+            <EnhancedSection title="Reimbursement Claims" action={<Btn small onClick={() => openSettingsAction("+ Add Reimbursement","Add a reimbursement category that employees can claim.",["Reimbursement Type","Annual Limit","Description","Status"])}>+ Add Reimbursement</Btn>}>
+              <p style={{ marginTop: 0, color: F.text2, fontSize: 13 }}>Configure reimbursement categories that employees can claim during the enabled reimbursement period.</p>
+              <EnhancedTable headers={["REIMBURSEMENT TYPE", "ANNUAL LIMIT", "CLAIMED", "BALANCE", "STATUS"]} rows={claims} />
+            </EnhancedSection>
+            <EnhancedSection title="Claim Preferences">
+              {grid(<>
+                <EnhancedSettingsField label="Reimbursement Period" value="Monthly" onChange={(v) => setField("reimbursementPeriod", v)} options={["Monthly", "Quarterly", "Yearly"]} />
+                <EnhancedSettingsField label="Claim Approval" value="Manager + HR" onChange={(v) => setField("claimApproval", v)} options={["Manager Approval", "Manager + HR", "Finance Approval"]} />
+                <EnhancedSettingsField label="Claim Start Date" value="01/04/2026" onChange={(v) => setField("claimStartDate", v)} />
+                <EnhancedSettingsField label="Claim End Date" value="31/03/2027" onChange={(v) => setField("claimEndDate", v)} />
+              </>)}
+              <EnhancedCheck label="Allow employees to submit reimbursement claims through the Employee Portal" checked={toggles.portalAccess} onChange={(v) => setToggle("portalAccess", v)} />
+              <EnhancedCheck label="Require bills / supporting documents" checked={toggles.documentsRequired} onChange={(v) => setToggle("documentsRequired", v)} />
+              <EnhancedCheck label="Send email reminders for pending claims" checked={toggles.emailReminders} onChange={(v) => setToggle("emailReminders", v)} />
+            </EnhancedSection>
+            <EnhancedSaveBar onSave={() => save("Reimbursement Claims settings have been updated.")} />
+          </>
+        )}
+
+        {declarationTab === "Income Tax Declaration" && (
+          <>
+            <EnhancedSection title="Income Tax Declaration">
+              {grid(<>
+                <EnhancedSettingsField label="Declaration Window" value="April - December" onChange={(v) => setField("declarationWindow", v)} options={["April - December", "April - January", "Custom"]} />
+                <EnhancedSettingsField label="Declaration Lock Date" value="15 January" onChange={(v) => setField("declarationLockDate", v)} />
+                <EnhancedSettingsField label="Default Tax Regime" value="New Tax Regime" onChange={(v) => setField("taxRegime", v)} options={["New Tax Regime", "Old Tax Regime"]} />
+                <EnhancedSettingsField label="Tax Comparison" value="Enabled" onChange={(v) => setField("taxComparison", v)} options={["Enabled", "Disabled"]} />
+              </>)}
+              <EnhancedCheck label="Allow employees to submit Income Tax Declarations through the Employee Portal" checked={toggles.portalAccess} onChange={(v) => setToggle("portalAccess", v)} />
+              <EnhancedCheck label="Allow employees to edit declarations while the declaration window is open" checked={toggles.retroactive} onChange={(v) => setToggle("retroactive", v)} />
+            </EnhancedSection>
+            <EnhancedSection title="Declaration Categories">
+              <EnhancedTable headers={["CATEGORY", "MAXIMUM / LIMIT", "DESCRIPTION", "STATUS"]} rows={declarations} />
+            </EnhancedSection>
+            <EnhancedSection title="Declaration Reminders">
+              <EnhancedSettingsField label="Reminder Frequency" value={fields.reminderFrequency} onChange={(v) => setField("reminderFrequency", v)} options={["5 days and 1 day before lock date", "Weekly", "Daily"]} />
+              <EnhancedCheck label="Enable email reminders" checked={toggles.emailReminders} onChange={(v) => setToggle("emailReminders", v)} />
+            </EnhancedSection>
+            <EnhancedSaveBar onSave={() => save("Income Tax Declaration settings have been updated.")} />
+          </>
+        )}
+
+        {declarationTab === "Proof Of Investments" && (
+          <>
+            <EnhancedSection title="Proof Of Investments">
+              {grid(<>
+                <EnhancedSettingsField label="Enable Proof Of Investments Submission" value="Enabled" onChange={(v) => setField("poiEnabled", v)} options={["Enabled", "Disabled"]} />
+                <EnhancedSettingsField label="POI Submission Lock Date" value="15 January" onChange={(v) => setField("poiLockDate", v)} />
+                <EnhancedSettingsField label="Process Approved Amount From" value="January" onChange={(v) => setField("poiProcessingMonth", v)} options={["January", "February", "March"]} />
+                <EnhancedSettingsField label="Tax Regime" value="New Tax Regime" onChange={(v) => setField("poiTaxRegime", v)} options={["New Tax Regime", "Old Tax Regime"]} />
+              </>)}
+              <EnhancedCheck label="Allow employees to submit investment proofs through the Employee Portal" checked={toggles.portalAccess} onChange={(v) => setToggle("portalAccess", v)} />
+              <EnhancedCheck label="Send an automated email when the POI submission window opens" checked={toggles.emailReminders} onChange={(v) => setToggle("emailReminders", v)} />
+              <EnhancedCheck label="Allow employees to withdraw and resubmit POI before it is locked or approved" checked={toggles.retroactive} onChange={(v) => setToggle("retroactive", v)} />
+            </EnhancedSection>
+            <EnhancedSection title="Investment Proof Categories">
+              <EnhancedTable headers={["CATEGORY", "DECLARED AMOUNT", "PROOF SUBMITTED", "APPROVED AMOUNT", "STATUS"]} rows={pois} />
+              <div style={{ marginTop: 14, fontSize: 12, color: F.text2 }}>Approved investment amounts can be considered for the employee's income tax calculation after review.</div>
+            </EnhancedSection>
+            <EnhancedSaveBar onSave={() => save("Proof Of Investments settings have been updated.")} />
+          </>
+        )}
+      </>
+    )
+  }
+
+  if (item.id === "employees-contractors") return shell(<><EnhancedSection title="Employee Defaults">{grid(<><EnhancedSettingsField label="Employee ID Format" value={fields.employeeIdFormat} onChange={v=>setField("employeeIdFormat",v)}/><EnhancedSettingsField label="Default Status" value={fields.defaultStatus} onChange={v=>setField("defaultStatus",v)} options={["Active","Inactive"]}/><EnhancedSettingsField label="Default Employment Type" value={fields.employmentType} onChange={v=>setField("employmentType",v)} options={["Full-Time","Part-Time","Contractor"]}/></>)}</EnhancedSection><EnhancedSection title="Lifecycle Controls"><EnhancedCheck label="Onboarding Checklist" checked={toggles.onboarding} onChange={v=>setToggle("onboarding",v)}/><EnhancedCheck label="Exit Clearance" checked={toggles.exitClearance} onChange={v=>setToggle("exitClearance",v)}/><EnhancedCheck label="Contractor Management" checked={toggles.contractor} onChange={v=>setToggle("contractor",v)}/></EnhancedSection><EnhancedSaveBar onSave={()=>save("Employees and Contractors settings have been updated.")}/></>)
+
+  if (item.id === "pay-runs") return shell(<><EnhancedTabs tabs={["Approvals"]} active={activeTab||"Approvals"} onChange={setActiveTab}/>{activeTab==="Approvals"?<EnhancedSection title="Select Approval Workflow"><div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:18}}>{[["Simple Approval","In this approval flow, any approver with Pay Run approval permission can approve."],["Multi-Level Approval","Set many levels of approval. The pay run will be approved only when all the approvers approve."],["Custom Approval","You can set up an approval flow based on one or more criteria."]].map(([name,desc])=><label key={name} style={{border:"1px solid #E4E8ED",borderRadius:8,padding:18,cursor:"pointer"}}><input type="radio" checked={fields.workflowApproval===name} onChange={()=>setField("workflowApproval",name)}/><strong style={{marginLeft:8,fontSize:15}}>{name}</strong><p style={{fontSize:13,lineHeight:1.55,color:F.text2}}>{desc}</p></label>)}</div></EnhancedSection>:<EnhancedSection title={activeTab}><EnhancedSettingsField label={`${activeTab} Configuration`} value={fields.workflowApproval} onChange={v=>setField("workflowApproval",v)} multiline/></EnhancedSection>}<EnhancedSaveBar onSave={()=>save("Pay Runs settings have been updated.")}/></>)
+
+  if (item.id === "salary-revisions") return shell(<><EnhancedSection title="Revision Rules">{grid(<><EnhancedSettingsField label="Approval Workflow" value={fields.revisionWorkflow} onChange={v=>setField("revisionWorkflow",v)} options={["Manager + HR","Manager Only","HR Only","Multi-Level"]}/><EnhancedSettingsField label="Effective Date" value={fields.revisionEffective} onChange={v=>setField("revisionEffective",v)} options={["Next Payroll Cycle","Immediate","Custom Date"]}/><EnhancedSettingsField label="Revision Reason" value="Required" onChange={()=>{}} options={["Required","Optional"]}/></>)}</EnhancedSection><EnhancedSection title="Revision Preferences"><EnhancedCheck label="Allow retroactive revisions" checked={toggles.retroactive} onChange={v=>setToggle("retroactive",v)}/><EnhancedCheck label="Notify employee" checked={toggles.notifyEmployee} onChange={v=>setToggle("notifyEmployee",v)}/><EnhancedCheck label="Enable proration" checked={toggles.prorata} onChange={v=>setToggle("prorata",v)}/></EnhancedSection><EnhancedSaveBar onSave={()=>save("Salary Revision settings have been updated.")}/></>)
+
+  if (item.id === "leave-attendance") return shell(<><EnhancedTabs tabs={["Leave Types"]} active={activeTab||"Leave Types"} onChange={setActiveTab}/><EnhancedSection title={activeTab||"Leave Types"}>{activeTab==="Leave Types"?<EnhancedTable headers={["LEAVE TYPE","ANNUAL ENTITLEMENT","APPROVAL","CARRY FORWARD"]} rows={[["Casual Leave","12 days","Manager","Yes"],["Sick Leave","12 days","Manager","No"],["Earned Leave","18 days","Manager + HR","Yes"]]}/>:<>{grid(<><EnhancedSettingsField label="Working Week" value="Monday - Friday" onChange={()=>{}}/><EnhancedSettingsField label="Attendance Source" value="Employee Portal" onChange={()=>{}} options={["Employee Portal","Biometric","Import"]}/><EnhancedSettingsField label="LOP Calculation" value={fields.lopCalculation} onChange={v=>setField("lopCalculation",v)}/><EnhancedSettingsField label="Leave Approval" value="Manager + HR" onChange={()=>{}}/><EnhancedSettingsField label="Attendance Lock" value="Monthly" onChange={()=>{}}/></>)}<EnhancedCheck label="Half-day support" checked={toggles.halfDay} onChange={v=>setToggle("halfDay",v)}/></>}</EnhancedSection><EnhancedSaveBar onSave={()=>save("Leave and Attendance settings have been updated.")}/></>)
+
+  if (item.id === "loans") return shell(<><div style={{display:"flex",justifyContent:"flex-end",marginBottom:12}}><Btn onClick={()=>openSettingsAction("Create New Loan","Create a new employee loan configuration or loan record.",["Loan Name","Loan Amount","Interest Rate","Tenure","Purpose"])}>Create New</Btn></div><EnhancedTabs tabs={["Custom Field"]} active={activeTab||"Custom Field"} onChange={setActiveTab}/>{activeTab!=="Custom Field"&&<EnhancedSection title={activeTab}><EnhancedSettingsField label="Configuration" value={fields.loanApproval} onChange={v=>setField("loanApproval",v)} multiline/></EnhancedSection>}<EnhancedSection title="Loan Rules">{grid(<><EnhancedSettingsField label="Loan Approval" value={fields.loanApproval} onChange={v=>setField("loanApproval",v)} options={["HR Approval","Manager + HR","Finance Approval"]}/><EnhancedSettingsField label="Maximum Active Loans" value={fields.maxLoans} onChange={v=>setField("maxLoans",v)} type="number"/><EnhancedSettingsField label="Interest Calculation" value={fields.interest} onChange={v=>setField("interest",v)} options={["Reducing Balance","Flat Rate","No Interest"]}/></>)}</EnhancedSection><EnhancedCheck label="Payroll Deduction" checked={toggles.payrollDeduction} onChange={v=>setToggle("payrollDeduction",v)}/><EnhancedCheck label="Pre-closure" checked={toggles.preClosure} onChange={v=>setToggle("preClosure",v)}/><EnhancedCheck label="Documents Required" checked={toggles.documentsRequired} onChange={v=>setToggle("documentsRequired",v)}/><EnhancedSaveBar onSave={()=>save("Loans settings have been updated.")}/></>)
+
+  if (item.id === "email-templates") return shell(<><EnhancedSection title="Email Templates" action={<Btn small onClick={()=>showToast("New Email Template opened","info")}>+ New Template</Btn>}><EnhancedTable headers={["TEMPLATE","TRIGGER","LANGUAGE","STATUS"]} rows={[["Payslip Notification","Payslip Generated","English","Active"],["Welcome Email","Employee Created","English","Active"],["Salary Revision","Salary Approved","English","Active"],["Leave Approval","Leave Status Changed","English","Active"]]}/></EnhancedSection></>)
+
+  if (item.id === "salary-templates") return shell(<><EnhancedSection title="Salary Templates" action={<Btn small onClick={()=>showToast("New Salary Template opened","info")}>+ New Template</Btn>}><EnhancedTable headers={["TEMPLATE","EMPLOYEES","EFFECTIVE FROM","STATUS"]} rows={[["Standard IT","5","01 Apr 2026","Active"],["Management","2","01 Apr 2026","Active"],["Contractor","2","01 Apr 2026","Active"]]}/></EnhancedSection></>)
+
+  if (item.id === "pdf-templates") return shell(<><EnhancedTabs tabs={["Regular Payslips","Final Settlement Payslip","Salary Certificate","Salary Revision Letter","Bonus Letter"]} active={activeTab||"Regular Payslips"} onChange={setActiveTab}/><EnhancedSection title={activeTab||"Regular Payslips"}><div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:22}}>{["Elegant Template","Standard Template","Mini Template","Simple Template","Lite Template","Simple Spreadsheet Template"].map((name,i)=><div key={name} style={{border:"1px solid #E4E8ED",borderRadius:8,padding:12,background:"#fff"}}><div style={{fontWeight:650,marginBottom:10}}>{name}</div><div style={{height:210,background:"linear-gradient(#fff,#F7F8FA)",border:"1px solid #E5E8ED",padding:12,fontSize:10}}><div style={{fontWeight:700}}>Naxrita Solutions Pvt. Ltd.</div><hr/><div>Employee Pay Summary</div><div style={{marginTop:20}}>Earnings&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Deductions</div><div style={{marginTop:40}}>Total Net Payable</div></div>{i===0&&<div style={{marginTop:8,color:"#20B67A",fontWeight:650}}>DEFAULT</div>}</div>)}</div></EnhancedSection></>)
+
+  if (item.id === "reporting-tags") return shell(<><EnhancedSection title="Reporting Tags" action={<Btn small onClick={()=>openSettingsAction("New Reporting Tag","Create a reporting tag for payroll and reporting segmentation.",["Tag Name","Tag Values","Used By","Status"])}>+ New Tag</Btn>}><EnhancedTable headers={["TAG","VALUES","USED BY","STATUS"]} rows={[["Business Unit","Engineering, Finance, HR","Employees","Active"],["Cost Centre","CC-001, CC-002","Payroll","Active"],["Location Type","Office, Remote","Employees","Active"]]}/></EnhancedSection></>)
+
+  if (item.id === "custom-fields") return shell(<><EnhancedSection title="Custom Fields" action={<Btn small onClick={()=>openSettingsAction("Create Custom Field","Add an organisation-specific field for employees or payroll.",["Field Name","Module","Field Type","Required"])}>Create Custom Field</Btn>}><EnhancedTable headers={["FIELD","MODULE","TYPE","REQUIRED"]} rows={[["Employee Code","Employees","Text","Yes"],["Project Code","Employees","Text","No"],["Payroll Notes","Pay Runs","Multi-line","No"]]}/></EnhancedSection></>)
+
+  if (item.id === "actions") return shell(<><div style={{display:"grid",gridTemplateColumns:"250px 1fr",gap:0,border:`1px solid ${F.border}`,background:"#fff",minHeight:520}}><div style={{borderRight:`1px solid ${F.border}`}}>{["Email Alerts","In-app Notifications","Field Updates","Webhooks","Functions"].map(tab=><button key={tab} onClick={()=>setActiveAutomation(tab)} style={{display:"block",width:"100%",padding:"13px 18px",border:0,textAlign:"left",background:activeAutomation===tab?"#F0F1F8":"#fff",fontWeight:activeAutomation===tab?650:400,cursor:"pointer"}}>{tab}</button>)}</div><div><div style={{padding:"18px 22px",borderBottom:`1px solid ${F.border}`,display:"flex",justifyContent:"space-between",alignItems:"center"}}><div style={{fontSize:20,fontWeight:650}}>Workflow Actions — {activeAutomation}</div><Btn small onClick={()=>showToast(`New ${activeAutomation} opened`,"info")}>+ New {activeAutomation.slice(0,-1)}</Btn></div><EnhancedTable headers={["NAME","MODULE","EMAIL TEMPLATE","RELATED RULES"]} rows={[]} /></div></div></>)
+
+  if (item.id === "bank-accounts") return shell(<><div style={{display:"flex",justifyContent:"flex-end",marginBottom:12}}><Btn onClick={()=>setBankModal(true)}>Add Bank Account</Btn></div><EnhancedSection title="Employer Bank Accounts"><EnhancedTable headers={["BANK ACCOUNT NAME","BANK NAME","ACCOUNT NUMBER","IFSC","ACCOUNT CODE","ACCOUNT TYPE"]} rows={bankAccounts} onRowClick={()=>setBankModal(true)}/></EnhancedSection>{bankModal&&<div style={{position:"fixed",inset:0,zIndex:10000,background:"rgba(20,32,48,.56)",display:"flex",alignItems:"center",justifyContent:"center",padding:20}}><div style={{width:"min(580px,96vw)",background:"#fff",borderRadius:10}}><div style={{padding:"20px 24px",borderBottom:`1px solid ${F.border}`,display:"flex",justifyContent:"space-between"}}><div style={{fontSize:22}}>Edit Bank Account</div><button onClick={()=>setBankModal(false)} style={{border:0,background:"transparent",fontSize:28,color:"#1677D2",cursor:"pointer"}}>×</button></div><div style={{padding:24}}>{grid(<><EnhancedSettingsField label="Bank Account Name" value={fields.bankAccountName} onChange={v=>setField("bankAccountName",v)} required/><EnhancedSettingsField label="Bank Name" value={fields.bankName} onChange={v=>setField("bankName",v)} required/><EnhancedSettingsField label="Account Number" value={fields.accountNumber} onChange={v=>setField("accountNumber",v)} required type="password"/><EnhancedSettingsField label="Re-enter Account Number" value={fields.reAccountNumber} onChange={v=>setField("reAccountNumber",v)} required type="password"/><EnhancedSettingsField label="IFSC" value={fields.ifsc} onChange={v=>setField("ifsc",v)}/><EnhancedSettingsField label="Account Code" value={fields.accountCode} onChange={v=>setField("accountCode",v)}/></>)}</div><div style={{padding:"16px 24px",borderTop:`1px solid ${F.border}`}}><div style={{fontSize:13,fontWeight:650,marginBottom:8}}>Account Type *</div><EnhancedRadio label="Current" checked={fields.accountType==="Current"} onChange={()=>setField("accountType","Current")}/><EnhancedRadio label="Savings" checked={fields.accountType==="Savings"} onChange={()=>setField("accountType","Savings")}/><EnhancedSaveBar onSave={()=>{setBankAccounts([[fields.bankAccountName,fields.bankName||"-",fields.accountNumber?"••••"+fields.accountNumber.slice(-4):"-",fields.ifsc||"-",fields.accountCode||"-",fields.accountType],...bankAccounts]);setBankModal(false);save("Bank account has been updated.")}} onCancel={()=>setBankModal(false)}/></div></div></div>}</>)
+
+  if (item.id === "direct-deposits") return shell(<><EnhancedSection title="Payment Processing">{grid(<><EnhancedSettingsField label="Payment Mode" value={fields.paymentMode} onChange={v=>setField("paymentMode",v)} options={["Bank Transfer","Cash","Cheque"]}/><EnhancedSettingsField label="Processing Schedule" value={fields.paymentSchedule} onChange={v=>setField("paymentSchedule",v)} options={["After Payroll Approval","Scheduled Date","Manual"]}/><EnhancedSettingsField label="Payment File Format" value={fields.paymentFormat} onChange={v=>setField("paymentFormat",v)} options={["CSV / Bank Format","TXT","ISO 20022"]}/><EnhancedSettingsField label="Funding Account" value="HDFC Payroll Account" onChange={()=>{}}/><EnhancedSettingsField label="Reference Prefix" value={fields.referencePrefix} onChange={v=>setField("referencePrefix",v)}/></>)}<EnhancedCheck label="Maker-Checker" checked={toggles.makerChecker} onChange={v=>setToggle("makerChecker",v)}/></EnhancedSection><EnhancedSaveBar onSave={()=>save("Direct Deposit settings have been updated.")}/></>)
+
+  if (item.id === "data-backup") return shell(<><div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12,marginBottom:18}}>{statCard("Last Backup","Today, 02:00 AM","Successful")}{statCard("Backup Size","1.8 GB","Application data")}{statCard("Retention","30 Days","Automatic cleanup")}{statCard("Restore Test","Passed","Last tested Sep 30")}</div><EnhancedSection title="Backup Configuration">{grid(<><div style={{gridColumn:"1/-1"}}><EnhancedCheck label="Automatic Backup" checked={toggles.automaticBackup} onChange={v=>setToggle("automaticBackup",v)}/></div><EnhancedSettingsField label="Frequency" value={fields.backupFrequency} onChange={v=>setField("backupFrequency",v)} options={["Daily","Weekly","Monthly"]}/><EnhancedSettingsField label="Retention Period" value={fields.retention} onChange={v=>setField("retention",v)} options={["7 Days","30 Days","90 Days","1 Year"]}/><EnhancedSettingsField label="Encryption" value={fields.encryption} onChange={v=>setField("encryption",v)} options={["AES-256","AES-128"]}/><EnhancedSettingsField label="Restore Verification" value={fields.restoreVerification} onChange={v=>setField("restoreVerification",v)} options={["Monthly","Quarterly","Never"]}/><EnhancedSettingsField label="Backup Location" value={fields.backupLocation} onChange={v=>setField("backupLocation",v)} /></>)}</EnhancedSection><EnhancedSection title="Backup History"><EnhancedTable headers={["BACKUP TIME","USER NAME","FILE TYPE","EXPORT STATUS","DOWNLOAD LINK"]} rows={[["Today, 02:00 AM","Meena Iyer","Automatic","Successful","View"],["Yesterday, 02:00 AM","System","Automatic","Successful","View"]]}/></EnhancedSection><EnhancedSaveBar onSave={()=>save("Data Backup settings have been updated.")}/></>)
+
+  if (item.id === "schedules") return shell(<><EnhancedSection title="Schedules" action={<Btn small onClick={()=>openSettingsAction("New Schedule","Create an automated payroll or notification schedule.",["Schedule Name","Module","Schedule","Next Run","Status"])}>+ New Schedule</Btn>}><EnhancedTable headers={["NAME","MODULE","SCHEDULE","NEXT RUN","STATUS"]} rows={[["Daily Payroll Reminder","Pay Runs","Every day, 09:00 AM","Today, 09:00 AM","Active"],["Monthly Backup","Developer Data","1st of every month","01 Nov 2026","Active"]]}/></EnhancedSection></>)
+  if (item.id === "workflow-logs") return shell(<><EnhancedSection title="Workflow Logs"><EnhancedTable headers={["DATE & TIME","WORKFLOW","MODULE","RESULT","STATUS"]} rows={[["08 Oct 2026, 09:10 AM","Payroll Approval","Pay Runs","Approval notification sent","Success"],["08 Oct 2026, 08:30 AM","New Employee Alert","Employees","Email notification sent","Success"],["07 Oct 2026, 06:00 PM","Salary Revision Alert","Salary Revision","Workflow completed","Success"]]}/></EnhancedSection></>)
+  if (item.id === "integrations") return shell(<><EnhancedSection title="Integrations" action={<Btn small onClick={()=>openSettingsAction("Add Integration","Configure a new payroll or business-system integration.",["Integration Name","Category","Connection Type","Status"])}>+ Add Integration</Btn>}><EnhancedTable headers={["INTEGRATION","CATEGORY","STATUS","LAST SYNC"]} rows={[["Zoho Books","Accounting","Connected","Today, 10:30 AM"],["Bank File Transfer","Payments","Connected","Today, 09:45 AM"],["Email Service","Notifications","Connected","Today, 09:15 AM"]]}/></EnhancedSection><EnhancedSection title="Integration Preferences"><EnhancedCheck label="Enable automatic synchronization" checked={toggles.automaticBackup} onChange={v=>setToggle("automaticBackup",v)}/><EnhancedCheck label="Notify on integration failure" checked={toggles.emailReminders} onChange={v=>setToggle("emailReminders",v)}/></EnhancedSection><EnhancedSaveBar onSave={()=>save("Integration settings have been updated.")}/></>)
+  if (item.id === "developer-data") return shell(<><EnhancedSection title="Developer Data"><div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:14}}>{statCard("API Connections","3","Configured")}{statCard("Webhooks","4","Active endpoints")}{statCard("Data Exports","12","This month")}</div></EnhancedSection><EnhancedSection title="Developer Preferences">{grid(<><EnhancedSettingsField label="API Environment" value="Production" onChange={()=>{}} options={["Production","Sandbox"]}/><EnhancedSettingsField label="Data Export Format" value="CSV" onChange={()=>{}} options={["CSV","JSON","XLSX"]}/><EnhancedSettingsField label="Webhook Retry Policy" value="3 retries" onChange={()=>{}} options={["3 retries","5 retries","10 retries"]}/></>)}</EnhancedSection><EnhancedSaveBar onSave={()=>save("Developer Data settings have been updated.")}/></>)
+  if (item.id === "workflow-rules") return shell(<><EnhancedSection title="Workflow Rules" action={<Btn small onClick={()=>openSettingsAction("New Workflow Rule","Create an automation rule for payroll or employee events.",["Rule Name","Module","Trigger","Status"])}>+ New Rule</Btn>}><EnhancedTable headers={["RULE","MODULE","TRIGGER","STATUS"]} rows={[["Notify HR on New Employee","Employees","Employee Created","Active"],["Escalate Payroll Approval","Pay Runs","Pending > 24h","Active"],["Salary Revision Alert","Salary Revision","Approved","Active"]]}/></EnhancedSection></>)
+  if (item.id === "custom-functions") return shell(<><EnhancedSection title="Custom Functions" action={<Btn small onClick={()=>showToast("New Custom Function opened","info")}>+ New Function</Btn>}><EnhancedTable headers={["FUNCTION","MODULE","PURPOSE","STATUS"]} rows={[["Calculate LOP","Employees","Custom LOP calculation","Active"],["Loan Deduction Check","Loans","Validate monthly deduction","Active"],["Payroll Validation","Pay Runs","Validate payroll inputs","Active"]]}/></EnhancedSection></>)
+  if (item.id === "approvals") return shell(<><EnhancedSection title="Approval Workflows">{grid(<><EnhancedSettingsField label="Pay Run Approval" value={fields.workflowApproval} onChange={v=>setField("workflowApproval",v)} options={["Simple Approval","Multi-Level Approval","Custom Approval"]}/><EnhancedSettingsField label="Salary Revision Approval" value="Multi-Level Approval" onChange={()=>{}} options={["Simple Approval","Multi-Level Approval","Custom Approval"]}/><EnhancedSettingsField label="Primary Approver" value="Meena Iyer" onChange={()=>{}}/><EnhancedSettingsField label="Secondary Approver" value="Finance Head" onChange={()=>{}}/></>)}</EnhancedSection><EnhancedSaveBar onSave={()=>save("Approval settings have been updated.")}/></>)
+
+  if (item.id === "organisation-profile") return shell(<><EnhancedSection title="Organisation Profile" action={<Btn small variant="secondary" onClick={()=>setProfileEdit(v=>!v)}>{profileEdit ? "Stop editing" : "Edit"}</Btn>}>{grid(<><EnhancedSettingsField label="Organisation Name" value={profileFields.organisationName} onChange={v=>setProfileFields(p=>({...p,organisationName:v}))} required editable={profileEdit}/><EnhancedSettingsField label="Industry" value={profileFields.industry} onChange={v=>setProfileFields(p=>({...p,industry:v}))} options={["Information Technology","Finance","Manufacturing","Services"]} editable={profileEdit}/><EnhancedSettingsField label="Email" value={profileFields.email} onChange={v=>setProfileFields(p=>({...p,email:v}))} editable={profileEdit}/><EnhancedSettingsField label="Phone" value={profileFields.phone} onChange={v=>setProfileFields(p=>({...p,phone:v}))} editable={profileEdit}/><EnhancedSettingsField label="Country" value={profileFields.country} onChange={v=>setProfileFields(p=>({...p,country:v}))} options={["India","United States","United Kingdom"]} editable={profileEdit}/><EnhancedSettingsField label="Time Zone" value={profileFields.timeZone} onChange={v=>setProfileFields(p=>({...p,timeZone:v}))} options={["Asia/Kolkata","UTC"]} editable={profileEdit}/><div style={{gridColumn:"1/-1"}}><EnhancedSettingsField label="Address" value={profileFields.address} onChange={v=>setProfileFields(p=>({...p,address:v}))} multiline editable={profileEdit}/></div></>)}</EnhancedSection>{profileEdit&&<EnhancedSaveBar onSave={()=>{setProfileEdit(false);save("Organisation profile has been updated.")}} onCancel={()=>setProfileEdit(false)}/>}</>)
+  if (item.id === "branding") return shell(<><EnhancedSection title="Branding" action={<Btn small variant="secondary" onClick={()=>setBrandingEdit(v=>!v)}>{brandingEdit ? "Stop editing" : "Edit"}</Btn>}>{grid(<><EnhancedSettingsField label="Company Display Name" value={brandingFields.displayName} onChange={v=>setBrandingFields(p=>({...p,displayName:v}))} editable={brandingEdit}/><EnhancedSettingsField label="Primary Theme" value={brandingFields.theme} onChange={v=>setBrandingFields(p=>({...p,theme:v}))} options={["Blue","Navy","Slate"]} editable={brandingEdit}/><EnhancedSettingsField label="Payslip Header" value={brandingFields.payslipHeader} onChange={v=>setBrandingFields(p=>({...p,payslipHeader:v}))} editable={brandingEdit}/><EnhancedSettingsField label="Footer Text" value={brandingFields.footerText} onChange={v=>setBrandingFields(p=>({...p,footerText:v}))} multiline editable={brandingEdit}/></>)}</EnhancedSection>{brandingEdit&&<EnhancedSaveBar onSave={()=>{setBrandingEdit(false);save("Branding settings have been updated.")}} onCancel={()=>setBrandingEdit(false)}/>}</>)
+  if (item.id === "ai-integration") return shell(<><EnhancedSection title="AI Integration"><EnhancedCheck label="Enable AI-assisted payroll recommendations" checked={toggles.portalAccess} onChange={v=>setToggle("portalAccess",v)}/><EnhancedCheck label="Enable AI document assistance" checked={toggles.portalDocs} onChange={v=>setToggle("portalDocs",v)}/><EnhancedSettingsField label="AI Provider" value="Naxrita AI" onChange={()=>{}} options={["Naxrita AI","Disabled"]}/></EnhancedSection><EnhancedSaveBar onSave={()=>save("AI Integration settings have been updated.")}/></>)
+  if (item.id === "subscriptions") return shell(<><EnhancedSection title="Subscription"><div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:14}}>{statCard("Plan","Professional","Current plan")}{statCard("Employees","13 / 100","Usage")}{statCard("Renewal","01 Apr 2027","Annual subscription")}</div></EnhancedSection></>)
+
+  return shell(<><EnhancedSection title={`${title} Configuration`}>{grid(<><EnhancedSettingsField label="Name" value={item.label} onChange={()=>{}}/><EnhancedSettingsField label="Status" value="Active" onChange={()=>{}} options={["Active","Inactive"]}/><div style={{gridColumn:"1/-1"}}><EnhancedSettingsField label="Description" value={item.description || `Configure ${item.label} for your organisation.`} onChange={()=>{}} multiline/></div></>)}</EnhancedSection><EnhancedSaveBar onSave={()=>save()}/></>)
+}
+
+function SettingsView({
+  showToast,
+  onClose,
+  selectedId,
+  onSelect,
+  onBack,
+}: {
+  showToast: (msg: string, type?: ToastType) => void
+  onClose: () => void
+  selectedId: string | null
+  onSelect: (id: string) => void
+  onBack: () => void
+}) {
+  // The landing page is intentionally a standalone Settings page.
+  // Once a module is selected, App renders the normal Naxpayroll shell and
+  // this component renders the Zoho-style settings detail page inside it.
+  const [search, setSearch] = useState("")
+  const selected = selectedId ? settingsFindItem(selectedId) : null
+
+  if (!selected) {
+    return (
+      <SettingsLanding
+        onOpen={onSelect}
+        search={search}
+        setSearch={setSearch}
+        onClose={onClose}
+      />
+    )
+  }
+
+  return (
+    <SettingsDetail
+      item={selected.item}
+      group={selected.group}
+      onBack={onBack}
+      onSelect={onSelect}
+      showToast={showToast}
+    />
+  )
+}
+
 export default function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false)
   const [persona, setPersona] = useState<Persona>("org_admin")
@@ -24800,6 +27199,10 @@ export default function App() {
   }, [adminProfiles, persona, view])
 
   const [sidebarOpen, setSidebarOpen] = useState(true)
+  // Settings has two navigation levels:
+  // 1) All Settings is a standalone page with no application sidebar.
+  // 2) Selecting a module opens the detail page inside the normal app shell.
+  const [settingsSelectedId, setSettingsSelectedId] = useState<string | null>(null)
   const myEmp = emps.find((e) => e.id === MY_EMP_ID)!
   const nav =
     persona === "product_admin"
@@ -24842,6 +27245,7 @@ export default function App() {
   }
   const switchPersona = (p: Persona) => {
     setPersona(p)
+    setSettingsSelectedId(null)
     setView("dashboard")
   }
   if (!isLoggedIn) {
@@ -24850,11 +27254,47 @@ export default function App() {
         <LoginPage
           onLogin={(p) => {
             setPersona(p)
+            setSettingsSelectedId(null)
             setView("dashboard")
             setIsLoggedIn(true)
             showToast(`Welcome back, ${personaUser[p]}! Logged in as ${personaRole[p]}`, "success")
           }}
         />
+        <Toasts toasts={toasts} />
+      </ToastCtx.Provider>
+    )
+  }
+
+  // Settings is a completely separate workspace.  Both the All Settings
+  // landing page and every individual Settings module are rendered outside
+  // the normal Naxpayroll application shell, matching the Zoho Payroll flow.
+  // Clicking a module therefore opens a full Settings detail page with its
+  // own Settings navigation on the left.
+  if (view === "settings") {
+    return (
+      <ToastCtx.Provider value={showToast}>
+        <div
+          style={{
+            width: "100vw",
+            height: "100vh",
+            minHeight: "100vh",
+            overflowX: "hidden",
+            overflowY: "auto",
+            background: "#F7F8FA",
+            fontFamily: "'Inter',Arial,sans-serif",
+          }}
+        >
+          <SettingsView
+            showToast={showToast}
+            selectedId={settingsSelectedId}
+            onSelect={(id) => setSettingsSelectedId(id)}
+            onBack={() => setSettingsSelectedId(null)}
+            onClose={() => {
+              setSettingsSelectedId(null)
+              setView("dashboard")
+            }}
+          />
+        </div>
         <Toasts toasts={toasts} />
       </ToastCtx.Provider>
     )
@@ -25033,7 +27473,10 @@ export default function App() {
                 >
                   <button
                     className={`sap-nav-item${active ? " is-active" : ""}`}
-                    onClick={() => setView(item.id)}
+                    onClick={() => {
+                      if (item.id === "settings") setSettingsSelectedId(null)
+                      setView(item.id)
+                    }}
                     title={item.label}
                     style={{
                       display: "flex",
