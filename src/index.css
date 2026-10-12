@@ -381,13 +381,9 @@ body {
 }
 
 button, input, select, textarea { font: inherit; }
-button:focus-visible {
+button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible {
   outline: 2px solid var(--fiori-focus) !important;
   outline-offset: 1px;
-}
-input:focus, input:focus-visible, select:focus, select:focus-visible, textarea:focus, textarea:focus-visible {
-  outline: none !important;
-  box-shadow: none !important;
 }
 
 .sap-app-shell { background: var(--fiori-page-bg) !important; }
