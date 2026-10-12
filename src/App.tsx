@@ -8,6 +8,12 @@ import React, {
   Fragment,
 } from "react"
 
+import AccessRoles from "./AccessRoles"
+import AccessUsers from "./AccessUsers"
+import type { AccessUser } from "./AccessUsers"
+import { loadRoles, ROLE_STORAGE, USER_STORAGE } from "./access-permissions"
+import type { AccessRole } from "./access-permissions"
+
 const F = {
   shell: "#FFFFFF",
   brand: "#0070F2",
@@ -26,6 +32,90 @@ const F = {
   errorBg: "#FFEAF4",
   infoBg: "#E1F4FF",
   highlight: "#E1F4FF",
+}
+
+type UiIconName =
+  | "edit"
+  | "check"
+  | "upload"
+  | "bolt"
+  | "warning"
+  | "columns"
+  | "grip"
+  | "crown"
+  | "building"
+  | "user"
+  | "chevronDown"
+
+function UiIcon({ name, size = 16 }: { name: UiIconName; size?: number }) {
+  const paths: Record<UiIconName, React.ReactNode> = {
+    edit: (
+      <>
+        <path d="M12 20h9" />
+        <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4Z" />
+      </>
+    ),
+    check: <path d="m5 12 4 4L19 6" />,
+    upload: (
+      <>
+        <path d="M12 16V4m0 0L7 9m5-5 5 5" />
+        <path d="M5 14a4 4 0 0 0 1 7h12a4 4 0 0 0 1-7" />
+      </>
+    ),
+    bolt: <path d="m13 2-8 12h7l-1 8 8-12h-7Z" />,
+    warning: (
+      <>
+        <path d="M10.3 3.6 2.4 18a2 2 0 0 0 1.8 3h15.6a2 2 0 0 0 1.8-3L13.7 3.6a2 2 0 0 0-3.4 0Z" />
+        <path d="M12 9v4m0 4h.01" />
+      </>
+    ),
+    columns: (
+      <>
+        <rect x="3" y="4" width="18" height="16" rx="2" />
+        <path d="M9 4v16m6-16v16" />
+      </>
+    ),
+    grip: (
+      <>
+        <circle cx="8" cy="6" r="1" fill="currentColor" stroke="none" />
+        <circle cx="16" cy="6" r="1" fill="currentColor" stroke="none" />
+        <circle cx="8" cy="12" r="1" fill="currentColor" stroke="none" />
+        <circle cx="16" cy="12" r="1" fill="currentColor" stroke="none" />
+        <circle cx="8" cy="18" r="1" fill="currentColor" stroke="none" />
+        <circle cx="16" cy="18" r="1" fill="currentColor" stroke="none" />
+      </>
+    ),
+    crown: <path d="m3 7 4 4 5-7 5 7 4-4-2 12H5Zm2 12h14" />,
+    building: (
+      <>
+        <path d="M3 21h18M6 21V6l6-3 6 3v15" />
+        <path d="M9 9h.01M15 9h.01M9 13h.01M15 13h.01M9 17h.01M15 17h.01" />
+      </>
+    ),
+    user: (
+      <>
+        <circle cx="12" cy="8" r="4" />
+        <path d="M4 21a8 8 0 0 1 16 0" />
+      </>
+    ),
+    chevronDown: <path d="m6 9 6 6 6-6" />,
+  }
+  return (
+    <svg
+      aria-hidden="true"
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      style={{ display: "inline-block", verticalAlign: "middle", flexShrink: 0 }}
+    >
+      {paths[name]}
+    </svg>
+  )
 }
 
 type ToastType = "success" | "error" | "info" | "warning"
@@ -351,7 +441,7 @@ function UniversalColumnCustomizer({ persona, inline = false }: { persona: strin
         </div>
         <div className="universal-column-list">
           {activeOrder.map((columnIndex) => <div key={`${activeTable?.columns[columnIndex]}-${columnIndex}`} className={`universal-column-option${draggedColumn === columnIndex ? " is-dragging" : ""}`} draggable onDragStart={(event) => { event.dataTransfer.effectAllowed = "move"; setDraggedColumn(columnIndex) }} onDragOver={(event) => event.preventDefault()} onDrop={(event) => { event.preventDefault(); if (draggedColumn !== null) reorderColumn(draggedColumn, columnIndex); setDraggedColumn(null) }} onDragEnd={() => setDraggedColumn(null)}>
-            <span className="universal-column-drag-handle" aria-hidden="true">⠿</span>
+            <span className="universal-column-drag-handle" aria-hidden="true"><UiIcon name="grip" /></span>
             <label><input type="checkbox" checked={!activeHidden.has(columnIndex)} onChange={() => toggleColumn(columnIndex)} /><span>{activeTable?.columns[columnIndex]}</span></label>
           </div>)}
         </div>
@@ -1638,19 +1728,21 @@ function IR({ label, value }: { label: string value: string }) {
   )
 }
 
-// ── SAP F4 Value Help ─────────────────────────────────────────────────────────
+// ── Searchable value help ─────────────────────────────────────────────────────
 function ValueHelp({
   value,
   onChange,
   placeholder,
   values,
   label,
+  selectionOnly = false,
 }: {
   value: string
   onChange: (v: string) => void
   placeholder?: string
   values: string[]
   label?: string
+  selectionOnly?: boolean
 }) {
   const [open, setOpen] = useState(false)
   const [inner, setInner] = useState("")
@@ -1666,7 +1758,7 @@ function ValueHelp({
     setInner("")
   }
 
-  const optionQuery = inner || value
+  const optionQuery = inner || (selectionOnly ? "" : value)
   const filtered = values.filter((v) =>
     !optionQuery || !activeSearch(optionQuery)
       ? true
@@ -1692,6 +1784,7 @@ function ValueHelp({
       <div style={{ position: "relative" }}>
         <input
           value={value}
+          readOnly={selectionOnly}
           onChange={(e) => onChange(e.target.value)}
           onFocus={() => {
             setOpen(true)
@@ -1704,13 +1797,14 @@ function ValueHelp({
           style={{
             ...iSt,
             paddingLeft: 10,
-            paddingRight: value ? 28 : 10,
+            paddingRight: value || selectionOnly ? 32 : 10,
+            cursor: selectionOnly ? "pointer" : undefined,
             border: `1px solid ${open ? F.brand : F.border}`,
             boxShadow: open ? `0 0 0 2px ${F.brand}22` : undefined,
             transition: "border 0.12s, box-shadow 0.12s",
           }}
         />
-        {value && (
+        {value && !selectionOnly && (
           <button
             title="Clear search"
             onMouseDown={(e) => {
@@ -1733,6 +1827,22 @@ function ValueHelp({
           >
             ×
           </button>
+        )}
+        {selectionOnly && (
+          <span
+            aria-hidden="true"
+            style={{
+              position: "absolute",
+              right: 9,
+              top: "50%",
+              transform: "translateY(-50%)",
+              color: F.text3,
+              pointerEvents: "none",
+              display: "flex",
+            }}
+          >
+            <UiIcon name="chevronDown" size={15} />
+          </span>
         )}
       </div>
 
@@ -1847,7 +1957,7 @@ function ValueHelp({
               background: F.pageBg,
             }}
           >
-            <span>F4 Value Help</span>
+            <span>Available Values</span>
             <span>
               {filtered.length} of {values.length}
             </span>
@@ -4097,7 +4207,7 @@ function EmployeeDetailPage({
             <span>Basic Information</span>
             <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
               {editing && <Btn small variant="success" onClick={save}>Save</Btn>}
-              <button aria-label="Edit basic information" onClick={() => { setDraft({ ...emp }); setEditing(true) }} style={{ border: "none", background: "transparent", color: F.brand, cursor: "pointer", fontSize: 17 }}>✎</button>
+              <button aria-label="Edit basic information" onClick={() => { setDraft({ ...emp }); setEditing(true) }} style={{ border: "none", background: "transparent", color: F.brand, cursor: "pointer", fontSize: 17 }}><UiIcon name="edit" /></button>
             </span>
           </div>
           <div
@@ -4451,13 +4561,13 @@ function EmployeeDetailPage({
 
       {activeTab === "overview" && <>
         <div style={{ background: F.card, border: `1px solid ${F.border}`, borderRadius: 10, padding: "20px 22px", marginTop: 14 }}>
-          <div style={{ fontSize: 15, fontWeight: 800, marginBottom: 18, display: "flex", justifyContent: "space-between" }}><span>Statutory Information</span><span>{editingStatutory && <Btn small variant="success" onClick={() => { setEditingStatutory(false); toast("Statutory information saved", "success") }}>Save</Btn>} <button aria-label="Edit statutory information" onClick={() => setEditingStatutory(!editingStatutory)} style={{ border: "none", background: "transparent", color: F.brand, cursor: "pointer", fontSize: 17 }}>✎</button></span></div>
+          <div style={{ fontSize: 15, fontWeight: 800, marginBottom: 18, display: "flex", justifyContent: "space-between" }}><span>Statutory Information</span><span>{editingStatutory && <Btn small variant="success" onClick={() => { setEditingStatutory(false); toast("Statutory information saved", "success") }}>Save</Btn>} <button aria-label="Edit statutory information" onClick={() => setEditingStatutory(!editingStatutory)} style={{ border: "none", background: "transparent", color: F.brand, cursor: "pointer", fontSize: 17 }}><UiIcon name="edit" /></button></span></div>
           <div className="employee-information-grid" style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)", columnGap: 72, rowGap: 16 }}>
             {[ ["EPF rate (%)", "pfRate"], ["TDS rate (%)", "tdsRate"], ["Professional Tax", "professionalTax"], ["Payment Method", "paymentMethod"], ["Account Ending", "bankAccount"], ["IFSC Code", "ifsc"] ].map(([label, field]) => <div key={label} style={{ display: "grid", gridTemplateColumns: "235px 1fr", fontSize: 13, alignItems: "center" }}><span style={{ color: F.text2 }}>{label}</span>{editingStatutory ? (field === "paymentMethod" ? <select style={iSt} value={payroll.paymentMethod} onChange={(e) => setPayroll({ ...payroll, paymentMethod: e.target.value })}><option>Bank transfer</option><option>Cheque</option><option>Cash</option></select> : <input type={field === "ifsc" || field === "bankAccount" ? "text" : "number"} style={iSt} value={payroll[field as "pfRate" | "tdsRate" | "professionalTax" | "bankAccount" | "ifsc"]} onChange={(e) => setPayroll({ ...payroll, [field]: field === "ifsc" || field === "bankAccount" ? e.target.value : Number(e.target.value) })} />) : <strong>{String(payroll[field as "pfRate" | "tdsRate" | "professionalTax" | "paymentMethod" | "bankAccount" | "ifsc"])}</strong>}</div>)}
           </div>
         </div>
         <div style={{ background: F.card, border: `1px solid ${F.border}`, borderRadius: 10, padding: "20px 22px", marginTop: 14 }}>
-          <div style={{ fontSize: 15, fontWeight: 800, marginBottom: 18, display: "flex", justifyContent: "space-between" }}><span>Personal Information</span><span>{editingPersonal && <Btn small variant="success" onClick={() => { setEditingPersonal(false); toast("Personal information saved", "success") }}>Save</Btn>} <button aria-label="Edit personal information" onClick={() => setEditingPersonal(!editingPersonal)} style={{ border: "none", background: "transparent", color: F.brand, cursor: "pointer", fontSize: 17 }}>✎</button></span></div>
+          <div style={{ fontSize: 15, fontWeight: 800, marginBottom: 18, display: "flex", justifyContent: "space-between" }}><span>Personal Information</span><span>{editingPersonal && <Btn small variant="success" onClick={() => { setEditingPersonal(false); toast("Personal information saved", "success") }}>Save</Btn>} <button aria-label="Edit personal information" onClick={() => setEditingPersonal(!editingPersonal)} style={{ border: "none", background: "transparent", color: F.brand, cursor: "pointer", fontSize: 17 }}><UiIcon name="edit" /></button></span></div>
           <div className="employee-information-grid" style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)", columnGap: 72, rowGap: 16 }}>
             {[ ["Date of Birth", "dateOfBirth"], ["Personal Email", "personalEmail"], ["Father's Name", "fatherName"], ["Residential Address", "address"], ["PAN", "pan"], ["Differently Abled Type", "differentlyAbled"] ].map(([label, field]) => <div key={label} style={{ display: "grid", gridTemplateColumns: "235px 1fr", fontSize: 13, alignItems: "center" }}><span style={{ color: F.text2 }}>{label}</span>{editingPersonal ? <input style={iSt} maxLength={field === "dateOfBirth" ? 10 : undefined} value={personalInfo[field as keyof typeof personalInfo]} onChange={(e) => setPersonalInfo({ ...personalInfo, [field]: field === "dateOfBirth" ? limitDateYear(e.target.value) : e.target.value })} /> : <strong>{personalInfo[field as keyof typeof personalInfo]}</strong>}</div>)}
           </div>
@@ -4467,7 +4577,7 @@ function EmployeeDetailPage({
       {activeTab === "salary" && (
         <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1.35fr) minmax(280px, 0.65fr)", gap: 14 }}>
           <div style={{ gridColumn: "1 / -1", background: F.card, border: `1px solid ${F.border}`, borderRadius: 8, overflow: "hidden" }}>
-              <div style={{ padding: "18px 20px", fontSize: 22, fontWeight: 500, borderBottom: `1px solid ${F.border}`, display: "flex", justifyContent: "space-between" }}><span>{emp.name.split(" ")[0]}'s salary details</span><button aria-label="Edit salary details" onClick={() => setEditingPayroll(true)} style={{ border: "none", background: "transparent", color: F.brand, cursor: "pointer", fontSize: 18 }}>✎</button></div>
+              <div style={{ padding: "18px 20px", fontSize: 22, fontWeight: 500, borderBottom: `1px solid ${F.border}`, display: "flex", justifyContent: "space-between" }}><span>{emp.name.split(" ")[0]}'s salary details</span><button aria-label="Edit salary details" onClick={() => setEditingPayroll(true)} style={{ border: "none", background: "transparent", color: F.brand, cursor: "pointer", fontSize: 18 }}><UiIcon name="edit" /></button></div>
             <div style={{ padding: "18px 20px" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 22, marginBottom: 22 }}><strong>Annual CTC <span style={{ color: F.error }}>*</span></strong>{editingPayroll ? <input type="number" aria-label="Annual CTC" style={{ ...iSt, width: 310, fontSize: 16 }} value={annualCtc} onChange={(e) => setAnnualCtc(Number(e.target.value))} /> : <strong style={{ fontSize: 17 }}>{inr(annualCtc)} <span style={{ fontSize: 12, color: F.text3, fontWeight: 500 }}>per year</span></strong>}</div>
               <table style={{ width: "100%", borderCollapse: "collapse", border: `1px solid ${F.border}` }}><thead><tr><Th>Salary components</Th><Th>Calculation type</Th><Th right>Monthly amount</Th><Th right>Annual amount</Th></tr></thead><tbody><TrH><Td colSpan={4} style={{ fontWeight: 800, padding: "16px" }}>Earnings</Td></TrH>{([["Basic", "basic"], ["House Rent Allowance", "hra"], ["Fixed Allowance", "fixedAllowance"], ["Special Allowance", "specialAllowance"]] as [string, "basic" | "hra" | "fixedAllowance" | "specialAllowance"][]).map(([label, field]) => { const monthlyCtcBase = annualCtc / 12; const percentage = field === "basic" ? Math.round((payroll.basic / monthlyCtcBase) * 100) : field === "hra" ? Math.round((payroll.hra / payroll.basic) * 100) : 0; return <TrH key={field}><Td>{label}</Td><Td>{editingPayroll ? <div style={{ display: "flex", maxWidth: 260 }}><select aria-label={`${label} calculation type`} style={{ ...iSt, borderRadius: "6px 0 0 6px", minWidth: 130 }} value={calculationType[field]} onChange={(e) => setCalculationType({ ...calculationType, [field]: e.target.value })}><option>Fixed amount</option><option>% of CTC</option><option>% of Basic</option></select>{calculationType[field] !== "Fixed amount" && <input aria-label={`${label} percentage`} type="number" min="0" max="100" style={{ ...iSt, width: 75, borderRadius: "0 6px 6px 0", marginLeft: -1 }} value={percentage} onChange={(e) => { const pct = Number(e.target.value); if (field === "basic") setPayroll({ ...payroll, basic: Math.round(monthlyCtcBase * pct / 100) }); if (field === "hra") setPayroll({ ...payroll, hra: Math.round(payroll.basic * pct / 100) }) }} />}</div> : calculationType[field] === "Fixed amount" ? "Fixed amount" : `${percentage}% ${calculationType[field] === "% of CTC" ? "of CTC" : "of Basic"}`}</Td><Td right>{editingPayroll ? <input type="number" style={{ ...iSt, width: 150 }} value={payroll[field]} onChange={(e) => setPayroll({ ...payroll, [field]: Number(e.target.value) })} /> : inr(payroll[field])}</Td><Td right>{inr(payroll[field] * 12)}</Td></TrH>})}<TrH><Td colSpan={2} style={{ fontWeight: 800, background: "#EAF3FF", padding: "16px" }}>Cost to Company</Td><Td right style={{ fontWeight: 800, background: "#EAF3FF" }}>{inr(gross)}</Td><Td right style={{ fontWeight: 800, background: "#EAF3FF" }}>{inr(gross * 12)}</Td></TrH></tbody></table>
@@ -4796,7 +4906,7 @@ function AddEmployeeWizardPage({
                       fontWeight: 700,
                     }}
                   >
-                    {isDone ? "✓" : s.num}
+                    {isDone ? <UiIcon name="check" size={15} /> : s.num}
                   </div>
                   <span
                     style={{
@@ -5997,7 +6107,7 @@ Deepak Joshi,deepak.joshi@naxrita.in,Finance,Finance Analyst,2026-09-01,Full-Tim
                 >
                   {isDone ? (
                     <span style={{ color: "#FFFFFF", fontWeight: 800, fontSize: 14 }}>
-                      ✓
+                      <UiIcon name="check" size={16} />
                     </span>
                   ) : (
                     <span
@@ -6082,7 +6192,7 @@ Deepak Joshi,deepak.joshi@naxrita.in,Finance,Finance Analyst,2026-09-01,Full-Tim
                 color: F.brand,
               }}
             >
-              ☁️
+              <UiIcon name="upload" size={30} />
             </div>
             <div style={{ fontSize: 17, fontWeight: 800, color: F.text1, marginBottom: 6 }}>
               Drop your CSV file here
@@ -6107,7 +6217,7 @@ Deepak Joshi,deepak.joshi@naxrita.in,Finance,Finance Analyst,2026-09-01,Full-Tim
                 Browse CSV File
               </Btn>
               <Btn variant="secondary" onClick={loadDemoCSV}>
-                ⚡ Load Sample Demo CSV
+                <UiIcon name="bolt" /> Load Sample Demo CSV
               </Btn>
             </div>
           </div>
@@ -6156,7 +6266,7 @@ Deepak Joshi,deepak.joshi@naxrita.in,Finance,Finance Analyst,2026-09-01,Full-Tim
                     fontSize: 12,
                   }}
                 >
-                  <span style={{ color: F.success, fontWeight: 800 }}>✓</span>
+                  <span style={{ color: F.success, fontWeight: 800 }}><UiIcon name="check" size={15} /></span>
                   <span style={{ color: F.text1, fontWeight: 600 }}>{col}</span>
                 </div>
               ))}
@@ -6213,7 +6323,7 @@ Deepak Joshi,deepak.joshi@naxrita.in,Finance,Finance Analyst,2026-09-01,Full-Tim
                   color: F.success,
                 }}
               >
-                ✓ {validCount} Valid Records
+                <UiIcon name="check" size={15} /> {validCount} Valid Records
               </span>
               <span
                 style={{
@@ -6377,7 +6487,7 @@ Deepak Joshi,deepak.joshi@naxrita.in,Finance,Finance Analyst,2026-09-01,Full-Tim
                 fontSize: 28,
               }}
             >
-              ✓
+              <UiIcon name="check" size={30} />
             </div>
             <h2
               style={{
@@ -6999,7 +7109,7 @@ function EmployeesView({
           }}
         >
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <span style={{ fontSize: 15 }}>⚠️</span>
+            <span style={{ fontSize: 15 }}><UiIcon name="warning" size={17} /></span>
             <span>
               You have{" "}
               <strong>
@@ -7319,8 +7429,8 @@ function EmployeesView({
       )}
 
       <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 10, position: "relative" }}>
-        <Btn small variant="secondary" onClick={() => setShowColumnManager(!showColumnManager)}>☷ Columns</Btn>
-        {showColumnManager && <div style={{ position: "absolute", top: 34, right: 0, zIndex: 5, width: 330, background: F.card, border: `1px solid ${F.border}`, borderRadius: 8, padding: 12, boxShadow: "0 8px 24px rgba(15,23,42,0.18)" }}><div style={{ fontSize: 13, fontWeight: 800, marginBottom: 8 }}>Table columns</div><div style={{ fontSize: 11, color: F.text2, marginBottom: 10 }}>Drag the ⠿ handle to rearrange. Check columns to show or hide them.</div>{employeeColumns.map((column) => <div key={column.id} draggable onDragStart={() => setDraggedColumnId(column.id)} onDragOver={(event) => event.preventDefault()} onDrop={() => dropEmployeeColumn(column.id)} onDragEnd={() => setDraggedColumnId(null)} style={{ display: "grid", gridTemplateColumns: "18px 22px 1fr", alignItems: "center", gap: 7, padding: "8px 4px", borderRadius: 5, cursor: "grab", background: draggedColumnId === column.id ? F.infoBg : "transparent", border: `1px solid ${draggedColumnId === column.id ? F.brand : "transparent"}` }}><span title="Drag to rearrange" style={{ color: F.text3, fontSize: 16, letterSpacing: -2 }}>⠿</span><input type="checkbox" checked={column.visible} onClick={(event) => event.stopPropagation()} onChange={() => setEmployeeColumns(employeeColumns.map((item) => item.id === column.id ? { ...item, visible: !item.visible } : item))} /><span style={{ fontSize: 12, fontWeight: 600 }}>{column.label}</span></div>)}</div>}
+        <Btn small variant="secondary" onClick={() => setShowColumnManager(!showColumnManager)}><UiIcon name="columns" /> Columns</Btn>
+        {showColumnManager && <div style={{ position: "absolute", top: 34, right: 0, zIndex: 5, width: 330, background: F.card, border: `1px solid ${F.border}`, borderRadius: 8, padding: 12, boxShadow: "0 8px 24px rgba(15,23,42,0.18)" }}><div style={{ fontSize: 13, fontWeight: 800, marginBottom: 8 }}>Table columns</div><div style={{ fontSize: 11, color: F.text2, marginBottom: 10 }}>Drag the handle to rearrange. Check columns to show or hide them.</div>{employeeColumns.map((column) => <div key={column.id} draggable onDragStart={() => setDraggedColumnId(column.id)} onDragOver={(event) => event.preventDefault()} onDrop={() => dropEmployeeColumn(column.id)} onDragEnd={() => setDraggedColumnId(null)} style={{ display: "grid", gridTemplateColumns: "18px 22px 1fr", alignItems: "center", gap: 7, padding: "8px 4px", borderRadius: 5, cursor: "grab", background: draggedColumnId === column.id ? F.infoBg : "transparent", border: `1px solid ${draggedColumnId === column.id ? F.brand : "transparent"}` }}><span title="Drag to rearrange" style={{ color: F.text3, fontSize: 16 }}><UiIcon name="grip" /></span><input type="checkbox" checked={column.visible} onClick={(event) => event.stopPropagation()} onChange={() => setEmployeeColumns(employeeColumns.map((item) => item.id === column.id ? { ...item, visible: !item.visible } : item))} /><span style={{ fontSize: 12, fontWeight: 600 }}>{column.label}</span></div>)}</div>}
       </div>
 
       <div style={{ background: F.card, border: `1px solid ${F.border}`, borderRadius: 8, overflow: "hidden" }}>
@@ -9847,7 +9957,7 @@ function PayRunsView({
         ? `${runSelectedIds.length} selected employee${runSelectedIds.length !== 1 ? "s" : ""}`
         : "Full organization payroll batch"
 
-  const f4Periods = Array.from(new Set(payruns.map((p) => p.period)))
+  const availablePeriods = Array.from(new Set(payruns.map((p) => p.period)))
   const availableYears = Array.from(new Set(payruns.map((p) => String(p.year)))).sort().reverse()
 
   // Handle Filter Go Action
@@ -10320,7 +10430,7 @@ function PayRunsView({
                                 : "none",
                           }}
                         >
-                          {complete ? "✓" : index + 1}
+                          {complete ? <UiIcon name="check" size={15} /> : index + 1}
                         </div>
                         <div
                           style={{
@@ -10635,14 +10745,14 @@ function PayRunsView({
                   alignItems: "flex-end",
                 }}
               >
-                {/* 1. Search Pay Period (F4 Search) */}
+                {/* Search pay period */}
                 <div style={{ gridColumn: "span 2", minWidth: 260 }}>
                   <ValueHelp
-                    label="Search Pay Period (F4 Search)"
+                    label="Search Pay Period"
                     value={periodDraft}
                     onChange={setPeriodDraft}
                     placeholder="Search pay period (press Go to apply)…"
-                    values={f4Periods}
+                    values={availablePeriods}
                   />
                 </div>
                 <ContextDateRangeFilter />
@@ -12212,652 +12322,230 @@ function ReportsView({
   )
 }
 
-interface UserRow {
-  name: string
-  role: "Org Admin" | "Employee"
-  status: "Active" | "Locked"
-}
-interface UserRow {
-  name: string
-  role: "Org Admin" | "Employee"
-  status: "Active" | "Locked"
-  department?: string
-  scope?: string
-}
-
 function AccessManagementView({ emps }: { emps: Employee[] }) {
   const toast = useToast()
+  const [accessTab, setAccessTab] = useState<"users" | "roles">("users")
+  const [roles, setRoles] = useState<AccessRole[]>(loadRoles)
+  const roleOptions = [
+    "Org Admin",
+    "Employee",
+    ...roles.filter((role) => role.id !== "admin").map((role) => role.name),
+  ]
+  const roleScope = (role: string) =>
+    role === "Org Admin"
+      ? "Full Admin Access"
+      : role === "Employee"
+        ? "Self-Service Only"
+        : `Role: ${role}`
 
-  // Initialize users roster with rich metadata
-  const [users, setUsers] = useState<UserRow[]>([
-    {
-      name: "Meena Iyer",
-      role: "Org Admin",
-      status: "Active",
-      department: "Executive & Admin",
-      scope: "Full Admin Access",
-    },
-    ...emps
-      .filter((e) => e.id !== "EMP-003")
-      .map((e) => ({
-        name: e.name,
-        role: "Employee" as const,
-        status: e.id === "EMP-006" ? ("Locked" as const) : ("Active" as const),
-        department: e.department || "Operations",
-        scope: "Self-Service Only",
-      })),
-  ])
-
-  // Filter Bar state: Draft inputs + Applied filters
-  const [showFilterBar, setShowFilterBar] = useState(true)
-
-  const [searchDraft, setSearchDraft] = useState("")
-  const [roleDraft, setRoleDraft] = useState("all")
-  const [statusDraft, setStatusDraft] = useState("all")
-  const [deptDraft, setDeptDraft] = useState("all")
-  const [scopeDraft, setScopeDraft] = useState("all")
-  const [userPage, setUserPage] = useState(1)
-  const [hasRunUserSearch, setHasRunUserSearch] = useState(false)
-
-  const [appliedSearch, setAppliedSearch] = useState("")
-  const [appliedRole, setAppliedRole] = useState("all")
-  const [appliedStatus, setAppliedStatus] = useState("all")
-  const [appliedDept, setAppliedDept] = useState("all")
-  const [appliedScope, setAppliedScope] = useState("all")
-
-  const [showAdd, setShowAdd] = useState(false)
-  const [newUser, setNewUser] = useState({
-    name: "",
-    role: "Employee" as UserRow["role"],
-    department: "Engineering",
-  })
-  const [editUser, setEditUser] = useState<UserRow | null>(null)
-  const [confirm, setConfirm] = useState<{
-    msg: string
-    onOk: () => void
-  } | null>(null)
-
-  const f4UserNames = Array.from(new Set(users.map((u) => u.name)))
-  const availableDepts = Array.from(new Set(users.map((u) => u.department || "Operations")))
-
-  // Execute filter search on "Go"
-  const handleGo = () => {
-    setHasRunUserSearch(true)
-    setUserPage(1)
-    setAppliedSearch(searchDraft)
-    setAppliedRole(roleDraft)
-    setAppliedStatus(statusDraft)
-    setAppliedDept(deptDraft)
-    setAppliedScope(scopeDraft)
-    toast("Filters applied", "info")
-  }
-
-  // Clear all filters
-  const handleClear = () => {
-    setHasRunUserSearch(false)
-    setUserPage(1)
-    setSearchDraft("")
-    setRoleDraft("all")
-    setStatusDraft("all")
-    setDeptDraft("all")
-    setScopeDraft("all")
-
-    setAppliedSearch("")
-    setAppliedRole("all")
-    setAppliedStatus("all")
-    setAppliedDept("all")
-    setAppliedScope("all")
-
-    toast("All filters cleared", "info")
-  }
-
-  // Filter evaluation logic
-  const filteredUsers = hasRunUserSearch ? users.filter((u) => {
-    if (!searchMatches(appliedSearch, [u.name, u.role])) {
-      return false
-    }
-    if (appliedRole !== "all" && u.role !== appliedRole) {
-      return false
-    }
-    if (appliedStatus !== "all" && u.status !== appliedStatus) {
-      return false
-    }
-    if (appliedDept !== "all" && u.department !== appliedDept) {
-      return false
-    }
-    if (appliedScope !== "all" && u.scope !== appliedScope) {
-      return false
-    }
-    return true
-  }) : []
-  const paginatedUsers = filteredUsers.slice((userPage - 1) * 10, userPage * 10)
-
-  const toggleLock = (u: UserRow) => {
-    const next = u.status === "Active" ? "Locked" : "Active"
-    setConfirm({
-      msg: `${next === "Locked" ? "Lock" : "Unlock"} access for ${u.name}?`,
-      onOk: () => {
-        setUsers(
-          users.map((x) => (x.name === u.name ? { ...x, status: next } : x)),
+  const [users, setUsers] = useState<AccessUser[]>(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem(USER_STORAGE) || "null")
+      if (
+        Array.isArray(saved) &&
+        saved.every(
+          (user) =>
+            user &&
+            typeof user.name === "string" &&
+            typeof user.role === "string" &&
+            ["Active", "Locked"].includes(user.status),
         )
-        toast(
-          `${u.name} ${next === "Locked" ? "locked" : "unlocked"}`,
-          "success",
-        )
-        setConfirm(null)
-      },
-    })
-  }
+      ) {
+        return saved.map((user, index) => ({
+          ...user,
+          id:
+            user.id ||
+            `access-user-${index}-${user.name
+              .toLowerCase()
+              .replace(/[^a-z0-9]+/g, "-")}`,
+          email:
+            user.email ||
+            emps.find((employee) => employee.name === user.name)?.email ||
+            `${user.name
+              .toLowerCase()
+              .replace(/[^a-z0-9]+/g, ".")}@naxpayroll.com`,
+        }))
+      }
+    } catch {
+      // Use the application roster when stored user data is unavailable.
+    }
 
-  const addUser = () => {
-    if (!newUser.name) return toast("Name is required", "error")
-    setUsers([
-      ...users,
+    return [
       {
-        ...newUser,
+        id: "access-admin-meena-iyer",
+        name: "Meena Iyer",
+        email:
+          emps.find((employee) => employee.name === "Meena Iyer")?.email ||
+          "meena.iyer@naxpayroll.com",
+        role: "Org Admin",
         status: "Active",
-        scope: newUser.role === "Org Admin" ? "Full Admin Access" : "Self-Service Only",
+        department: "Executive & Admin",
+        scope: "Full Admin Access",
+        isOrganizationAdmin: true,
       },
-    ])
-    setShowAdd(false)
-    setNewUser({ name: "", role: "Employee", department: "Engineering" })
-    toast(`${newUser.name} added as ${newUser.role}`, "success")
+      ...emps
+        .filter((employee) => employee.id !== "EMP-003")
+        .map((employee) => ({
+          id: `access-${employee.id.toLowerCase()}`,
+          name: employee.name,
+          email: employee.email,
+          role: "Employee",
+          status:
+            employee.id === "EMP-006"
+              ? ("Locked" as const)
+              : ("Active" as const),
+          department: employee.department || "Operations",
+          scope: "Self-Service Only",
+        })),
+    ]
+  })
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(USER_STORAGE, JSON.stringify(users))
+    } catch {
+      toast("User changes could not be saved in this browser.", "error")
+    }
+  }, [users])
+
+  const assignedCount = (role: AccessRole) =>
+    users.filter(
+      (user) =>
+        user.role === (role.id === "admin" ? "Org Admin" : role.name),
+    ).length
+
+  const saveRole = (role: AccessRole) => {
+    const previous = roles.find((item) => item.id === role.id)
+    if (previous?.builtin) return false
+
+    const nextRoles = previous
+      ? roles.map((item) => (item.id === role.id ? role : item))
+      : [...roles, role]
+    const nextUsers = previous
+      ? users.map((user) =>
+          user.role === previous.name
+            ? { ...user, role: role.name, scope: roleScope(role.name) }
+            : user,
+        )
+      : users
+
+    try {
+      localStorage.setItem(
+        ROLE_STORAGE,
+        JSON.stringify(nextRoles.filter((item) => !item.builtin)),
+      )
+      localStorage.setItem(USER_STORAGE, JSON.stringify(nextUsers))
+    } catch {
+      toast("Unable to save this role. Check browser storage and try again.", "error")
+      return false
+    }
+
+    setRoles(nextRoles)
+    setUsers(nextUsers)
+    toast("Role saved successfully", "success")
+    return true
   }
 
-  const saveEditUser = () => {
-    if (!editUser) return
-    setUsers(users.map((u) => (u.name === editUser.name ? editUser : u)))
-    setEditUser(null)
-    toast("User role updated successfully", "success")
-  }
+  const deleteRole = (role: AccessRole) => {
+    if (role.builtin) return false
+    if (assignedCount(role)) {
+      toast("Reassign all users before deleting this role.", "error")
+      return false
+    }
 
-  const orgAdminsCount = users.filter((u) => u.role === "Org Admin").length
-  const employeesCount = users.filter((u) => u.role === "Employee").length
-  const lockedCount = users.filter((u) => u.status === "Locked").length
-  const activeFiltersCount =
-    (activeSearch(appliedSearch) ? 1 : 0) +
-    (appliedRole !== "all" ? 1 : 0) +
-    (appliedStatus !== "all" ? 1 : 0) +
-    (appliedDept !== "all" ? 1 : 0) +
-    (appliedScope !== "all" ? 1 : 0)
+    const nextRoles = roles.filter((item) => item.id !== role.id)
+    try {
+      localStorage.setItem(
+        ROLE_STORAGE,
+        JSON.stringify(nextRoles.filter((item) => !item.builtin)),
+      )
+    } catch {
+      toast("Unable to delete this role from browser storage.", "error")
+      return false
+    }
+
+    setRoles(nextRoles)
+    toast("Role deleted", "success")
+    return true
+  }
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
       <PH
         title="Access Management & Roles"
         sub="Configure user accounts, role assignments, and security permissions"
-        action={
-          <>
-          <Btn onClick={() => setShowAdd(true)}>+ Add User</Btn>
-          <Btn variant="secondary" onClick={() => toast("User roster exported", "info")}>
-            Download User List
-          </Btn>
-          </>
-        }
       />
 
-      {/* 4 KPI Summary Cards */}
       <div
+        role="tablist"
+        aria-label="Access management"
         style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-          gap: 16,
+          display: "flex",
+          gap: 4,
+          borderBottom: `1px solid ${F.border}`,
         }}
       >
-        <EmployeeMetricCard
-          label="Total Users"
-          value={`${users.length} Users`}
-          sub="Registered organization platform logins"
-          accent={F.brand}
-          badgeText="Active Roster"
-          badgeBg={F.infoBg}
-          badgeColor={F.brand}
-          progress={100}
-        />
-        <EmployeeMetricCard
-          label="Organization Admins"
-          value={`${orgAdminsCount} Admin`}
-          sub="Full administrative & payroll execution rights"
-          accent="#8B5CF6"
-          badgeText="Admin"
-          badgeBg="#F5F3FF"
-          badgeColor="#7C3AED"
-          progress={100}
-        />
-        <EmployeeMetricCard
-          label="Employee Self-Service"
-          value={`${employeesCount} Employees`}
-          sub="Restricted to own salary, payslips & tax data"
-          accent={F.success}
-          badgeText="Standard Access"
-          badgeBg={F.successBg}
-          badgeColor={F.success}
-          progress={100}
-        />
-        <EmployeeMetricCard
-          label="Account Security"
-          value={`${lockedCount} Locked`}
-          sub={lockedCount > 0 ? "Accounts restricted from sign-in" : "All user accounts active"}
-          accent={lockedCount > 0 ? F.warning : F.text3}
-          badgeText={lockedCount > 0 ? "Security Alert" : "Protected"}
-          badgeBg={lockedCount > 0 ? F.warningBg : F.pageBg}
-          badgeColor={lockedCount > 0 ? F.warning : F.text2}
-          progress={100}
-        />
-      </div>
-
-      {/* SAP Fiori Filter Bar Panel */}
-      <div
-        style={{
-          background: F.card,
-          border: `1px solid ${F.border}`,
-          borderRadius: 8,
-          boxShadow: "0 1px 3px rgba(0,0,0,0.02)",
-          // Let the value-help suggestions extend beyond the filter row.
-          // The filter panel stays above the results card while the menu is open.
-          overflow: "visible",
-          position: "relative",
-          zIndex: 2,
-        }}
-      >
-        {/* Filter Bar Action Bar Header */}
-        <div
-          style={{
-            padding: "12px 18px",
-            borderBottom: showFilterBar ? `1px solid ${F.border}` : "none",
-            background: F.card,
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            flexWrap: "wrap",
-            gap: 12,
-          }}
-        >
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <span style={{ fontSize: 13, fontWeight: 700, color: F.text1 }}>
-              Filter Bar
-            </span>
-            {activeFiltersCount > 0 && (
-              <span
-                style={{
-                  fontSize: 11,
-                  fontWeight: 700,
-                  color: F.brand,
-                  background: F.infoBg,
-                  padding: "2px 8px",
-                  borderRadius: 12,
-                }}
-              >
-                {activeFiltersCount} Active Filter{activeFiltersCount !== 1 ? "s" : ""}
-              </span>
-            )}
-          </div>
-
-          {/* Action Row: Go, Clear Filters, Hide/Show Filter Bar */}
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <Btn onClick={handleGo} style={{ height: 34, padding: "0 18px", fontWeight: 700 }}>
-              Go
-            </Btn>
-            <Btn variant="secondary" onClick={handleClear} style={{ height: 34 }}>
-              Clear Filters
-            </Btn>
-            <Btn
-              variant="secondary"
-              onClick={() => setShowFilterBar(!showFilterBar)}
-              style={{ height: 34 }}
-            >
-              {showFilterBar ? "Hide Filter Bar" : "Show Filter Bar"}
-            </Btn>
-          </div>
-        </div>
-
-        {/* Collapsible Filter Inputs Panel */}
-        {showFilterBar && (
-          <div
+        {(["users", "roles"] as const).map((tab) => (
+          <button
+            key={tab}
+            id={`access-tab-${tab}`}
+            role="tab"
+            aria-selected={accessTab === tab}
+            aria-controls={`access-panel-${tab}`}
+            onClick={() => setAccessTab(tab)}
             style={{
-              padding: "16px 18px",
-              background: F.card,
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
-              gap: 14,
-              alignItems: "flex-end",
+              padding: "12px 22px",
+              border: "none",
+              borderBottom: `3px solid ${
+                accessTab === tab ? F.brand : "transparent"
+              }`,
+              background: "transparent",
+              color: accessTab === tab ? F.brand : F.text2,
+              fontWeight: 700,
+              cursor: "pointer",
+              fontFamily: "inherit",
             }}
           >
-            {/* 1. Search User (F4 Search) */}
-            <div style={{ gridColumn: "span 2", minWidth: 260 }}>
-              <ValueHelp
-                label="Search User (F4 Search)"
-                value={searchDraft}
-                onChange={setSearchDraft}
-                placeholder="Search user name or role (press Go to apply)…"
-                values={f4UserNames}
-              />
-            </div>
-
-            {/* 2. Role Filter */}
-            <div>
-              <div
-                style={{
-                  fontSize: 11,
-                  fontWeight: 600,
-                  color: F.text2,
-                  marginBottom: 3,
-                  textTransform: "uppercase",
-                  letterSpacing: "0.06em",
-                }}
-              >
-                Role Filter
-              </div>
-              <select
-                value={roleDraft}
-                onChange={(e) => setRoleDraft(e.target.value)}
-                style={{ ...iSt, cursor: "pointer" }}
-              >
-                <option value="all">All Roles</option>
-                <option value="Org Admin">Org Admin</option>
-                <option value="Employee">Employee</option>
-              </select>
-            </div>
-
-            {/* 3. Account Status Filter */}
-            <div>
-              <div
-                style={{
-                  fontSize: 11,
-                  fontWeight: 600,
-                  color: F.text2,
-                  marginBottom: 3,
-                  textTransform: "uppercase",
-                  letterSpacing: "0.06em",
-                }}
-              >
-                Account Status
-              </div>
-              <select
-                value={statusDraft}
-                onChange={(e) => setStatusDraft(e.target.value)}
-                style={{ ...iSt, cursor: "pointer" }}
-              >
-                <option value="all">All Statuses</option>
-                <option value="Active">Active</option>
-                <option value="Locked">Locked</option>
-              </select>
-            </div>
-
-            {/* 4. Department Filter */}
-            <div>
-              <div
-                style={{
-                  fontSize: 11,
-                  fontWeight: 600,
-                  color: F.text2,
-                  marginBottom: 3,
-                  textTransform: "uppercase",
-                  letterSpacing: "0.06em",
-                }}
-              >
-                Department
-              </div>
-              <select
-                value={deptDraft}
-                onChange={(e) => setDeptDraft(e.target.value)}
-                style={{ ...iSt, cursor: "pointer" }}
-              >
-                <option value="all">All Departments</option>
-                {availableDepts.map((d) => (
-                  <option key={d} value={d}>
-                    {d}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* 5. Permission Scope Filter */}
-            <div>
-              <div
-                style={{
-                  fontSize: 11,
-                  fontWeight: 600,
-                  color: F.text2,
-                  marginBottom: 3,
-                  textTransform: "uppercase",
-                  letterSpacing: "0.06em",
-                }}
-              >
-                Access Scope
-              </div>
-              <select
-                value={scopeDraft}
-                onChange={(e) => setScopeDraft(e.target.value)}
-                style={{ ...iSt, cursor: "pointer" }}
-              >
-                <option value="all">All Scopes</option>
-                <option value="Full Admin Access">Full Admin Access</option>
-                <option value="Self-Service Only">Self-Service Only</option>
-              </select>
-            </div>
-          </div>
-        )}
+            {tab === "users"
+              ? `Users (${users.length})`
+              : `Roles (${roles.length})`}
+          </button>
+        ))}
       </div>
 
-      {/* User Roster Table */}
       <div
-        style={{
-          background: F.card,
-          border: `1px solid ${F.border}`,
-          borderRadius: 8,
-          overflow: "hidden",
-          boxShadow: "0 1px 3px rgba(0,0,0,0.03)",
-        }}
+        id="access-panel-roles"
+        role="tabpanel"
+        aria-labelledby="access-tab-roles"
+        hidden={accessTab !== "roles"}
       >
-        <div
-          style={{
-            padding: "16px 20px",
-            borderBottom: `1px solid ${F.border}`,
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-          }}
-        >
-          <div>
-            <h2 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: F.text1 }}>
-              Platform User Roster
-            </h2>
-            <div style={{ fontSize: 12, color: F.text2, marginTop: 2 }}>
-              Showing {filteredUsers.length} of {users.length} registered user accounts
-            </div>
-          </div>
-        </div>
-
-        <div style={{ overflowX: "auto" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 700, fontSize: 13 }}>
-            <thead>
-              <tr
-                style={{
-                  borderBottom: `1px solid ${F.border}`,
-                  background: F.pageBg,
-                  color: F.text2,
-                  fontSize: 11,
-                  fontWeight: 700,
-                  textTransform: "uppercase",
-                }}
-              >
-                <th style={{ padding: "12px 18px", textAlign: "left" }}>Platform User</th>
-                <th style={{ padding: "12px 14px", textAlign: "left" }}>Assigned Role</th>
-                <th style={{ padding: "12px 14px", textAlign: "left" }}>Department</th>
-                <th style={{ padding: "12px 14px", textAlign: "left" }}>Permission Scope</th>
-                <th style={{ padding: "12px 14px", textAlign: "center" }}>Account Status</th>
-                <th style={{ padding: "12px 18px", textAlign: "right" }}>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredUsers.length === 0 ? (
-                <tr>
-                  <td colSpan={6} style={{ padding: 44, textAlign: "center", color: F.text3 }}>
-                    No platform users match your filter criteria. Click "Clear Filters" or adjust search.
-                  </td>
-                </tr>
-              ) : (
-                paginatedUsers.map((u) => (
-                  <tr
-                    key={u.name}
-                    style={{
-                      borderBottom: `1px solid ${F.border}60`,
-                      transition: "background 0.12s ease",
-                    }}
-                    onMouseEnter={(e) => (e.currentTarget.style.background = F.pageBg)}
-                    onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
-                  >
-                    <td style={{ padding: "14px 18px" }}>
-                      <strong style={{ color: F.text1 }}>{u.name}</strong>
-                    </td>
-                    <td style={{ padding: "14px 14px" }}>
-                      <Badge
-                        label={u.role}
-                        color={u.role === "Org Admin" ? F.brand : F.text2}
-                        bg={u.role === "Org Admin" ? F.infoBg : F.pageBg}
-                      />
-                    </td>
-                    <td style={{ padding: "14px 14px", color: F.text2 }}>
-                      {u.department || "Operations"}
-                    </td>
-                    <td style={{ padding: "14px 14px", color: F.text3, fontSize: 12 }}>
-                      {u.scope || "Self-Service Only"}
-                    </td>
-                    <td style={{ padding: "14px 14px", textAlign: "center" }}>
-                      <Badge
-                        label={u.status}
-                        color={u.status === "Active" ? F.success : F.error}
-                        bg={u.status === "Active" ? F.successBg : F.errorBg}
-                        dot={u.status === "Active" ? F.success : F.error}
-                      />
-                    </td>
-                    <td style={{ padding: "14px 18px", textAlign: "right" }}>
-                      <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-                        <Btn small variant="secondary" onClick={() => setEditUser({ ...u })}>
-                          Edit Role
-                        </Btn>
-                        <Btn
-                          small
-                          variant="secondary"
-                          onClick={() => toggleLock(u)}
-                          style={{
-                            color: u.status === "Active" ? F.error : F.success,
-                          }}
-                        >
-                          {u.status === "Active" ? "Lock" : "Unlock"}
-                        </Btn>
-                        <Btn
-                          small
-                          variant="secondary"
-                          onClick={() => toast(`Password reset email sent to ${u.name}`, "info")}
-                        >
-                          Reset Pwd
-                        </Btn>
-                      </div>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-        <Pagination page={userPage} pageSize={10} total={filteredUsers.length} onPageChange={setUserPage} />
+        <AccessRoles
+          roles={roles}
+          onSave={saveRole}
+          onDelete={deleteRole}
+          assignedCount={assignedCount}
+        />
       </div>
 
-      {/* Add User Modal */}
-      {showAdd && (
-        <Modal title="Add New Platform User" onClose={() => setShowAdd(false)}>
-          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-            <Fld label="User Full Name">
-              <input
-                value={newUser.name}
-                onChange={(e) => setNewUser({ ...newUser, name: e.target.value })}
-                placeholder="Enter name (e.g. Ananya Roy)"
-                style={iSt}
-              />
-            </Fld>
-            <Fld label="Department">
-              <select
-                value={newUser.department}
-                onChange={(e) => setNewUser({ ...newUser, department: e.target.value })}
-                style={{ ...iSt, cursor: "pointer" }}
-              >
-                <option value="Engineering">Engineering</option>
-                <option value="HR & Payroll">HR & Payroll</option>
-                <option value="Operations">Operations</option>
-                <option value="Finance">Finance</option>
-                <option value="Executive & Admin">Executive & Admin</option>
-              </select>
-            </Fld>
-            <Fld label="Assign Role">
-              <select
-                value={newUser.role}
-                onChange={(e) =>
-                  setNewUser({ ...newUser, role: e.target.value as UserRow["role"] })
-                }
-                style={{ ...iSt, cursor: "pointer" }}
-              >
-                <option value="Employee">Employee (Self-Service)</option>
-                <option value="Org Admin">Organization Admin</option>
-              </select>
-            </Fld>
-            <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 10 }}>
-              <Btn variant="secondary" onClick={() => setShowAdd(false)}>
-                Cancel
-              </Btn>
-              <Btn onClick={addUser}>Add User</Btn>
-            </div>
-          </div>
-        </Modal>
-      )}
-
-      {/* Edit Role Modal */}
-      {editUser && (
-        <Modal title={`Edit Role — ${editUser.name}`} onClose={() => setEditUser(null)}>
-          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-            <Fld label="User Role">
-              <select
-                value={editUser.role}
-                onChange={(e) =>
-                  setEditUser({
-                    ...editUser,
-                    role: e.target.value as UserRow["role"],
-                    scope: e.target.value === "Org Admin" ? "Full Admin Access" : "Self-Service Only",
-                  })
-                }
-                style={{ ...iSt, cursor: "pointer" }}
-              >
-                <option value="Employee">Employee (Self-Service)</option>
-                <option value="Org Admin">Organization Admin</option>
-              </select>
-            </Fld>
-            <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 10 }}>
-              <Btn variant="secondary" onClick={() => setEditUser(null)}>
-                Cancel
-              </Btn>
-              <Btn onClick={saveEditUser}>Save Role Changes</Btn>
-            </div>
-          </div>
-        </Modal>
-      )}
-
-      {/* Confirm Action Dialog */}
-      {confirm && (
-        <Modal title="Confirm Security Action" onClose={() => setConfirm(null)}>
-          <p style={{ color: F.text2, fontSize: 13 }}>{confirm.msg}</p>
-          <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 16 }}>
-            <Btn variant="secondary" onClick={() => setConfirm(null)}>
-              Cancel
-            </Btn>
-            <Btn onClick={confirm.onOk}>Confirm Action</Btn>
-          </div>
-        </Modal>
+      {accessTab === "users" && (
+        <div
+          id="access-panel-users"
+          role="tabpanel"
+          aria-labelledby="access-tab-users"
+        >
+          <AccessUsers
+            users={users}
+            roles={roles}
+            roleOptions={roleOptions}
+            roleScope={roleScope}
+            onChange={setUsers}
+            notify={toast}
+          />
+        </div>
       )}
     </div>
   )
 }
-
 function AuditHistoryView({
   logs,
   errorLogs = [],
@@ -16175,11 +15863,21 @@ function UnifiedProfileView({
                 border: `1px solid ${roleBadgeBorder}`,
               }}
             >
+              <UiIcon
+                name={
+                  persona === "product_admin"
+                    ? "crown"
+                    : persona === "org_admin"
+                      ? "building"
+                      : "user"
+                }
+                size={14}
+              />{" "}
               {persona === "product_admin"
-                ? "👑 Superuser Account"
+                ? "Superuser Account"
                 : persona === "org_admin"
-                  ? "🏢 Org Administrator"
-                  : "👤 Employee Self-Service"}
+                  ? "Org Administrator"
+                  : "Employee Self-Service"}
             </span>
           </div>
           {roleSubtitle && (
@@ -17354,7 +17052,7 @@ function UnifiedProfileView({
                   </div>
                 </div>
                 <span style={{ fontSize: 11, fontWeight: 700, color: F.success }}>
-                  Configured ✓
+                  Configured <UiIcon name="check" size={13} />
                 </span>
               </div>
 
@@ -17378,7 +17076,7 @@ function UnifiedProfileView({
                   </div>
                 </div>
                 <span style={{ fontSize: 11, fontWeight: 700, color: F.brand }}>
-                  Active ✓
+                  Active <UiIcon name="check" size={13} />
                 </span>
               </div>
             </div>
@@ -20925,8 +20623,8 @@ function MySalaryView({
     },
   ]
 
-  // F4 Value Help list
-  const f4Values = [
+  // Searchable value list
+  const componentValues = [
     "Basic Salary",
     "House Rent Allowance (HRA)",
     "Fixed Allowance",
@@ -21182,7 +20880,7 @@ function MySalaryView({
         </div>
       </div>
 
-      {/* ── Filters & F4 Search Bar ── */}
+      {/* Filters and search bar */}
       <div
         style={{
           background: F.card,
@@ -21196,14 +20894,14 @@ function MySalaryView({
           boxShadow: "0 1px 3px rgba(0,0,0,0.03)",
         }}
       >
-        {/* F4 Value Help Search */}
+        {/* Searchable value field */}
         <div style={{ flex: 2, minWidth: 260 }}>
           <ValueHelp
-            label="Search Salary Component (F4 Search)"
+            label="Search Salary Component"
             value={componentSearch}
             onChange={setComponentSearch}
-            placeholder="Type or pick from F4 value help…"
-            values={f4Values}
+            placeholder="Type or choose an available value…"
+            values={componentValues}
           />
         </div>
 
@@ -21647,8 +21345,8 @@ function PayrollHistoryView({
     }))
     .filter((item) => Boolean(item.row))
 
-  // F4 Value Help list for periods
-  const f4Periods = Array.from(new Set(runs.map((r) => r.run.period)))
+  // Searchable value list for periods
+  const availablePeriods = Array.from(new Set(runs.map((r) => r.run.period)))
   const availableYears = Array.from(new Set(runs.map((r) => String(r.run.year)))).sort().reverse()
 
   // Apply filters
@@ -21656,7 +21354,7 @@ function PayrollHistoryView({
   const maxNet = Number(appliedHistoryFilters.maxNetFilter) || Number.POSITIVE_INFINITY
   const filteredRuns = (hasRunPayrollHistorySearch ? runs : [])
     .filter(({ run, row }) => {
-      // F4 Period filter / search
+      // Period filter and search
       if (!searchMatches(appliedHistoryFilters.periodSearch, [run.period])) {
         return false
       }
@@ -21923,7 +21621,7 @@ function PayrollHistoryView({
         />
       </div>
 
-      {/* ── Filters & F4 Value Search Bar ── */}
+      {/* Filters and value search bar */}
       <div
         style={{
           background: F.card,
@@ -21937,14 +21635,14 @@ function PayrollHistoryView({
           boxShadow: "0 1px 3px rgba(0,0,0,0.03)",
         }}
       >
-        {/* F4 Value Help Search for Pay Period */}
+        {/* Searchable pay-period field */}
         <div style={{ flex: 2, minWidth: 260 }}>
           <ValueHelp
-            label="Search Pay Period (F4 Search)"
+            label="Search Pay Period"
             value={periodSearch}
             onChange={setPeriodSearch}
             placeholder="Search or pick pay period (e.g. July 2026)…"
-            values={f4Periods}
+            values={availablePeriods}
           />
         </div>
 
@@ -22228,7 +21926,7 @@ function PayrollHistoryView({
                       No payroll records match your filter criteria
                     </div>
                     <div style={{ fontSize: 12, color: F.text3 }}>
-                      Try selecting another period with F4 search or reset your filters.
+                      Try selecting another period or reset your filters.
                     </div>
                   </td>
                 </tr>
@@ -22523,7 +22221,7 @@ function EmployeePayslipsView({
     (r) => isFinalizedPayrun(r.status),
   )
 
-  const f4Periods = Array.from(new Set(runs.map((r) => r.period)))
+  const availablePeriods = Array.from(new Set(runs.map((r) => r.period)))
   const availableYears = Array.from(
     new Set(runs.map((r) => String(r.year))),
   ).sort().reverse()
@@ -22618,7 +22316,7 @@ function EmployeePayslipsView({
         </div>
       </div>
 
-      {/* Filter & F4 Search Toolbar */}
+      {/* Filter and search toolbar */}
       <div
         style={{
           background: F.card,
@@ -22634,11 +22332,11 @@ function EmployeePayslipsView({
       >
         <div style={{ flex: 2, minWidth: 240 }}>
           <ValueHelp
-            label="Search Pay Period (F4 Search)"
+            label="Search Pay Period"
             value={periodSearch}
             onChange={setPeriodSearch}
             placeholder="Search period (e.g. July 2026)…"
-            values={f4Periods}
+            values={availablePeriods}
           />
         </div>
 
@@ -23391,7 +23089,7 @@ function DocumentsView({
   ]
 
   const categories = Array.from(new Set(docs.map((d) => d.type)))
-  const f4DocNames = docs.map((d) => d.name)
+  const availableDocumentNames = docs.map((d) => d.name)
 
   const filteredDocs = (hasRunDocumentSearch ? docs : []).filter((doc) => {
     if (!searchMatches(appliedDocumentFilters.docSearch, [doc.name])) {
@@ -23529,7 +23227,7 @@ function DocumentsView({
         <Tile label="Managed Sources" value={String(documentSources.length)} sub="HR, payroll, and employee file" accent="#00A389" />
       </div>
 
-      {/* Filter & F4 Search Toolbar */}
+      {/* Filter and search toolbar */}
       <div
         style={{
           background: F.card,
@@ -23545,11 +23243,11 @@ function DocumentsView({
       >
         <div style={{ flex: 2, minWidth: 240 }}>
           <ValueHelp
-            label="Search Document Name (F4 Search)"
+            label="Search Document Name"
             value={docSearch}
             onChange={setDocSearch}
             placeholder="Search document name (e.g. Offer Letter)…"
-            values={f4DocNames}
+            values={availableDocumentNames}
           />
         </div>
 
