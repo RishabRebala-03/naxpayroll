@@ -1,31 +1,63 @@
+import {
+  InfoIcon,
+  WarningIcon,
+  SunIcon,
+  CloudSunIcon,
+  MoonIcon,
+  EditIcon,
+  CheckIcon,
+  CloseIcon,
+  CloudUploadIcon,
+  ZapIcon,
+  ColumnsIcon,
+  DownloadIcon,
+  MessageSquareIcon,
+  CalendarIcon,
+  BarChartIcon,
+  CrownIcon,
+  BuildingIcon,
+  UserIcon,
+  GripVerticalIcon,
+  PlusIcon,
+  ChevronDownIcon,
+  ChevronUpIcon,
+  ArrowUpDownIcon,
+  SearchIcon,
+  SparklesIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  HelpCircleIcon,
+} from "./icons"
 import React, {
   useState,
+  useRef,
   createContext,
   useContext,
   useCallback,
   useEffect,
-  useRef,
   Fragment,
 } from "react"
+import { apiClient } from "./api/client"
 
 const F = {
   shell: "#FFFFFF",
-  brand: "#0070F2",
-  brandHover: "#0064D9",
-  pageBg: "#F5F6F7",
+  brand: "#306FD1",
+  brandHover: "#2459AD",
+  pageBg: "#F4F6F9",
   card: "#FFFFFF",
-  text1: "#1D2D3E",
-  text2: "#475E75",
-  text3: "#5B738B",
-  border: "#D5DADD",
-  success: "#188918",
-  successBg: "#F5FAE5",
-  warning: "#E76500",
-  warningBg: "#FFF8D6",
-  error: "#AA0808",
-  errorBg: "#FFEAF4",
-  infoBg: "#E1F4FF",
-  highlight: "#E1F4FF",
+  text1: "#1A2B4B",
+  text2: "#455A71",
+  text3: "#7A8DA0",
+  border: "#DDE3EC",
+  borderStrong: "#C5D0DE",
+  success: "#107E3E",
+  successBg: "#F0FBF4",
+  warning: "#E2680A",
+  warningBg: "#FFF8F0",
+  error: "#C00000",
+  errorBg: "#FFF2F2",
+  infoBg: "#EEF4FE",
+  highlight: "#EEF4FE",
 }
 
 type ToastType = "success" | "error" | "info" | "warning"
@@ -42,11 +74,11 @@ const useToast = () => useContext(ToastCtx)
 function getTimeGreeting() {
   const hour = new Date().getHours()
   if (hour >= 4 && hour < 12) {
-    return { text: "Good morning" }
+    return { text: "Good morning", icon: <SunIcon size={18} color="#D97706" /> }
   } else if (hour >= 12 && hour < 17) {
-    return { text: "Good afternoon" }
+    return { text: "Good afternoon", icon: <CloudSunIcon size={18} color="#D97706" /> }
   } else {
-    return { text: "Good evening" }
+    return { text: "Good evening", icon: <MoonIcon size={18} color="#6366F1" /> }
   }
 }
 
@@ -106,77 +138,6 @@ function LiveClock() {
   )
 }
 
-function StrictDateInput({
-  value,
-  onChange,
-  style,
-  ariaLabel,
-}: {
-  value: string
-  onChange: (value: string) => void
-  style?: React.CSSProperties
-  ariaLabel?: string
-}) {
-  const toDisplayDate = (isoValue: string) => {
-    const match = isoValue.match(/^(\d{4})-(\d{2})-(\d{2})$/)
-    return match ? `${match[2]}/${match[3]}/${match[1]}` : ""
-  }
-  const [displayValue, setDisplayValue] = useState(() => toDisplayDate(value))
-  const pickerRef = useRef<HTMLInputElement>(null)
-
-  useEffect(() => {
-    setDisplayValue(toDisplayDate(value))
-  }, [value])
-
-  const updateText = (nextValue: string) => {
-    const digits = nextValue.replace(/\D/g, "").slice(0, 8)
-    const formatted = [digits.slice(0, 2), digits.slice(2, 4), digits.slice(4, 8)]
-      .filter(Boolean)
-      .join("/")
-    setDisplayValue(formatted)
-    if (!digits) onChange("")
-    if (digits.length === 8) {
-      const month = digits.slice(0, 2)
-      const day = digits.slice(2, 4)
-      const year = digits.slice(4, 8)
-      onChange(`${year}-${month}-${day}`)
-    }
-  }
-
-  return (
-    <span style={{ position: "relative", display: "inline-block", width: style?.width ?? "100%" }}>
-      <input
-        aria-label={ariaLabel}
-        type="text"
-        inputMode="numeric"
-        placeholder="mm/dd/yyyy"
-        maxLength={10}
-        value={displayValue}
-        onChange={(event) => updateText(event.target.value)}
-        style={{ ...style, width: "100%", paddingRight: 38, boxSizing: "border-box" }}
-      />
-      <button
-        type="button"
-        aria-label={`${ariaLabel ?? "Date"} calendar`}
-        onClick={() => pickerRef.current?.showPicker?.()}
-        style={{ position: "absolute", right: 7, top: "50%", transform: "translateY(-50%)", border: 0, background: "transparent", cursor: "pointer", fontSize: 17, padding: 4 }}
-      >
-        ▣
-      </button>
-      <input
-        ref={pickerRef}
-        tabIndex={-1}
-        aria-hidden="true"
-        type="date"
-        max="9999-12-31"
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        style={{ position: "absolute", width: 1, height: 1, opacity: 0, pointerEvents: "none" }}
-      />
-    </span>
-  )
-}
-
 function DateRangeFilter({
   from,
   to,
@@ -193,23 +154,11 @@ function DateRangeFilter({
   return (
     <div className="sap-date-filter" style={{ padding: "0", marginBottom: 0, display: "flex", alignItems: "end", gap: 8, flexWrap: "nowrap", whiteSpace: "nowrap" }}>
       <div className="sap-date-filter-title" style={{ fontSize: 12, fontWeight: 800, color: F.text2, padding: "0 4px 9px 0" }}>Record date</div>
-      <label className="sap-date-field" style={{ fontSize: 11, color: F.text2, fontWeight: 700 }}>From<StrictDateInput ariaLabel="Filter from date" value={from} onChange={onFromChange} style={{ ...iSt, display: "block", marginTop: 4, width: 154 }} /></label>
-      <label className="sap-date-field" style={{ fontSize: 11, color: F.text2, fontWeight: 700 }}>To<StrictDateInput ariaLabel="Filter to date" value={to} onChange={onToChange} style={{ ...iSt, display: "block", marginTop: 4, width: 154 }} /></label>
+      <label className="sap-date-field" style={{ fontSize: 11, color: F.text2, fontWeight: 700 }}>From<input aria-label="Filter from date" type="date" value={from} onChange={(event) => onFromChange(event.target.value)} style={{ ...iSt, display: "block", marginTop: 4, width: 154 }} /></label>
+      <label className="sap-date-field" style={{ fontSize: 11, color: F.text2, fontWeight: 700 }}>To<input aria-label="Filter to date" type="date" value={to} onChange={(event) => onToChange(event.target.value)} style={{ ...iSt, display: "block", marginTop: 4, width: 154 }} /></label>
       <Btn small onClick={onApply} style={{ height: 34, padding: "0 14px" }}>Apply range</Btn>
     </div>
   )
-}
-
-function limitDateYear(value: string) {
-  const parts = value.split("-")
-  if (parts.length > 1 && parts[0].length > 4) {
-    return [parts[0].slice(0, 4), ...parts.slice(1)].join("-")
-  }
-  const slashParts = value.split("/")
-  if (slashParts.length === 3 && slashParts[2].length > 4) {
-    return `${slashParts[0]}/${slashParts[1]}/${slashParts[2].slice(0, 4)}`
-  }
-  return value
 }
 
 const DateFilterCtx = createContext<{
@@ -341,17 +290,17 @@ function UniversalColumnCustomizer({ persona, inline = false }: { persona: strin
 
   return <>
     <button className={`universal-column-trigger${inline ? " is-inline" : ""}`} type="button" onClick={() => setOpen(true)} aria-haspopup="dialog">
-      <span aria-hidden="true">↔</span> Customize columns
+      <span aria-hidden="true" style={{ display: "inline-flex", verticalAlign: "middle", marginRight: 6 }}><ColumnsIcon size={14} /></span>Customize columns
     </button>
     {open && <div className="universal-column-backdrop" onMouseDown={() => setOpen(false)}>
       <section className="universal-column-dialog" role="dialog" aria-modal="true" aria-label="Customize table columns" onMouseDown={(event) => event.stopPropagation()}>
         <div className="universal-column-dialog-header">
           <div><strong>Customize columns</strong><div>Show, hide, or rearrange the fields in this table.</div></div>
-          <button type="button" aria-label="Close column customizer" onClick={() => setOpen(false)}>×</button>
+          <button type="button" aria-label="Close column customizer" onClick={() => setOpen(false)} style={{ display: "inline-flex", alignItems: "center", justifyContent: "center" }}><CloseIcon size={16} /></button>
         </div>
         <div className="universal-column-list">
           {activeOrder.map((columnIndex) => <div key={`${activeTable?.columns[columnIndex]}-${columnIndex}`} className={`universal-column-option${draggedColumn === columnIndex ? " is-dragging" : ""}`} draggable onDragStart={(event) => { event.dataTransfer.effectAllowed = "move"; setDraggedColumn(columnIndex) }} onDragOver={(event) => event.preventDefault()} onDrop={(event) => { event.preventDefault(); if (draggedColumn !== null) reorderColumn(draggedColumn, columnIndex); setDraggedColumn(null) }} onDragEnd={() => setDraggedColumn(null)}>
-            <span className="universal-column-drag-handle" aria-hidden="true">⠿</span>
+            <span className="universal-column-drag-handle" aria-hidden="true" style={{ display: "inline-flex", alignItems: "center" }}><GripVerticalIcon size={14} /></span>
             <label><input type="checkbox" checked={!activeHidden.has(columnIndex)} onChange={() => toggleColumn(columnIndex)} /><span>{activeTable?.columns[columnIndex]}</span></label>
           </div>)}
         </div>
@@ -480,7 +429,7 @@ function AdminWorkspaceHero({
 type Persona = "org_admin" | "product_admin" | "employee"
 type EmpStatus = "Active" | "Inactive" | "On Leave" | "Incomplete"
 type OrgStatus = "Active" | "Draft" | "Inactive" | "Suspended"
-type PayrunStatus = "Draft" | "Calculated" | "Under Review" | "Approved" | "Completed" | "Locked"
+type PayrunStatus = "Draft" | "Calculated" | "Under Review" | "Approved" | "Completed" | "Locked" | "Payment Due" | "PAYMENT DUE" | "Paid" | "PAID"
 
 interface Employee {
   id: string
@@ -539,6 +488,9 @@ interface Payrun {
   netPayroll: number
   generatedBy: string
   generatedOn: string
+  payrunType?: "Regular" | "One Time Payout" | "Off Cycle Payrun" | string
+  oneTimeComponent?: string
+  paymentDate?: string
   rows: PayrunInputRow[]
 }
 interface AuditLog {
@@ -864,11 +816,24 @@ function createPayrun(
 
 const INIT_PAYRUNS: Payrun[] = [
   createPayrun({
+    id: "PR-2026-06",
+    period: "June 2026",
+    month: 6,
+    year: 2026,
+    status: "Draft",
+    paymentDate: "30/06/2026",
+    scope: "All Employees",
+    generatedBy: "Meena Iyer",
+    generatedOn: "2026-06-27",
+    rows: calcRows(INIT_EMPS.slice(0, 4), INIT_SS),
+  }),
+  createPayrun({
     id: "PR-2026-07",
     period: "July 2026",
     month: 7,
     year: 2026,
-    status: "Completed",
+    status: "Paid",
+    paymentDate: "31/07/2026",
     scope: "All Employees",
     generatedBy: "Meena Iyer",
     generatedOn: "2026-07-28",
@@ -881,22 +846,12 @@ const INIT_PAYRUNS: Payrun[] = [
     period: "August 2026",
     month: 8,
     year: 2026,
-    status: "Under Review",
+    status: "Payment Due",
+    paymentDate: "29/08/2026",
     scope: "All Employees",
     generatedBy: "Meena Iyer",
     generatedOn: "2026-08-28",
     rows: calcRows(INIT_EMPS, INIT_SS, { "EMP-003": 5000 }, { "EMP-006": 1 }),
-  }),
-  createPayrun({
-    id: "PR-2026-06",
-    period: "June 2026",
-    month: 6,
-    year: 2026,
-    status: "Completed",
-    scope: "All Employees",
-    generatedBy: "Meena Iyer",
-    generatedOn: "2026-06-27",
-    rows: calcRows(INIT_EMPS, INIT_SS),
   }),
 ]
 
@@ -1169,10 +1124,10 @@ function Badge({
       style={{
         display: "inline-flex",
         alignItems: "center",
-        gap: 5,
-        padding: "2px 8px",
-        borderRadius: 10,
-        fontSize: 11,
+        gap: 6,
+        padding: "3px 11px",
+        borderRadius: 9999,
+        fontSize: 12,
         fontWeight: 600,
         color,
         background: bg,
@@ -1209,16 +1164,21 @@ function empBadge(s: EmpStatus) {
   return <Badge label={s} color={c} bg={b} dot={d} />
 }
 function prBadge(s: PayrunStatus) {
-  const m: Record<PayrunStatus, [string, string, string]> = {
-    Draft: [F.text3, F.pageBg, F.text3],
-    Calculated: [F.brand, F.infoBg, F.brand],
-    "Under Review": [F.warning, F.warningBg, F.warning],
-    Approved: ["#0854A0", "#D6E8FB", "#0854A0"],
-    Completed: [F.success, F.successBg, F.success],
-    Locked: [F.text1, "#E8EEF5", F.text1],
-  }
-  const [c, b, d] = m[s]
-  return <Badge label={s} color={c} bg={b} dot={d} />
+  const displayLabel =
+    s === "Completed" || s === "Paid" || s === "PAID"
+      ? "Paid"
+      : s === "Locked" || s === "Payment Due" || s === "PAYMENT DUE" || s === "Approved" || s === "Under Review"
+        ? "Payment Due"
+        : s
+
+  const isPaid = displayLabel === "Paid"
+  const isPaymentDue = displayLabel === "Payment Due"
+
+  const color = isPaid ? "#15803D" : isPaymentDue ? "#C2410C" : F.text2
+  const bg = isPaid ? "#E6F7EC" : isPaymentDue ? "#FFEDD5" : F.pageBg
+  const dot = isPaid ? "#16A34A" : isPaymentDue ? "#EA580C" : "#94A3B8"
+
+  return <Badge label={displayLabel} color={color} bg={bg} dot={dot} />
 }
 function orgBadge(s: OrgStatus) {
   const m: Record<OrgStatus, [string, string]> = {
@@ -1318,7 +1278,7 @@ const iSt: React.CSSProperties = {
   fontFamily: "inherit",
 }
 
-function Fld({ label, children }: { label: string children: React.ReactNode }) {
+function Fld({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="sap-field" style={{ display: "flex", flexDirection: "column", gap: 4 }}>
       <label
@@ -1564,7 +1524,7 @@ function TabBar({
   active,
   onSelect,
 }: {
-  tabs: { id: string label: string }[]
+  tabs: { id: string; label: string }[]
   active: string
   onSelect: (id: string) => void
 }) {
@@ -1620,7 +1580,7 @@ function SH({ children }: { children: React.ReactNode }) {
     </div>
   )
 }
-function IR({ label, value }: { label: string value: string }) {
+function IR({ label, value }: { label: string; value: string }) {
   return (
     <div
       style={{
@@ -1729,9 +1689,12 @@ function ValueHelp({
               color: F.text3,
               fontSize: 16,
               lineHeight: 1,
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
             }}
           >
-            ×
+            <CloseIcon size={14} />
           </button>
         )}
       </div>
@@ -2130,100 +2093,59 @@ function Stepper({ current }: { current: PayrunStatus }) {
   )
 }
 
-type PayslipPdfEntry = {
-  row: Pick<PayrunInputRow, "grossSalary" | "totalEarnings" | "pf" | "tds" | "profTax" | "totalDeductions" | "netSalary">
-  run: Pick<Payrun, "period" | "generatedOn">
-  emp: Pick<Employee, "name" | "id" | "department" | "designation" | "salaryStructure">
-}
-
-function downloadPayslipsPdf(entries: PayslipPdfEntry[]) {
-  if (entries.length === 0) return
-  const printWindow = window.open("", "_blank", "width=900,height=1100")
-  if (!printWindow) return
-  const title = entries.length === 1
-    ? `${entries[0].emp.name} Payslip ${entries[0].run.period}`
-    : `${entries.length} Selected Payslips`
-  const payslipSections = entries.map(({ row, run, emp }) => `
-    <section class="payslip">
-      <div class="header"><div><h1>Naxpayroll</h1><div>Naxrita Solutions Pvt. Ltd.</div></div><div><div>Payslip Period</div><h2>${run.period}</h2></div></div>
-      <div class="grid">
-        <div class="row"><span>Employee</span><strong>${emp.name} (${emp.id})</strong></div>
-        <div class="row"><span>Department</span><strong>${emp.department}</strong></div>
-        <div class="row"><span>Designation</span><strong>${emp.designation}</strong></div>
-        <div class="row"><span>Pay Date</span><strong>${fmtD(run.generatedOn)}</strong></div>
-        <div class="row"><span>Salary Structure</span><strong>${emp.salaryStructure}</strong></div>
-        <div class="row"><span>Status</span><strong>Completed</strong></div>
-      </div>
-      <div class="cols">
-        <div class="col"><h3>Earnings</h3><div class="row"><span>Gross Salary</span><strong>${inr(row.grossSalary)}</strong></div><div class="row"><span>Total Earnings</span><strong>${inr(row.totalEarnings)}</strong></div></div>
-        <div class="col ded"><h3>Deductions</h3><div class="row"><span>PF</span><strong>${inr(row.pf)}</strong></div><div class="row"><span>TDS</span><strong>${inr(row.tds)}</strong></div><div class="row"><span>Professional Tax</span><strong>${inr(row.profTax)}</strong></div><div class="row"><span>Total Deductions</span><strong>${inr(row.totalDeductions)}</strong></div></div>
-      </div>
-      <div class="net"><span>Net Pay</span><span>${inr(row.netSalary)}</span></div>
-    </section>
-  `).join("")
-  printWindow.document.write(`
-    <html>
-      <head>
-        <title>${title}</title>
-        <style>
-          body { font-family: Arial, sans-serif; padding: 28px; color: #32363A; }
-          .payslip { break-after: page; page-break-after: always; }
-          .payslip:last-child { break-after: auto; page-break-after: auto; }
-          .header { background: #354A5E; color: white; padding: 22px; display: flex; justify-content: space-between; }
-          .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 24px; margin: 22px 0; }
-          .row { display: flex; justify-content: space-between; border-bottom: 1px solid #D9D9D9; padding: 8px 0; }
-          .cols { display: grid; grid-template-columns: 1fr 1fr; border: 1px solid #D9D9D9; }
-          .col { padding: 18px; }
-          .net { margin-top: 0; padding: 18px; background: #F1FDF6; display: flex; justify-content: space-between; font-size: 24px; font-weight: 800; color: #107E3E; }
-          h3 { margin: 0 0 12px; color: #107E3E; }
-          .ded h3 { color: #BB0000; }
-          @media print { button { display: none; } body { padding: 0; } }
-        </style>
-      </head>
-      <body>
-        <button onclick="window.print()" style="margin-bottom:16px;padding:10px 16px;background:#0070F2;color:white;border:0;border-radius:4px;font-weight:700;">Download / Save ${entries.length} PDF${entries.length === 1 ? "" : "s"}</button>
-        ${payslipSections}
-        <script>window.onload = () => window.print()</script>
-      </body>
-    </html>
-  `)
-  printWindow.document.close()
-}
-
-function downloadPayslipPdf(row: PayslipPdfEntry["row"], run: PayslipPdfEntry["run"], emp: PayslipPdfEntry["emp"]) {
-  downloadPayslipsPdf([{ row, run, emp }])
-}
-
-function DownloadIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-      <polyline points="7 10 12 15 17 10" />
-      <line x1="12" y1="15" x2="12" y2="3" />
-    </svg>
-  )
-}
-
-function payslipGeneratedDate(period: string) {
-  const [monthName, year = "2026"] = period.split(" ")
-  const month = [
-    "January", "February", "March", "April", "May", "June",
-    "July", "August", "September", "October", "November", "December",
-  ].indexOf(monthName) + 1
-  return `${year}-${String(Math.max(month, 1)).padStart(2, "0")}-28`
-}
-
 function PayslipSheet({
   row,
   run,
   emp,
-  showDownload = true,
+  showDownload,
 }: {
   row: PayrunInputRow
   run: Payrun
   emp: Employee
   showDownload?: boolean
 }) {
+  const downloadPayslip = () => {
+    const printWindow = window.open("", "_blank", "width=900,height=1100")
+    if (!printWindow) return
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>${emp.name} Payslip ${run.period}</title>
+          <style>
+            body { font-family: Arial, sans-serif; padding: 28px; color: #32363A; }
+            .header { background: #354A5E; color: white; padding: 22px; display: flex; justify-content: space-between; }
+            .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 24px; margin: 22px 0; }
+            .row { display: flex; justify-content: space-between; border-bottom: 1px solid #D9D9D9; padding: 8px 0; }
+            .cols { display: grid; grid-template-columns: 1fr 1fr; border: 1px solid #D9D9D9; }
+            .col { padding: 18px; }
+            .net { margin-top: 0; padding: 18px; background: #F1FDF6; display: flex; justify-content: space-between; font-size: 24px; font-weight: 800; color: #107E3E; }
+            h3 { margin: 0 0 12px; color: #107E3E; }
+            .ded h3 { color: #BB0000; }
+            @media print { button { display: none; } }
+          </style>
+        </head>
+        <body>
+          <button onclick="window.print()" style="margin-bottom:16px;padding:10px 16px;background:#0070F2;color:white;border:0;border-radius:4px;font-weight:700;">Download / Save PDF</button>
+          <div class="header"><div><h1>Naxpayroll</h1><div>Naxrita Solutions Pvt. Ltd.</div></div><div><div>Payslip Period</div><h2>${run.period}</h2></div></div>
+          <div class="grid">
+            <div class="row"><span>Employee</span><strong>${emp.name} (${emp.id})</strong></div>
+            <div class="row"><span>Department</span><strong>${emp.department}</strong></div>
+            <div class="row"><span>Designation</span><strong>${emp.designation}</strong></div>
+            <div class="row"><span>Pay Date</span><strong>${fmtD(run.generatedOn)}</strong></div>
+            <div class="row"><span>Salary Structure</span><strong>${emp.salaryStructure}</strong></div>
+            <div class="row"><span>Status</span><strong>Completed</strong></div>
+          </div>
+          <div class="cols">
+            <div class="col"><h3>Earnings</h3><div class="row"><span>Gross Salary</span><strong>${inr(row.grossSalary)}</strong></div><div class="row"><span>Total Earnings</span><strong>${inr(row.totalEarnings)}</strong></div></div>
+            <div class="col ded"><h3>Deductions</h3><div class="row"><span>PF</span><strong>${inr(row.pf)}</strong></div><div class="row"><span>TDS</span><strong>${inr(row.tds)}</strong></div><div class="row"><span>Professional Tax</span><strong>${inr(row.profTax)}</strong></div><div class="row"><span>Total Deductions</span><strong>${inr(row.totalDeductions)}</strong></div></div>
+          </div>
+          <div class="net"><span>Net Pay</span><span>${inr(row.netSalary)}</span></div>
+          <script>window.onload = () => window.print()</script>
+        </body>
+      </html>
+    `)
+    printWindow.document.close()
+  }
   const earnings = [
     ["Gross Salary", row.grossSalary],
     ["Bonus", row.bonus],
@@ -2347,8 +2269,12 @@ function PayslipSheet({
             padding: "12px 0 0",
           }}
         >
-          <Btn title="Download payslip PDF" onClick={() => downloadPayslipPdf(row, run, emp)}>
-            <DownloadIcon />
+          <Btn title="Download payslip PDF" onClick={downloadPayslip}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+              <polyline points="7 10 12 15 17 10" />
+              <line x1="12" y1="15" x2="12" y2="3" />
+            </svg>
             Download PDF
           </Btn>
         </div>
@@ -2468,7 +2394,7 @@ function MiniBarChart({
   data,
   color,
 }: {
-  data: { label: string value: number }[]
+  data: { label: string; value: number }[]
   color: string
 }) {
   const max = Math.max(...data.map((d) => d.value), 1)
@@ -2511,7 +2437,7 @@ function DonutChart({
   segments,
   size = 80,
 }: {
-  segments: { label: string value: number color: string }[]
+  segments: { label: string; value: number; color: string }[]
   size?: number
 }) {
   const total = segments.reduce((s, x) => s + x.value, 0)
@@ -3833,6 +3759,7 @@ function EmployeeDetailPage({
 
   const savePayroll = () => {
     setEmps(emps.map((item) => item.id === emp.id ? { ...item, salaryStructure: payroll.salaryStructure, grossSalary: gross } : item))
+    apiClient.employees.update(emp.id, { salaryStructure: payroll.salaryStructure, grossSalary: gross }).catch((err) => console.warn("Failed to save payroll settings on backend:", err))
     setEditingPayroll(false)
     toast("Compensation and payroll settings saved", "success")
   }
@@ -3845,6 +3772,7 @@ function EmployeeDetailPage({
         draft.grossSalary,
     }
     setEmps(emps.map((e) => (e.id === emp.id ? updated : e)))
+    apiClient.employees.update(emp.id, updated).catch((err) => console.warn("Failed to save employee details on backend:", err))
     setEditing(false)
     toast("Employee details saved", "success")
   }
@@ -3855,6 +3783,7 @@ function EmployeeDetailPage({
       msg: `Set ${emp.name} to ${next}?`,
       onOk: () => {
         setEmps(emps.map((e) => (e.id === emp.id ? { ...e, status: next } : e)))
+        apiClient.employees.update(emp.id, { status: next }).catch((err) => console.warn("Failed to toggle status on backend:", err))
         toast(`Status updated to ${next}`, "success")
         setConfirm(null)
       },
@@ -4097,7 +4026,7 @@ function EmployeeDetailPage({
             <span>Basic Information</span>
             <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
               {editing && <Btn small variant="success" onClick={save}>Save</Btn>}
-              <button aria-label="Edit basic information" onClick={() => { setDraft({ ...emp }); setEditing(true) }} style={{ border: "none", background: "transparent", color: F.brand, cursor: "pointer", fontSize: 17 }}>✎</button>
+              <button aria-label="Edit basic information" onClick={() => { setDraft({ ...emp }); setEditing(true) }} style={{ border: "none", background: "transparent", color: F.brand, cursor: "pointer", display: "inline-flex", alignItems: "center" }}><EditIcon size={16} /></button>
             </span>
           </div>
           <div
@@ -4451,15 +4380,15 @@ function EmployeeDetailPage({
 
       {activeTab === "overview" && <>
         <div style={{ background: F.card, border: `1px solid ${F.border}`, borderRadius: 10, padding: "20px 22px", marginTop: 14 }}>
-          <div style={{ fontSize: 15, fontWeight: 800, marginBottom: 18, display: "flex", justifyContent: "space-between" }}><span>Statutory Information</span><span>{editingStatutory && <Btn small variant="success" onClick={() => { setEditingStatutory(false); toast("Statutory information saved", "success") }}>Save</Btn>} <button aria-label="Edit statutory information" onClick={() => setEditingStatutory(!editingStatutory)} style={{ border: "none", background: "transparent", color: F.brand, cursor: "pointer", fontSize: 17 }}>✎</button></span></div>
+          <div style={{ fontSize: 15, fontWeight: 800, marginBottom: 18, display: "flex", justifyContent: "space-between" }}><span>Statutory Information</span><span>{editingStatutory && <Btn small variant="success" onClick={() => { setEditingStatutory(false); toast("Statutory information saved", "success") }}>Save</Btn>} <button aria-label="Edit statutory information" onClick={() => setEditingStatutory(!editingStatutory)} style={{ border: "none", background: "transparent", color: F.brand, cursor: "pointer", display: "inline-flex", alignItems: "center" }}><EditIcon size={16} /></button></span></div>
           <div className="employee-information-grid" style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)", columnGap: 72, rowGap: 16 }}>
             {[ ["EPF rate (%)", "pfRate"], ["TDS rate (%)", "tdsRate"], ["Professional Tax", "professionalTax"], ["Payment Method", "paymentMethod"], ["Account Ending", "bankAccount"], ["IFSC Code", "ifsc"] ].map(([label, field]) => <div key={label} style={{ display: "grid", gridTemplateColumns: "235px 1fr", fontSize: 13, alignItems: "center" }}><span style={{ color: F.text2 }}>{label}</span>{editingStatutory ? (field === "paymentMethod" ? <select style={iSt} value={payroll.paymentMethod} onChange={(e) => setPayroll({ ...payroll, paymentMethod: e.target.value })}><option>Bank transfer</option><option>Cheque</option><option>Cash</option></select> : <input type={field === "ifsc" || field === "bankAccount" ? "text" : "number"} style={iSt} value={payroll[field as "pfRate" | "tdsRate" | "professionalTax" | "bankAccount" | "ifsc"]} onChange={(e) => setPayroll({ ...payroll, [field]: field === "ifsc" || field === "bankAccount" ? e.target.value : Number(e.target.value) })} />) : <strong>{String(payroll[field as "pfRate" | "tdsRate" | "professionalTax" | "paymentMethod" | "bankAccount" | "ifsc"])}</strong>}</div>)}
           </div>
         </div>
         <div style={{ background: F.card, border: `1px solid ${F.border}`, borderRadius: 10, padding: "20px 22px", marginTop: 14 }}>
-          <div style={{ fontSize: 15, fontWeight: 800, marginBottom: 18, display: "flex", justifyContent: "space-between" }}><span>Personal Information</span><span>{editingPersonal && <Btn small variant="success" onClick={() => { setEditingPersonal(false); toast("Personal information saved", "success") }}>Save</Btn>} <button aria-label="Edit personal information" onClick={() => setEditingPersonal(!editingPersonal)} style={{ border: "none", background: "transparent", color: F.brand, cursor: "pointer", fontSize: 17 }}>✎</button></span></div>
+          <div style={{ fontSize: 15, fontWeight: 800, marginBottom: 18, display: "flex", justifyContent: "space-between" }}><span>Personal Information</span><span>{editingPersonal && <Btn small variant="success" onClick={() => { setEditingPersonal(false); toast("Personal information saved", "success") }}>Save</Btn>} <button aria-label="Edit personal information" onClick={() => setEditingPersonal(!editingPersonal)} style={{ border: "none", background: "transparent", color: F.brand, cursor: "pointer", display: "inline-flex", alignItems: "center" }}><EditIcon size={16} /></button></span></div>
           <div className="employee-information-grid" style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)", columnGap: 72, rowGap: 16 }}>
-            {[ ["Date of Birth", "dateOfBirth"], ["Personal Email", "personalEmail"], ["Father's Name", "fatherName"], ["Residential Address", "address"], ["PAN", "pan"], ["Differently Abled Type", "differentlyAbled"] ].map(([label, field]) => <div key={label} style={{ display: "grid", gridTemplateColumns: "235px 1fr", fontSize: 13, alignItems: "center" }}><span style={{ color: F.text2 }}>{label}</span>{editingPersonal ? <input style={iSt} maxLength={field === "dateOfBirth" ? 10 : undefined} value={personalInfo[field as keyof typeof personalInfo]} onChange={(e) => setPersonalInfo({ ...personalInfo, [field]: field === "dateOfBirth" ? limitDateYear(e.target.value) : e.target.value })} /> : <strong>{personalInfo[field as keyof typeof personalInfo]}</strong>}</div>)}
+            {[ ["Date of Birth", "dateOfBirth"], ["Personal Email", "personalEmail"], ["Father's Name", "fatherName"], ["Residential Address", "address"], ["PAN", "pan"], ["Differently Abled Type", "differentlyAbled"] ].map(([label, field]) => <div key={label} style={{ display: "grid", gridTemplateColumns: "235px 1fr", fontSize: 13, alignItems: "center" }}><span style={{ color: F.text2 }}>{label}</span>{editingPersonal ? <input style={iSt} value={personalInfo[field as keyof typeof personalInfo]} onChange={(e) => setPersonalInfo({ ...personalInfo, [field]: e.target.value })} /> : <strong>{personalInfo[field as keyof typeof personalInfo]}</strong>}</div>)}
           </div>
         </div>
       </>}
@@ -4467,11 +4396,11 @@ function EmployeeDetailPage({
       {activeTab === "salary" && (
         <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1.35fr) minmax(280px, 0.65fr)", gap: 14 }}>
           <div style={{ gridColumn: "1 / -1", background: F.card, border: `1px solid ${F.border}`, borderRadius: 8, overflow: "hidden" }}>
-              <div style={{ padding: "18px 20px", fontSize: 22, fontWeight: 500, borderBottom: `1px solid ${F.border}`, display: "flex", justifyContent: "space-between" }}><span>{emp.name.split(" ")[0]}'s salary details</span><button aria-label="Edit salary details" onClick={() => setEditingPayroll(true)} style={{ border: "none", background: "transparent", color: F.brand, cursor: "pointer", fontSize: 18 }}>✎</button></div>
+              <div style={{ padding: "18px 20px", fontSize: 22, fontWeight: 500, borderBottom: `1px solid ${F.border}`, display: "flex", justifyContent: "space-between" }}><span>{emp.name.split(" ")[0]}'s salary details</span><button aria-label="Edit salary details" onClick={() => setEditingPayroll(true)} style={{ border: "none", background: "transparent", color: F.brand, cursor: "pointer", display: "inline-flex", alignItems: "center" }}><EditIcon size={17} /></button></div>
             <div style={{ padding: "18px 20px" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 22, marginBottom: 22 }}><strong>Annual CTC <span style={{ color: F.error }}>*</span></strong>{editingPayroll ? <input type="number" aria-label="Annual CTC" style={{ ...iSt, width: 310, fontSize: 16 }} value={annualCtc} onChange={(e) => setAnnualCtc(Number(e.target.value))} /> : <strong style={{ fontSize: 17 }}>{inr(annualCtc)} <span style={{ fontSize: 12, color: F.text3, fontWeight: 500 }}>per year</span></strong>}</div>
               <table style={{ width: "100%", borderCollapse: "collapse", border: `1px solid ${F.border}` }}><thead><tr><Th>Salary components</Th><Th>Calculation type</Th><Th right>Monthly amount</Th><Th right>Annual amount</Th></tr></thead><tbody><TrH><Td colSpan={4} style={{ fontWeight: 800, padding: "16px" }}>Earnings</Td></TrH>{([["Basic", "basic"], ["House Rent Allowance", "hra"], ["Fixed Allowance", "fixedAllowance"], ["Special Allowance", "specialAllowance"]] as [string, "basic" | "hra" | "fixedAllowance" | "specialAllowance"][]).map(([label, field]) => { const monthlyCtcBase = annualCtc / 12; const percentage = field === "basic" ? Math.round((payroll.basic / monthlyCtcBase) * 100) : field === "hra" ? Math.round((payroll.hra / payroll.basic) * 100) : 0; return <TrH key={field}><Td>{label}</Td><Td>{editingPayroll ? <div style={{ display: "flex", maxWidth: 260 }}><select aria-label={`${label} calculation type`} style={{ ...iSt, borderRadius: "6px 0 0 6px", minWidth: 130 }} value={calculationType[field]} onChange={(e) => setCalculationType({ ...calculationType, [field]: e.target.value })}><option>Fixed amount</option><option>% of CTC</option><option>% of Basic</option></select>{calculationType[field] !== "Fixed amount" && <input aria-label={`${label} percentage`} type="number" min="0" max="100" style={{ ...iSt, width: 75, borderRadius: "0 6px 6px 0", marginLeft: -1 }} value={percentage} onChange={(e) => { const pct = Number(e.target.value); if (field === "basic") setPayroll({ ...payroll, basic: Math.round(monthlyCtcBase * pct / 100) }); if (field === "hra") setPayroll({ ...payroll, hra: Math.round(payroll.basic * pct / 100) }) }} />}</div> : calculationType[field] === "Fixed amount" ? "Fixed amount" : `${percentage}% ${calculationType[field] === "% of CTC" ? "of CTC" : "of Basic"}`}</Td><Td right>{editingPayroll ? <input type="number" style={{ ...iSt, width: 150 }} value={payroll[field]} onChange={(e) => setPayroll({ ...payroll, [field]: Number(e.target.value) })} /> : inr(payroll[field])}</Td><Td right>{inr(payroll[field] * 12)}</Td></TrH>})}<TrH><Td colSpan={2} style={{ fontWeight: 800, background: "#EAF3FF", padding: "16px" }}>Cost to Company</Td><Td right style={{ fontWeight: 800, background: "#EAF3FF" }}>{inr(gross)}</Td><Td right style={{ fontWeight: 800, background: "#EAF3FF" }}>{inr(gross * 12)}</Td></TrH></tbody></table>
-              <button onClick={() => { setExtraEarnings([...extraEarnings, { id: Date.now(), name: "New Earning", calculation: "Fixed amount", amount: 0 }]); toast("New earning added", "success") }} style={{ marginTop: 14, border: "none", background: "transparent", color: F.brand, cursor: "pointer", fontWeight: 700, fontFamily: "inherit", fontSize: 14 }}>＋ Add Earning</button>
+              <button onClick={() => { setExtraEarnings([...extraEarnings, { id: Date.now(), name: "New Earning", calculation: "Fixed amount", amount: 0 }]); toast("New earning added", "success") }} style={{ marginTop: 14, border: "none", background: "transparent", color: F.brand, cursor: "pointer", fontWeight: 700, fontFamily: "inherit", fontSize: 14, display: "inline-flex", alignItems: "center", gap: 6 }}><PlusIcon size={14} /> Add Earning</button>
               {extraEarnings.map((earning) => <div key={earning.id} style={{ display: "grid", gridTemplateColumns: "1.1fr 1fr 0.7fr auto", gap: 12, alignItems: "end", marginTop: 12, padding: 12, border: `1px solid ${F.brand}40`, borderRadius: 7, background: F.infoBg }}><Fld label="Earning name"><input style={iSt} value={earning.name} onChange={(e) => setExtraEarnings(extraEarnings.map((item) => item.id === earning.id ? { ...item, name: e.target.value } : item))} /></Fld><Fld label="Calculation type"><select style={iSt} value={earning.calculation} onChange={(e) => setExtraEarnings(extraEarnings.map((item) => item.id === earning.id ? { ...item, calculation: e.target.value } : item))}><option>Fixed amount</option><option>% of CTC</option><option>% of Basic</option></select></Fld><Fld label="Monthly amount"><input type="number" min="0" style={iSt} value={earning.amount} onChange={(e) => setExtraEarnings(extraEarnings.map((item) => item.id === earning.id ? { ...item, amount: Number(e.target.value) } : item))} /></Fld><Btn small variant="secondary" onClick={() => setExtraEarnings(extraEarnings.filter((item) => item.id !== earning.id))}>Remove</Btn></div>)}
               <div style={{ borderTop: `1px solid ${F.border}`, marginTop: 22, paddingTop: 20 }}>
                 <div style={{ fontSize: 18, fontWeight: 800, marginBottom: 22 }}>Benefits</div>
@@ -4509,7 +4438,7 @@ function EmployeeDetailPage({
       {activeTab === "payslips" && (
         <div style={{ background: F.card, border: `1px solid ${F.border}`, borderRadius: 10, overflow: "hidden" }}>
           <div style={{ padding: "16px 20px", borderBottom: `1px solid ${F.border}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}><div><div style={{ fontWeight: 800 }}>Payslips & tax forms</div><div style={{ fontSize: 12, color: F.text2, marginTop: 3 }}>{editingPayslips ? "Update the payroll values for each issued period." : "Payroll documents issued specifically to this employee."}</div></div><div style={{ display: "flex", gap: 8 }}>{editingPayslips && <Btn small variant="secondary" onClick={() => setEditingPayslips(false)}>Cancel</Btn>}<Btn small variant={editingPayslips ? "success" : "secondary"} onClick={() => { if (editingPayslips) toast("Payslip adjustments saved", "success"); setEditingPayslips(!editingPayslips) }}>{editingPayslips ? "Save changes" : "Edit figures"}</Btn></div></div>
-          <table style={{ width: "100%", borderCollapse: "collapse" }}><thead><tr><Th>Pay period</Th><Th>Gross earnings</Th><Th>Deductions</Th><Th>Net pay</Th><Th>Status</Th><Th>Action</Th></tr></thead><tbody>{payslipRows.map((row, i) => <TrH key={row.period}><Td><strong>{row.period}</strong><div style={{ fontSize: 11, color: F.text3 }}>Regular monthly payroll</div></Td><Td>{editingPayslips ? <input aria-label={`${row.period} gross`} type="number" min="0" style={{ ...iSt, width: 120 }} value={row.gross} onChange={(e) => setPayslipRows(payslipRows.map((item, index) => index === i ? { ...item, gross: Number(e.target.value) } : item))} /> : inr(row.gross)}</Td><Td>{editingPayslips ? <input aria-label={`${row.period} deductions`} type="number" min="0" style={{ ...iSt, width: 120 }} value={row.deductions} onChange={(e) => setPayslipRows(payslipRows.map((item, index) => index === i ? { ...item, deductions: Number(e.target.value) } : item))} /> : inr(row.deductions)}</Td><Td style={{ fontWeight: 800, color: F.success }}>{inr(row.gross - row.deductions)}</Td><Td>{editingPayslips ? <select aria-label={`${row.period} status`} style={{ ...iSt, width: 115 }} value={row.status} onChange={(e) => setPayslipRows(payslipRows.map((item, index) => index === i ? { ...item, status: e.target.value } : item))}><option>Available</option><option>Paid</option><option>On hold</option></select> : <Badge label={row.status} color={row.status === "On hold" ? F.warning : F.success} bg={row.status === "On hold" ? F.warningBg : F.successBg} />}</Td><Td><div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}><Btn small variant="secondary" onClick={() => toast(`${row.period} payslip opened`, "info")}>View</Btn><Btn small title={`Download PDF payslip for ${row.period}`} onClick={() => downloadPayslipPdf({ grossSalary: row.gross, totalEarnings: row.gross, pf: Math.round(row.gross * 0.12), tds: Math.max(0, row.deductions - Math.round(row.gross * 0.12) - (row.gross > 15000 ? 200 : 150)), profTax: row.gross > 15000 ? 200 : 150, totalDeductions: row.deductions, netSalary: row.gross - row.deductions }, { period: row.period, generatedOn: payslipGeneratedDate(row.period) }, emp)}><DownloadIcon />Download PDF</Btn></div></Td></TrH>)}</tbody></table>
+          <table style={{ width: "100%", borderCollapse: "collapse" }}><thead><tr><Th>Pay period</Th><Th>Gross earnings</Th><Th>Deductions</Th><Th>Net pay</Th><Th>Status</Th><Th>Action</Th></tr></thead><tbody>{payslipRows.map((row, i) => <TrH key={row.period}><Td><strong>{row.period}</strong><div style={{ fontSize: 11, color: F.text3 }}>Regular monthly payroll</div></Td><Td>{editingPayslips ? <input aria-label={`${row.period} gross`} type="number" min="0" style={{ ...iSt, width: 120 }} value={row.gross} onChange={(e) => setPayslipRows(payslipRows.map((item, index) => index === i ? { ...item, gross: Number(e.target.value) } : item))} /> : inr(row.gross)}</Td><Td>{editingPayslips ? <input aria-label={`${row.period} deductions`} type="number" min="0" style={{ ...iSt, width: 120 }} value={row.deductions} onChange={(e) => setPayslipRows(payslipRows.map((item, index) => index === i ? { ...item, deductions: Number(e.target.value) } : item))} /> : inr(row.deductions)}</Td><Td style={{ fontWeight: 800, color: F.success }}>{inr(row.gross - row.deductions)}</Td><Td>{editingPayslips ? <select aria-label={`${row.period} status`} style={{ ...iSt, width: 115 }} value={row.status} onChange={(e) => setPayslipRows(payslipRows.map((item, index) => index === i ? { ...item, status: e.target.value } : item))}><option>Available</option><option>Paid</option><option>On hold</option></select> : <Badge label={row.status} color={row.status === "On hold" ? F.warning : F.success} bg={row.status === "On hold" ? F.warningBg : F.successBg} />}</Td><Td><Btn small variant="secondary" onClick={() => toast(`${row.period} payslip opened`, "info")}>View payslip</Btn></Td></TrH>)}</tbody></table>
         </div>
       )}
 
@@ -4653,6 +4582,7 @@ function AddEmployeeWizardPage({
     }
 
     setEmps([newEmp, ...emps])
+    apiClient.employees.create(newEmp).catch((err) => console.warn("Failed to persist employee on backend:", err))
     toast(`Employee ${fullName} created successfully!`, "success")
     onBack()
   }
@@ -4676,6 +4606,7 @@ function AddEmployeeWizardPage({
       grossSalary: 0,
     }
     setEmps([newEmp, ...emps])
+    apiClient.employees.create(newEmp).catch((err) => console.warn("Failed to persist draft employee on backend:", err))
     toast(
       `Draft saved for ${fullName || "new employee"}. Profile marked as incomplete.`,
       "warning",
@@ -4796,7 +4727,7 @@ function AddEmployeeWizardPage({
                       fontWeight: 700,
                     }}
                   >
-                    {isDone ? "✓" : s.num}
+                    {isDone ? <CheckIcon size={12} strokeWidth={3} /> : s.num}
                   </div>
                   <span
                     style={{
@@ -4886,10 +4817,11 @@ function AddEmployeeWizardPage({
                 />
               </Fld>
               <Fld label="Date of Joining *">
-                <StrictDateInput
+                <input
+                  type="date"
                   style={iSt}
                   value={basic.doj}
-                  onChange={(value) => setBasic({ ...basic, doj: value })}
+                  onChange={(e) => setBasic({ ...basic, doj: e.target.value })}
                 />
               </Fld>
             </div>
@@ -5442,11 +5374,12 @@ function AddEmployeeWizardPage({
               }}
             >
               <Fld label="Date of Birth *">
-                <StrictDateInput
+                <input
+                  type="date"
                   style={iSt}
                   value={personal.dob}
-                  onChange={(value) =>
-                    setPersonal({ ...personal, dob: value })
+                  onChange={(e) =>
+                    setPersonal({ ...personal, dob: e.target.value })
                   }
                 />
               </Fld>
@@ -5996,8 +5929,8 @@ Deepak Joshi,deepak.joshi@naxrita.in,Finance,Finance Analyst,2026-09-01,Full-Tim
                   }}
                 >
                   {isDone ? (
-                    <span style={{ color: "#FFFFFF", fontWeight: 800, fontSize: 14 }}>
-                      ✓
+                    <span style={{ color: "#FFFFFF", display: "inline-flex", alignItems: "center", justifyContent: "center" }}>
+                      <CheckIcon size={14} color="#FFFFFF" strokeWidth={3} />
                     </span>
                   ) : (
                     <span
@@ -6082,7 +6015,7 @@ Deepak Joshi,deepak.joshi@naxrita.in,Finance,Finance Analyst,2026-09-01,Full-Tim
                 color: F.brand,
               }}
             >
-              ☁️
+              <CloudUploadIcon size={32} color={F.brand} />
             </div>
             <div style={{ fontSize: 17, fontWeight: 800, color: F.text1, marginBottom: 6 }}>
               Drop your CSV file here
@@ -6107,7 +6040,7 @@ Deepak Joshi,deepak.joshi@naxrita.in,Finance,Finance Analyst,2026-09-01,Full-Tim
                 Browse CSV File
               </Btn>
               <Btn variant="secondary" onClick={loadDemoCSV}>
-                ⚡ Load Sample Demo CSV
+                <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><ZapIcon size={14} /> Load Sample Demo CSV</span>
               </Btn>
             </div>
           </div>
@@ -6156,7 +6089,7 @@ Deepak Joshi,deepak.joshi@naxrita.in,Finance,Finance Analyst,2026-09-01,Full-Tim
                     fontSize: 12,
                   }}
                 >
-                  <span style={{ color: F.success, fontWeight: 800 }}>✓</span>
+                  <span style={{ color: F.success, display: "inline-flex", alignItems: "center" }}><CheckIcon size={14} color={F.success} strokeWidth={2.5} /></span>
                   <span style={{ color: F.text1, fontWeight: 600 }}>{col}</span>
                 </div>
               ))}
@@ -6213,7 +6146,7 @@ Deepak Joshi,deepak.joshi@naxrita.in,Finance,Finance Analyst,2026-09-01,Full-Tim
                   color: F.success,
                 }}
               >
-                ✓ {validCount} Valid Records
+                <span style={{ display: "inline-flex", alignItems: "center", gap: 5 }}><CheckIcon size={13} color={F.success} strokeWidth={2.5} /> {validCount} Valid Records</span>
               </span>
               <span
                 style={{
@@ -6377,7 +6310,7 @@ Deepak Joshi,deepak.joshi@naxrita.in,Finance,Finance Analyst,2026-09-01,Full-Tim
                 fontSize: 28,
               }}
             >
-              ✓
+              <CheckIcon size={28} color="#FFFFFF" strokeWidth={3} />
             </div>
             <h2
               style={{
@@ -6511,7 +6444,6 @@ function EmployeesView({
   const [dojYear, setDojYear] = useState("All")
   const [sortBy, setSortBy] = useState("name-asc")
   const [employeePage, setEmployeePage] = useState(1)
-  const [hasRunEmployeeSearch, setHasRunEmployeeSearch] = useState(false)
   const employeePageSize = 10
   const [appliedEmpFilters, setAppliedEmpFilters] = useState({
     search: "",
@@ -6526,7 +6458,7 @@ function EmployeesView({
     sortBy: "name-asc",
   })
   const [showAdv, setShowAdv] = useState(false)
-  const [subPage, setSubPage] = useState<{ type: "detail" emp: Employee } | {
+  const [subPage, setSubPage] = useState<{ type: "detail"; emp: Employee } | {
     type: "bulk"
   } | { type: "new" } | null>(null)
   const [showAdd, setShowAdd] = useState(false)
@@ -6639,7 +6571,6 @@ function EmployeesView({
     (appliedEmpFilters.sortBy !== "name-asc" ? 1 : 0)
 
   const applyEmpFilters = () => {
-    setHasRunEmployeeSearch(true)
     setEmployeePage(1)
     setAppliedEmpFilters({
       search,
@@ -6655,7 +6586,6 @@ function EmployeesView({
     })
   }
   const clearEmpFilters = () => {
-    setHasRunEmployeeSearch(false)
     setEmployeePage(1)
     setSearch("")
     setDeptF("All")
@@ -6681,7 +6611,7 @@ function EmployeesView({
     })
   }
 
-  const filtered = hasRunEmployeeSearch ? emps.filter((e) => {
+  const filtered = emps.filter((e) => {
     const nameMatch = searchMatches(appliedEmpFilters.search, [
       e.name,
       e.id,
@@ -6711,7 +6641,7 @@ function EmployeesView({
       return a.department.localeCompare(b.department) * dir
     }
     return a.name.localeCompare(b.name) * dir
-  }) : []
+  })
   const paginatedEmployees = filtered.slice((employeePage - 1) * employeePageSize, employeePage * employeePageSize)
   const allVisibleSelected = paginatedEmployees.length > 0 && paginatedEmployees.every((employee) => selectedEmployeeIds.includes(employee.id))
   const toggleVisibleSelection = () => setSelectedEmployeeIds(allVisibleSelected ? selectedEmployeeIds.filter((id) => !paginatedEmployees.some((employee) => employee.id === id)) : Array.from(new Set([...selectedEmployeeIds, ...paginatedEmployees.map((employee) => employee.id)])))
@@ -6773,6 +6703,7 @@ function EmployeesView({
         ss.find((s) => s.name === addForm.salaryStructure)?.gross ?? 0,
     }
     setEmps([...emps, newEmp])
+    apiClient.employees.create(newEmp).catch((err) => console.warn("Failed to persist employee on backend:", err))
     setShowAdd(false)
     setAddForm({
       name: "",
@@ -6791,6 +6722,7 @@ function EmployeesView({
   const saveEdit = () => {
     if (!editEmp) return
     setEmps(emps.map((e) => (e.id === editEmp.id ? editEmp : e)))
+    apiClient.employees.update(editEmp.id, editEmp).catch((err) => console.warn("Failed to update employee on backend:", err))
     setEditEmp(null)
     toast("Employee updated", "success")
   }
@@ -6801,6 +6733,7 @@ function EmployeesView({
       msg: `Set ${emp.name} to ${next}?`,
       onOk: () => {
         setEmps(emps.map((e) => (e.id === emp.id ? { ...e, status: next } : e)))
+        apiClient.employees.update(emp.id, { status: next }).catch((err) => console.warn("Failed to toggle employee status on backend:", err))
         toast(`Status updated to ${next}`, "success")
         setConfirm(null)
       },
@@ -6835,7 +6768,7 @@ function EmployeesView({
               Export CSV
             </Btn>
             <Btn variant="secondary" onClick={() => setShowColumnManager(!showColumnManager)}>
-              ↔ Customize columns
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><ColumnsIcon size={14} /> Customize columns</span>
             </Btn>
             <Btn
               variant="secondary"
@@ -6999,7 +6932,7 @@ function EmployeesView({
           }}
         >
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <span style={{ fontSize: 15 }}>⚠️</span>
+            <span style={{ display: "inline-flex", alignItems: "center" }}><WarningIcon size={16} color="#B78103" /></span>
             <span>
               You have{" "}
               <strong>
@@ -7319,8 +7252,8 @@ function EmployeesView({
       )}
 
       <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 10, position: "relative" }}>
-        <Btn small variant="secondary" onClick={() => setShowColumnManager(!showColumnManager)}>☷ Columns</Btn>
-        {showColumnManager && <div style={{ position: "absolute", top: 34, right: 0, zIndex: 5, width: 330, background: F.card, border: `1px solid ${F.border}`, borderRadius: 8, padding: 12, boxShadow: "0 8px 24px rgba(15,23,42,0.18)" }}><div style={{ fontSize: 13, fontWeight: 800, marginBottom: 8 }}>Table columns</div><div style={{ fontSize: 11, color: F.text2, marginBottom: 10 }}>Drag the ⠿ handle to rearrange. Check columns to show or hide them.</div>{employeeColumns.map((column) => <div key={column.id} draggable onDragStart={() => setDraggedColumnId(column.id)} onDragOver={(event) => event.preventDefault()} onDrop={() => dropEmployeeColumn(column.id)} onDragEnd={() => setDraggedColumnId(null)} style={{ display: "grid", gridTemplateColumns: "18px 22px 1fr", alignItems: "center", gap: 7, padding: "8px 4px", borderRadius: 5, cursor: "grab", background: draggedColumnId === column.id ? F.infoBg : "transparent", border: `1px solid ${draggedColumnId === column.id ? F.brand : "transparent"}` }}><span title="Drag to rearrange" style={{ color: F.text3, fontSize: 16, letterSpacing: -2 }}>⠿</span><input type="checkbox" checked={column.visible} onClick={(event) => event.stopPropagation()} onChange={() => setEmployeeColumns(employeeColumns.map((item) => item.id === column.id ? { ...item, visible: !item.visible } : item))} /><span style={{ fontSize: 12, fontWeight: 600 }}>{column.label}</span></div>)}</div>}
+        <Btn small variant="secondary" onClick={() => setShowColumnManager(!showColumnManager)}><span style={{ display: "inline-flex", alignItems: "center", gap: 5 }}><ColumnsIcon size={13} /> Columns</span></Btn>
+        {showColumnManager && <div style={{ position: "absolute", top: 34, right: 0, zIndex: 5, width: 330, background: F.card, border: `1px solid ${F.border}`, borderRadius: 8, padding: 12, boxShadow: "0 8px 24px rgba(15,23,42,0.18)" }}><div style={{ fontSize: 13, fontWeight: 800, marginBottom: 8 }}>Table columns</div><div style={{ fontSize: 11, color: F.text2, marginBottom: 10 }}>Drag the handle to rearrange. Check columns to show or hide them.</div>{employeeColumns.map((column) => <div key={column.id} draggable onDragStart={() => setDraggedColumnId(column.id)} onDragOver={(event) => event.preventDefault()} onDrop={() => dropEmployeeColumn(column.id)} onDragEnd={() => setDraggedColumnId(null)} style={{ display: "grid", gridTemplateColumns: "18px 22px 1fr", alignItems: "center", gap: 7, padding: "8px 4px", borderRadius: 5, cursor: "grab", background: draggedColumnId === column.id ? F.infoBg : "transparent", border: `1px solid ${draggedColumnId === column.id ? F.brand : "transparent"}` }}><span title="Drag to rearrange" style={{ color: F.text3, display: "inline-flex", alignItems: "center" }}><GripVerticalIcon size={14} color={F.text3} /></span><input type="checkbox" checked={column.visible} onClick={(event) => event.stopPropagation()} onChange={() => setEmployeeColumns(employeeColumns.map((item) => item.id === column.id ? { ...item, visible: !item.visible } : item))} /><span style={{ fontSize: 12, fontWeight: 600 }}>{column.label}</span></div>)}</div>}
       </div>
 
       <div style={{ background: F.card, border: `1px solid ${F.border}`, borderRadius: 8, overflow: "hidden" }}>
@@ -7449,7 +7382,7 @@ function EmployeesView({
                         padding: "6px 12px",
                         display: "flex",
                         alignItems: "center",
-                        justify: "space-between",
+                        justifyContent: "space-between",
                         gap: 8,
                         width: "100%",
                       }}
@@ -7463,7 +7396,7 @@ function EmployeesView({
                           gap: 4,
                         }}
                       >
-                        ℹ️ This employee's profile is incomplete.
+                        <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}><InfoIcon size={14} color="#B78103" /> This employee's profile is incomplete.</span>
                       </span>
                       <button
                         onClick={(ev) => {
@@ -7584,11 +7517,12 @@ function EmployeesView({
               />
             </Fld>
             <Fld label="Date of Joining">
-              <StrictDateInput
+              <input
+                type="date"
                 style={iSt}
                 value={addForm.doj}
-                onChange={(value) =>
-                  setAddForm({ ...addForm, doj: value })
+                onChange={(e) =>
+                  setAddForm({ ...addForm, doj: e.target.value })
                 }
               />
             </Fld>
@@ -7821,7 +7755,7 @@ function SalaryManagementView({
   setEmps: React.Dispatch<React.SetStateAction<Employee[]>>
 }) {
   const toast = useToast()
-  const [tab, setTab] = useState<"structures" | "components" | "templates" | "assignment">(
+  const [tab, setTab] = useState<"structures" | "components" | "templates" | "assignment" | "review">(
     "structures",
   )
   const [structurePage, setStructurePage] = useState(1)
@@ -7848,7 +7782,6 @@ function SalaryManagementView({
   const [salaryNote, setSalaryNote] = useState("August regular monthly salary cycle")
   const [wizardSearch, setWizardSearch] = useState("")
   const [appliedWizardSearch, setAppliedWizardSearch] = useState("")
-  const [hasRunWizardSearch, setHasRunWizardSearch] = useState(false)
   const [wizardSelectedIds, setWizardSelectedIds] = useState<string[]>([])
   const [traceRow, setTraceRow] = useState<{
     emp: Employee
@@ -7890,7 +7823,6 @@ function SalaryManagementView({
     active: "All",
   })
   const [componentFilters, setComponentFilters] = useState(componentFilterDraft)
-  const [hasRunComponentSearch, setHasRunComponentSearch] = useState(false)
   const [assignDept, setAssignDept] = useState("All")
   const [assignType, setAssignType] = useState("All")
   const [assignDesignation, setAssignDesignation] = useState("All")
@@ -7903,7 +7835,6 @@ function SalaryManagementView({
     assignSearch: "",
     assignSort: "name-asc",
   })
-  const [hasRunAssignmentSearch, setHasRunAssignmentSearch] = useState(false)
   const [selectedEmpIds, setSelectedEmpIds] = useState<string[]>([])
   const [bulkStructure, setBulkStructure] = useState(ss[0]?.name ?? "")
   const [newSS, setNewSS] = useState({
@@ -7928,10 +7859,9 @@ function SalaryManagementView({
     if (!newSS.name) return toast("Structure name is required", "error")
     const gross =
       newSS.basic + newSS.hra + newSS.fixedAllowance + newSS.specialAllowance
-    setSS([
-      ...ss,
-      { id: `SS-${String(ss.length + 1).padStart(3, "0")}`, ...newSS, gross },
-    ])
+    const newStruct = { id: `SS-${String(ss.length + 1).padStart(3, "0")}`, ...newSS, gross }
+    setSS([...ss, newStruct])
+    apiClient.salary.createStructure(newStruct).catch((err) => console.warn("Failed to create salary structure on backend:", err))
     setShowNewSS(false)
     setNewSS({
       name: "",
@@ -7949,7 +7879,9 @@ function SalaryManagementView({
       editSS.hra +
       editSS.fixedAllowance +
       editSS.specialAllowance
-    setSS(ss.map((s) => (s.id === editSS.id ? { ...editSS, gross } : s)))
+    const updatedStruct = { ...editSS, gross }
+    setSS(ss.map((s) => (s.id === editSS.id ? updatedStruct : s)))
+    apiClient.salary.updateStructure(editSS.id, updatedStruct).catch((err) => console.warn("Failed to update salary structure on backend:", err))
     setEditSS(null)
     toast("Salary structure updated", "success")
   }
@@ -8007,7 +7939,7 @@ function SalaryManagementView({
       toast("Salary component added", "success")
     }
   }
-  const filteredSalaryComponents = hasRunComponentSearch ? salaryComponents.filter(
+  const filteredSalaryComponents = salaryComponents.filter(
     (c) =>
       searchMatches(componentFilters.search, [
         c.name,
@@ -8020,8 +7952,8 @@ function SalaryManagementView({
       (componentFilters.taxable === "All" || c.taxable === componentFilters.taxable) &&
       (componentFilters.active === "All" ||
         (componentFilters.active === "Active" ? c.active : !c.active)),
-  ) : []
-  const assignmentRows = hasRunAssignmentSearch ? emps.filter(
+  )
+  const assignmentRows = emps.filter(
     (e) =>
       (appliedAssignFilters.assignDept === "All" || e.department === appliedAssignFilters.assignDept) &&
       (appliedAssignFilters.assignType === "All" || e.empType === appliedAssignFilters.assignType) &&
@@ -8039,14 +7971,13 @@ function SalaryManagementView({
       return a.salaryStructure.localeCompare(b.salaryStructure) * dir
     }
     return a.name.localeCompare(b.name) * dir
-  }) : []
+  })
   const pagedStructures = ss.slice((structurePage - 1) * salaryTablePageSize, structurePage * salaryTablePageSize)
   const pagedComponents = filteredSalaryComponents.slice((componentPage - 1) * salaryTablePageSize, componentPage * salaryTablePageSize)
   const pagedTemplates = ss.slice((templatePage - 1) * salaryTablePageSize, templatePage * salaryTablePageSize)
   const pagedAssignments = assignmentRows.slice((assignmentPage - 1) * salaryTablePageSize, assignmentPage * salaryTablePageSize)
 
   const applyAssignFilters = () => {
-    setHasRunAssignmentSearch(true)
     setAppliedAssignFilters({
       assignDept,
       assignType,
@@ -8056,7 +7987,6 @@ function SalaryManagementView({
     })
   }
   const clearAssignFilters = () => {
-    setHasRunAssignmentSearch(false)
     setAssignDept("All")
     setAssignType("All")
     setAssignDesignation("All")
@@ -8182,9 +8112,9 @@ function SalaryManagementView({
     setSalaryRunStatus(next)
     toast(`Salary workflow moved to ${next}`, "success")
   }
-  const filteredWizardEmployees = hasRunWizardSearch ? emps.filter((e) =>
+  const filteredWizardEmployees = emps.filter((e) =>
     searchMatches(appliedWizardSearch, [e.name, e.id, e.department, e.designation]),
-  ) : []
+  )
   const wizardTargetEmployees = (() => {
     if (salaryScope === "Specific Employees") {
       return emps.filter((e) => wizardSelectedIds.includes(e.id))
@@ -8402,11 +8332,10 @@ function SalaryManagementView({
                           </Btn>
                           <Btn
                             small
-                            title={`Download PDF payslip for ${row.emp.name}`}
-                            onClick={() => downloadPayslipPdf({ grossSalary: row.gross, totalEarnings: row.gross, pf: row.pf, tds: row.tds, profTax: row.pt, totalDeductions: row.deductions, netSalary: row.net }, { period: salaryCycle, generatedOn: salaryDate }, row.emp)}
+                            variant="ghost"
+                            onClick={() => toast(`Payslip draft opened for ${row.emp.name}`, "info")}
                           >
-                            <DownloadIcon />
-                            Download PDF
+                            Payslip
                           </Btn>
                         </div>
                       </Td>
@@ -8554,14 +8483,13 @@ function SalaryManagementView({
               </select>
             </Fld>
             <div style={{ display: "flex", gap: 8 }}>
-              <Btn onClick={() => { setComponentFilters(componentFilterDraft); setHasRunComponentSearch(true) }}>Go</Btn>
+              <Btn onClick={() => setComponentFilters(componentFilterDraft)}>Go</Btn>
               <Btn
                 variant="secondary"
                 onClick={() => {
                   const empty = { search: "", kind: "All", type: "All", taxable: "All", active: "All" }
                   setComponentFilterDraft(empty)
                   setComponentFilters(empty)
-                  setHasRunComponentSearch(false)
                 }}
               >
                 Clear
@@ -9084,9 +9012,10 @@ function SalaryManagementView({
                     </select>
                   </Fld>
                   <Fld label="Disbursement / Pay Date">
-                    <StrictDateInput
+                    <input
+                      type="date"
                       value={salaryDate}
-                      onChange={setSalaryDate}
+                      onChange={(e) => setSalaryDate(e.target.value)}
                       style={iSt}
                     />
                   </Fld>
@@ -9166,7 +9095,7 @@ function SalaryManagementView({
                       values={emps.map((e) => `${e.name} (${e.id})`)}
                     />
                     <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
-                      <Btn small onClick={() => { setAppliedWizardSearch(wizardSearch); setHasRunWizardSearch(true) }}>
+                      <Btn small onClick={() => setAppliedWizardSearch(wizardSearch)}>
                         Go
                       </Btn>
                       <Btn
@@ -9175,7 +9104,6 @@ function SalaryManagementView({
                         onClick={() => {
                           setWizardSearch("")
                           setAppliedWizardSearch("")
-                          setHasRunWizardSearch(false)
                         }}
                       >
                         Clear Filters
@@ -9402,9 +9330,10 @@ function SalaryManagementView({
                     </select>
                   </Fld>
                   <Fld label="Effective From">
-                    <StrictDateInput
+                    <input
+                      type="date"
                       value={draft.effectiveFrom}
-                      onChange={(value) => update({ effectiveFrom: value })}
+                      onChange={(e) => update({ effectiveFrom: e.target.value })}
                       style={iSt}
                     />
                   </Fld>
@@ -9729,59 +9658,970 @@ function SalaryManagementView({
   )
 }
 
+const categoryOptions = [
+  { id: "all", label: "All Employees" },
+  { id: "active", label: "Active Employees" },
+  { id: "lop", label: "Employees with LOP" },
+  { id: "scheduled_earnings", label: "Employees with Scheduled Earnings" },
+  { id: "tax_overridden", label: "Tax Overridden Employees" },
+  { id: "skipped", label: "Skipped Employees" },
+  { id: "negative_net", label: "Employees with Negative Net Pay" },
+  { id: "withheld", label: "Salary Withheld Employees" },
+  { id: "yet_to_pay", label: "Yet to pay Employees" },
+  { id: "paid", label: "Paid Employees" },
+  { id: "yet_to_pay_failed", label: "Yet to Pay and Payment Failed Employees" },
+  { id: "payslip_sent", label: "Payslip Sent Employees" },
+  { id: "payslip_yet_to_send", label: "Payslip Yet to be Sent Employees" },
+];
+
+interface DatePickerInputProps {
+  value: string
+  onChange: (val: string) => void
+  placeholder?: string
+  style?: React.CSSProperties
+  inputStyle?: React.CSSProperties
+  disabled?: boolean
+  required?: boolean
+  id?: string
+}
+
+function DatePickerInput({
+  value,
+  onChange,
+  placeholder = "dd/MM/yyyy",
+  style,
+  inputStyle,
+  disabled = false,
+  required = false,
+  id,
+}: DatePickerInputProps) {
+  const [isOpen, setIsOpen] = useState(false)
+  const containerRef = useRef<HTMLDivElement>(null)
+
+  // Parse current value (dd/MM/yyyy)
+  const parseDate = (str: string): { day: number; month: number; year: number } | null => {
+    if (!str) return null
+    const parts = str.trim().split(/[\/\-.]/)
+    if (parts.length === 3) {
+      const d = parseInt(parts[0], 10)
+      const m = parseInt(parts[1], 10)
+      const y = parseInt(parts[2], 10)
+      if (!isNaN(d) && !isNaN(m) && !isNaN(y) && m >= 1 && m <= 12 && d >= 1 && d <= 31) {
+        return { day: d, month: m, year: y }
+      }
+    }
+    return null
+  }
+
+  const parsed = parseDate(value)
+  const now = new Date()
+  const todayDay = now.getDate()
+  const todayMonth = now.getMonth() + 1
+  const todayYear = now.getFullYear()
+
+  // Calendar view month & year (0-indexed month)
+  const [viewMonth, setViewMonth] = useState<number>(parsed ? parsed.month - 1 : now.getMonth())
+  const [viewYear, setViewYear] = useState<number>(parsed ? parsed.year : now.getFullYear())
+
+  // Keep viewMonth/viewYear updated when value changes and parsed
+  useEffect(() => {
+    if (parsed) {
+      setViewMonth(parsed.month - 1)
+      setViewYear(parsed.year)
+    }
+  }, [value])
+
+  // Click outside listener
+  useEffect(() => {
+    if (!isOpen) return
+    const handleClickOutside = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setIsOpen(false)
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside)
+    return () => document.removeEventListener("mousedown", handleClickOutside)
+  }, [isOpen])
+
+  const calMonthNames = [
+    "January", "February", "March", "April", "May", "June",
+    "July", "August", "September", "October", "November", "December"
+  ]
+
+  const prevMonth = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    if (viewMonth === 0) {
+      setViewMonth(11)
+      setViewYear(viewYear - 1)
+    } else {
+      setViewMonth(viewMonth - 1)
+    }
+  }
+
+  const nextMonth = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    if (viewMonth === 11) {
+      setViewMonth(0)
+      setViewYear(viewYear + 1)
+    } else {
+      setViewMonth(viewMonth + 1)
+    }
+  }
+
+  const handleSelectDate = (d: number, m: number, y: number) => {
+    const formatted = `${String(d).padStart(2, "0")}/${String(m).padStart(2, "0")}/${y}`
+    onChange(formatted)
+    setIsOpen(false)
+  }
+
+  // Days calculation
+  const firstDayOfWeek = new Date(viewYear, viewMonth, 1).getDay() // 0 = Sun
+  const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate()
+  const daysInPrevMonth = new Date(viewYear, viewMonth, 0).getDate()
+
+  const prevDays: number[] = []
+  for (let i = firstDayOfWeek - 1; i >= 0; i--) {
+    prevDays.push(daysInPrevMonth - i)
+  }
+
+  const currentDays: number[] = []
+  for (let d = 1; d <= daysInMonth; d++) {
+    currentDays.push(d)
+  }
+
+  const totalCells = prevDays.length + currentDays.length
+  const nextDaysCount = totalCells > 35 ? 42 - totalCells : 35 - totalCells
+  const nextDays: number[] = []
+  for (let d = 1; d <= nextDaysCount; d++) {
+    nextDays.push(d)
+  }
+
+  const yearsRange = Array.from({ length: 11 }, (_, i) => 2020 + i)
+
+  return (
+    <div ref={containerRef} style={{ position: "relative", width: "100%", ...style }}>
+      {/* Input container */}
+      <div
+        style={{
+          position: "relative",
+          width: "100%",
+          display: "flex",
+          alignItems: "center",
+        }}
+      >
+        <input
+          id={id}
+          type="text"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder={placeholder}
+          disabled={disabled}
+          required={required}
+          onClick={() => !disabled && setIsOpen(true)}
+          style={{
+            width: "100%",
+            height: 40,
+            padding: "0 38px 0 14px",
+            border: `1px solid ${isOpen ? "#2563EB" : "#CBD5E1"}`,
+            borderRadius: 6,
+            fontSize: 14,
+            color: "#1E293B",
+            outline: "none",
+            boxSizing: "border-box",
+            fontFamily: "inherit",
+            background: disabled ? "#F8FAFC" : "#FFFFFF",
+            boxShadow: isOpen ? "0 0 0 3px rgba(37,99,235,0.12)" : "none",
+            transition: "all 0.15s ease",
+            cursor: disabled ? "not-allowed" : "pointer",
+            ...inputStyle,
+          }}
+          onFocus={(e) => (e.currentTarget.style.borderColor = "#2563EB")}
+          onBlur={(e) => {
+            if (!isOpen) e.currentTarget.style.borderColor = "#CBD5E1"
+          }}
+        />
+
+        {/* Clean minimalist icon on the right with no borders or extra box */}
+        <span
+          onClick={(e) => {
+            e.stopPropagation()
+            if (!disabled) setIsOpen(!isOpen)
+          }}
+          title="Select date"
+          style={{
+            position: "absolute",
+            right: 12,
+            top: "50%",
+            transform: "translateY(-50%)",
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+            cursor: disabled ? "not-allowed" : "pointer",
+            color: isOpen ? "#2563EB" : "#94A3B8",
+            transition: "color 0.15s ease",
+            userSelect: "none",
+          }}
+          onMouseEnter={(e) => {
+            if (!disabled) e.currentTarget.style.color = "#2563EB"
+          }}
+          onMouseLeave={(e) => {
+            if (!disabled && !isOpen) e.currentTarget.style.color = "#94A3B8"
+          }}
+        >
+          <CalendarIcon size={16} strokeWidth={1.8} />
+        </span>
+      </div>
+
+      {/* Calendar Popover - Opens cleanly downwards, never covers the header */}
+      {isOpen && (
+        <div
+          onClick={(e) => e.stopPropagation()}
+          style={{
+            position: "absolute",
+            top: "calc(100% + 6px)",
+            left: 0,
+            zIndex: 9999,
+            background: "#FFFFFF",
+            borderRadius: 10,
+            boxShadow: "0 14px 28px rgba(0,0,0,0.16), 0 4px 10px rgba(0,0,0,0.06), 0 0 0 1px rgba(0,0,0,0.06)",
+            border: "1px solid #E2E8F0",
+            padding: "12px 14px",
+            width: 275,
+            userSelect: "none",
+            boxSizing: "border-box",
+            animation: "fadeIn 0.15s ease",
+          }}
+        >
+          {/* Header */}
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              paddingBottom: 10,
+              borderBottom: "1px solid #F1F5F9",
+              marginBottom: 8,
+            }}
+          >
+            <button
+              type="button"
+              onClick={prevMonth}
+              title="Previous Month"
+              style={{
+                background: "transparent",
+                border: "none",
+                borderRadius: 4,
+                width: 26,
+                height: 26,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                cursor: "pointer",
+                color: "#64748B",
+                padding: 0,
+                transition: "all 0.12s",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = "#F1F5F9"
+                e.currentTarget.style.color = "#1E293B"
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = "transparent"
+                e.currentTarget.style.color = "#64748B"
+              }}
+            >
+              <ChevronLeftIcon size={15} strokeWidth={2.2} />
+            </button>
+
+            <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+              {/* Month Selector */}
+              <select
+                value={viewMonth}
+                onChange={(e) => setViewMonth(Number(e.target.value))}
+                style={{
+                  border: "none",
+                  fontWeight: 700,
+                  fontSize: 13,
+                  color: "#1E293B",
+                  background: "transparent",
+                  cursor: "pointer",
+                  outline: "none",
+                  padding: "2px 4px",
+                }}
+              >
+                {calMonthNames.map((m, idx) => (
+                  <option key={m} value={idx}>
+                    {m}
+                  </option>
+                ))}
+              </select>
+
+              {/* Year Selector */}
+              <select
+                value={viewYear}
+                onChange={(e) => setViewYear(Number(e.target.value))}
+                style={{
+                  border: "none",
+                  fontWeight: 700,
+                  fontSize: 13,
+                  color: "#1E293B",
+                  background: "transparent",
+                  cursor: "pointer",
+                  outline: "none",
+                  padding: "2px 4px",
+                }}
+              >
+                {yearsRange.map((y) => (
+                  <option key={y} value={y}>
+                    {y}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <button
+              type="button"
+              onClick={nextMonth}
+              title="Next Month"
+              style={{
+                background: "transparent",
+                border: "none",
+                borderRadius: 4,
+                width: 26,
+                height: 26,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                cursor: "pointer",
+                color: "#64748B",
+                padding: 0,
+                transition: "all 0.12s",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = "#F1F5F9"
+                e.currentTarget.style.color = "#1E293B"
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = "transparent"
+                e.currentTarget.style.color = "#64748B"
+              }}
+            >
+              <ChevronRightIcon size={15} strokeWidth={2.2} />
+            </button>
+          </div>
+
+          {/* Weekday headers: Su Mo Tu We Th Fr Sa */}
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(7, 1fr)",
+              gap: 2,
+              marginBottom: 4,
+              textAlign: "center",
+            }}
+          >
+            {["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"].map((dayName) => (
+              <span
+                key={dayName}
+                style={{
+                  fontSize: 11,
+                  fontWeight: 600,
+                  color: "#94A3B8",
+                  padding: "2px 0",
+                  textTransform: "uppercase",
+                }}
+              >
+                {dayName}
+              </span>
+            ))}
+          </div>
+
+          {/* Days grid */}
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(7, 1fr)",
+              gap: 2,
+            }}
+          >
+            {/* Previous month trailing days */}
+            {prevDays.map((d) => (
+              <button
+                key={`prev-${d}`}
+                type="button"
+                onClick={() => {
+                  const m = viewMonth === 0 ? 12 : viewMonth
+                  const y = viewMonth === 0 ? viewYear - 1 : viewYear
+                  handleSelectDate(d, m, y)
+                }}
+                style={{
+                  background: "transparent",
+                  border: "none",
+                  borderRadius: 4,
+                  height: 28,
+                  fontSize: 12,
+                  color: "#CBD5E1",
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  padding: 0,
+                }}
+                onMouseEnter={(e) => (e.currentTarget.style.background = "#F8FAFC")}
+                onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+              >
+                {d}
+              </button>
+            ))}
+
+            {/* Current month days */}
+            {currentDays.map((d) => {
+              const isSelected =
+                parsed &&
+                parsed.year === viewYear &&
+                parsed.month === viewMonth + 1 &&
+                parsed.day === d
+              const isToday =
+                todayYear === viewYear &&
+                todayMonth === viewMonth + 1 &&
+                todayDay === d
+
+              return (
+                <button
+                  key={`cur-${d}`}
+                  type="button"
+                  onClick={() => handleSelectDate(d, viewMonth + 1, viewYear)}
+                  style={{
+                    background: isSelected ? "#2563EB" : isToday ? "#EFF6FF" : "transparent",
+                    color: isSelected ? "#FFFFFF" : isToday ? "#2563EB" : "#1E293B",
+                    border: isToday && !isSelected ? "1px solid #93C5FD" : "none",
+                    borderRadius: 4,
+                    height: 28,
+                    fontSize: 12.5,
+                    fontWeight: isSelected || isToday ? 700 : 400,
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    padding: 0,
+                    transition: "all 0.1s ease",
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!isSelected) {
+                      e.currentTarget.style.background = "#EFF6FF"
+                      e.currentTarget.style.color = "#2563EB"
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (!isSelected) {
+                      e.currentTarget.style.background = isToday ? "#EFF6FF" : "transparent"
+                      e.currentTarget.style.color = isToday ? "#2563EB" : "#1E293B"
+                    }
+                  }}
+                >
+                  {d}
+                </button>
+              )
+            })}
+
+            {/* Next month leading days */}
+            {nextDays.map((d) => (
+              <button
+                key={`next-${d}`}
+                type="button"
+                onClick={() => {
+                  const m = viewMonth === 11 ? 1 : viewMonth + 2
+                  const y = viewMonth === 11 ? viewYear + 1 : viewYear
+                  handleSelectDate(d, m, y)
+                }}
+                style={{
+                  background: "transparent",
+                  border: "none",
+                  borderRadius: 4,
+                  height: 28,
+                  fontSize: 12,
+                  color: "#CBD5E1",
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  padding: 0,
+                }}
+                onMouseEnter={(e) => (e.currentTarget.style.background = "#F8FAFC")}
+                onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+              >
+                {d}
+              </button>
+            ))}
+          </div>
+
+          {/* Footer Shortcuts: Today & Clear */}
+          <div
+            style={{
+              marginTop: 10,
+              paddingTop: 8,
+              borderTop: "1px solid #F1F5F9",
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+            }}
+          >
+            <button
+              type="button"
+              onClick={() => {
+                const todayFormatted = `${String(todayDay).padStart(2, "0")}/${String(todayMonth).padStart(2, "0")}/${todayYear}`
+                onChange(todayFormatted)
+                setIsOpen(false)
+              }}
+              style={{
+                background: "#EFF6FF",
+                border: "1px solid #BFDBFE",
+                color: "#2563EB",
+                borderRadius: 4,
+                fontSize: 11.5,
+                fontWeight: 600,
+                padding: "4px 10px",
+                cursor: "pointer",
+                transition: "all 0.12s ease",
+              }}
+              onMouseEnter={(e) => (e.currentTarget.style.background = "#DBEAFE")}
+              onMouseLeave={(e) => (e.currentTarget.style.background = "#EFF6FF")}
+            >
+              Today ({String(todayDay).padStart(2, "0")}/{String(todayMonth).padStart(2, "0")}/{todayYear})
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                onChange("")
+                setIsOpen(false)
+              }}
+              style={{
+                background: "transparent",
+                border: "none",
+                fontSize: 11.5,
+                fontWeight: 500,
+                color: "#64748B",
+                cursor: "pointer",
+                padding: "4px 8px",
+                borderRadius: 4,
+                transition: "all 0.12s ease",
+              }}
+              onMouseEnter={(e) => (e.currentTarget.style.color = "#EF4444")}
+              onMouseLeave={(e) => (e.currentTarget.style.color = "#64748B")}
+            >
+              Clear
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 function PayRunsView({
   payruns,
   setPayruns,
   emps,
+  setEmps,
   ss,
 }: {
   payruns: Payrun[]
   setPayruns: React.Dispatch<React.SetStateAction<Payrun[]>>
   emps: Employee[]
+  setEmps: React.Dispatch<React.SetStateAction<Employee[]>>
   ss: SalaryStructure[]
 }) {
   const toast = useToast()
+
+  const Z = {
+    bg: "#F5F6F8",
+    card: "#FFFFFF",
+    border: "#E0E4EA",
+    borderLight: "#EDF0F4",
+    brand: "#306FD1",
+    brandHover: "#2459AD",
+    brandBg: "#EEF4FE",
+    success: "#107E3E",
+    successBg: "#F1FAF1",
+    warning: "#E76500",
+    warningBg: "#FFF8D6",
+    error: "#BB0000",
+    text1: "#1D2D3E",
+    text2: "#556575",
+    text3: "#8A9AAF",
+    shadow: "0 1px 4px rgba(0,0,0,0.06)",
+  }
+
+  function getComponentAmount(type: string, row: PayrunInputRow, emp?: Employee) {
+    const matchedEmp = emp || emps.find((e) => e.id === row.empId)
+    const structure = ss.find((s) => s.name === matchedEmp?.salaryStructure)
+    const gross = row.grossSalary || row.totalEarnings || matchedEmp?.grossSalary || 0
+    
+    let basic = 0
+    let hra = 0
+    let special = 0
+
+    if (structure && structure.gross > 0) {
+      const ratio = gross / structure.gross
+      basic = Math.round(structure.basic * ratio)
+      hra = Math.round(structure.hra * ratio)
+      special = Math.max(0, gross - basic - hra)
+    } else {
+      basic = Math.round(gross * 0.5)
+      hra = Math.round(basic * 0.4)
+      special = Math.max(0, gross - basic - hra)
+    }
+
+    if (type === "basic") return basic
+    if (type === "hra") return hra
+    if (type === "special") return special
+    if (type === "epf") return row.pf || Math.round(basic * 0.12)
+    if (type === "eps") return 0
+    if (type === "edli") return 0
+    if (type === "admin") return 0
+    if (type === "pt") return row.profTax || (gross > 15000 ? 200 : 150)
+    if (type === "tds") return row.tds || 0
+    return gross
+  }
+
+  // 1. Navigation & Tab States
+  const [viewMode, setViewMode] = useState<"list" | "details">("list")
   const [payrollTab, setPayrollTab] = useState<"run" | "history">("run")
+  const [innerTab, setInnerTab] = useState<"summary" | "taxes" | "insights">("summary")
   const [activeRunId, setActiveRunId] = useState<string>(
-    payruns.find((p) => p.period === "August 2026")?.id || payruns[0]?.id || ""
+    payruns.find((p) => p.period === "May 2026")?.id ||
+    payruns.find((p) => p.period === "August 2026")?.id ||
+    payruns[0]?.id || ""
   )
-  const [currentStepIndex, setCurrentStepIndex] = useState<number>(2) // 0: Attendance, 1: Additions, 2: Review, 3: Approval
-  const [historyPage, setHistoryPage] = useState(1)
-  const [hasRunHistorySearch, setHasRunHistorySearch] = useState(false)
+
+  // 2. Pay Run Metadata & Date Computation
+  const activeRun = payruns.find((p) => p.id === activeRunId) || payruns[0]
+  const calculationRows = activeRun?.rows ?? []
+  const monthNames = ["January","February","March","April","May","June","July","August","September","October","November","December"]
+  const monthShort = ["JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP","OCT","NOV","DEC"]
+  const curMonthNum = activeRun ? activeRun.month : 5
+  const curFullMonthName = monthNames[(curMonthNum - 1) % 12]
+  const curMonthName = activeRun ? monthShort[(activeRun.month - 1) % 12] : "MAY"
+  const curYear = activeRun ? activeRun.year : 2026
+  const daysInMonth = activeRun ? new Date(activeRun.year, activeRun.month, 0).getDate() : 31
+  const periodStartStr = activeRun ? `01/${String(activeRun.month).padStart(2,"0")}/${activeRun.year}` : "01/05/2026"
+  const periodEndStr = activeRun ? `${daysInMonth}/${String(activeRun.month).padStart(2,"0")}/${activeRun.year}` : "31/05/2026"
+  const payDateStr = `29/${String(curMonthNum).padStart(2, "0")}/${curYear}`
+
+  const isPaymentDue = activeRun?.status === "PAYMENT DUE" || activeRun?.status === "Payment Due" || activeRun?.status === "Approved" || activeRun?.status === "Locked" || activeRun?.status === "Under Review"
+  const isPaid = activeRun?.status === "PAID" || activeRun?.status === "Paid" || activeRun?.status === "Completed"
+
+  // 3. Selection & Filter States (Declared BEFORE filter callbacks)
+  const [empCategoryFilter, setEmpCategoryFilter] = useState<string>("all")
+  const [showEmpCategoryDropdown, setShowEmpCategoryDropdown] = useState<boolean>(false)
+  const [showFilterPopover, setShowFilterPopover] = useState<boolean>(false)
+  const [showMoreFiltersMenu, setShowMoreFiltersMenu] = useState<boolean>(false)
+  const [filterEmployeeType, setFilterEmployeeType] = useState<string>("all")
+  const [filterPaymentMode, setFilterPaymentMode] = useState<string>("all")
+  const [filterWorkLoc, setFilterWorkLoc] = useState<string>("all")
+  const [filterDept, setFilterDept] = useState<string>("all")
+  const [filterDesignation, setFilterDesignation] = useState<string>("all")
+  const [activeMoreFilters, setActiveMoreFilters] = useState<string[]>([])
+  const [showExportDropdown, setShowExportDropdown] = useState<boolean>(false)
+
+  const [selectedRows, setSelectedRows] = useState<string[]>([])
+  const [skippedEmpIds, setSkippedEmpIds] = useState<string[]>([])
+  const [withheldEmpIds, setWithheldEmpIds] = useState<string[]>([])
+  const [showMoreMenu, setShowMoreMenu] = useState<boolean>(false)
+  const [showHeaderDotsMenu, setShowHeaderDotsMenu] = useState<boolean>(false)
+  const [activeRowMenuEmpId, setActiveRowMenuEmpId] = useState<string | null>(null)
+
   const [calculationPage, setCalculationPage] = useState(1)
-  const calculationPageSize = 5
-
-  // History Filter Bar State (Draft + Applied)
+  const calculationPageSize = 10
+  const [historyPage, setHistoryPage] = useState(1)
   const [showHistoryFilterBar, setShowHistoryFilterBar] = useState(true)
-
+  const [empDeptFilter, setEmpDeptFilter] = useState("all")
+  const [empSearchQuery, setEmpSearchQuery] = useState("")
   const [periodDraft, setPeriodDraft] = useState("")
   const [yearDraft, setYearDraft] = useState("all")
   const [statusDraft, setStatusDraft] = useState("all")
   const [monthDraft, setMonthDraft] = useState("all")
   const [minAmountDraft, setMinAmountDraft] = useState("all")
-
   const [appliedPeriod, setAppliedPeriod] = useState("")
   const [appliedYear, setAppliedYear] = useState("all")
   const [appliedStatus, setAppliedStatus] = useState("all")
   const [appliedMonth, setAppliedMonth] = useState("all")
   const [appliedMinAmount, setAppliedMinAmount] = useState("all")
-
-  const [selectedHistoryRun, setSelectedHistoryRun] = useState<Payrun | null>(null)
   const [showNewModal, setShowNewModal] = useState(false)
-  const [guidedRunStep, setGuidedRunStep] = useState<1 | 2>(1)
-  const [runScope, setRunScope] = useState<"All Employees" | "Specific Employees" | "Department Batch">("All Employees")
-  const [runNote, setRunNote] = useState("Regular monthly payroll cycle")
-  const [runEmployeeSearch, setRunEmployeeSearch] = useState("")
-  const [appliedRunEmployeeSearch, setAppliedRunEmployeeSearch] = useState("")
-  const [hasRunRunEmployeeSearch, setHasRunRunEmployeeSearch] = useState(false)
-  const [runSelectedIds, setRunSelectedIds] = useState<string[]>([])
-  const [newMonth, setNewMonth] = useState(9)
+  const getEndOfMonthDate = (m: number, y: number) => {
+    const lastDay = new Date(y, m, 0).getDate()
+    return `${String(lastDay).padStart(2, "0")}/${String(m).padStart(2, "0")}/${y}`
+  }
+
+  const [newMonth, setNewMonth] = useState(7)
   const [newYear, setNewYear] = useState(2026)
+  const [newPayDate, setNewPayDate] = useState("31/07/2026")
+  const [runNote, setRunNote] = useState("Regular monthly payroll")
+
+  // New Payrun Creation dropdown & modals matching user design
+  const [showNewDropdown, setShowNewDropdown] = useState(false)
+  const [hoveredNewItem, setHoveredNewItem] = useState<string | null>("one_time")
+  const [showOneTimeModal, setShowOneTimeModal] = useState(false)
+  const [showOffCycleModal, setShowOffCycleModal] = useState(false)
+
+  // One Time Payout form state
+  const [oneTimeComponent, setOneTimeComponent] = useState("")
+  const [isComponentDropdownOpen, setIsComponentDropdownOpen] = useState(false)
+  const [componentSearch, setComponentSearch] = useState("")
+  const [oneTimePayDate, setOneTimePayDate] = useState("")
+
+  // Off Cycle Payrun form state
+  const [offCyclePayDate, setOffCyclePayDate] = useState("")
+
+  const ONE_TIME_COMPONENTS = ["Bonus", "Commission", "Leave Encashment"]
+  const filteredComponents = ONE_TIME_COMPONENTS.filter((c) =>
+    c.toLowerCase().includes(componentSearch.toLowerCase().trim())
+  )
+
+  const parseDateDdMmYyyy = (str: string) => {
+    if (!str) return null
+    const parts = str.trim().split(/[\/\-.]/)
+    if (parts.length === 3) {
+      const d = parseInt(parts[0], 10)
+      const m = parseInt(parts[1], 10)
+      const y = parseInt(parts[2], 10)
+      if (!isNaN(d) && !isNaN(m) && !isNaN(y) && m >= 1 && m <= 12) {
+        return { day: d, month: m, year: y, date: new Date(y, m - 1, d) }
+      }
+    }
+    return null
+  }
+
+  const calculateOverdueDays = (dateStr?: string) => {
+    if (!dateStr) return null
+    const parsed = parseDateDdMmYyyy(dateStr)
+    if (!parsed) return null
+    const now = new Date()
+    const todayMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()
+    const payMidnight = new Date(parsed.year, parsed.month - 1, parsed.day).getTime()
+    const diff = Math.floor((todayMidnight - payMidnight) / (1000 * 60 * 60 * 24))
+    return diff
+  }
+
+  const handleSaveOneTimePayrun = async () => {
+    if (!oneTimeComponent) {
+      toast("Please select a one-time component", "error")
+      return
+    }
+    if (!oneTimePayDate.trim()) {
+      toast("Please enter when you would like to pay (dd/MM/yyyy)", "error")
+      return
+    }
+    const parsed = parseDateDdMmYyyy(oneTimePayDate)
+    const pMonth = parsed?.month || 6
+    const pYear = parsed?.year || 2026
+    const pMonthName = monthNames[pMonth - 1]
+    const pName = `${pMonthName} ${pYear}`
+    const pId = `PR-OTP-${pYear}-${String(pMonth).padStart(2, "0")}-${Date.now().toString().slice(-4)}`
+
+    const newRows: PayrunInputRow[] = payrollEligibleEmployees.map((e) => {
+      const compAmt = oneTimeComponent === "Bonus" ? 25000 : oneTimeComponent === "Commission" ? 15000 : 12000
+      const tds = Math.round(compAmt * 0.1)
+      return {
+        empId: e.id,
+        empName: e.name,
+        department: e.department,
+        grossSalary: compAmt,
+        bonus: oneTimeComponent === "Bonus" ? compAmt : 0,
+        incentive: oneTimeComponent === "Commission" ? compAmt : 0,
+        lopDays: 0,
+        lopDeduction: 0,
+        otherDeduction: 0,
+        pf: 0,
+        esi: 0,
+        tds,
+        profTax: 0,
+        totalEarnings: compAmt,
+        totalDeductions: tds,
+        netSalary: compAmt - tds,
+      }
+    })
+
+    const newPr = createPayrun({
+      id: pId,
+      period: pName,
+      month: pMonth,
+      year: pYear,
+      status: "Draft",
+      scope: "All Employees",
+      generatedBy: "Meena Iyer",
+      generatedOn: new Date().toISOString().slice(0, 10),
+      rows: newRows,
+      note: `One-time ${oneTimeComponent} payrun for ${pName}`,
+      payrunType: "One Time Payout",
+      oneTimeComponent,
+      paymentDate: oneTimePayDate,
+    })
+
+    setPayruns([newPr, ...payruns])
+    setActiveRunId(newPr.id)
+    setShowOneTimeModal(false)
+    setOneTimeComponent("")
+    setOneTimePayDate("")
+    setIsComponentDropdownOpen(false)
+    setComponentSearch("")
+    setViewMode("details")
+    toast(`One-time ${oneTimeComponent} payrun for ${pName} created successfully!`, "success")
+
+    try {
+      await apiClient.payruns.create({
+        month: pMonth,
+        year: pYear,
+        payrun_type: "One Time Payout",
+        one_time_component: oneTimeComponent,
+        payment_date: oneTimePayDate,
+        period: pName,
+        note: `One-time ${oneTimeComponent} payrun for ${pName}`,
+      })
+    } catch {
+      // offline fallback
+    }
+  }
+
+  const handleSaveOffCyclePayrun = async () => {
+    if (!offCyclePayDate.trim()) {
+      toast("Please enter when you would like to pay (dd/MM/yyyy)", "error")
+      return
+    }
+    const parsed = parseDateDdMmYyyy(offCyclePayDate)
+    const pMonth = parsed?.month || 6
+    const pYear = parsed?.year || 2026
+    const pMonthName = monthNames[pMonth - 1]
+    const pName = `${pMonthName} ${pYear} (Off-Cycle)`
+    const pId = `PR-OFF-${pYear}-${String(pMonth).padStart(2, "0")}-${Date.now().toString().slice(-4)}`
+
+    const newRows = calcRows(payrollEligibleEmployees, ss)
+    const newPr = createPayrun({
+      id: pId,
+      period: pName,
+      month: pMonth,
+      year: pYear,
+      status: "Draft",
+      scope: "Specific Employees",
+      generatedBy: "Meena Iyer",
+      generatedOn: new Date().toISOString().slice(0, 10),
+      rows: newRows,
+      note: `Off-cycle pay run for ${pName}`,
+      payrunType: "Off Cycle Payrun",
+      paymentDate: offCyclePayDate,
+    })
+
+    setPayruns([newPr, ...payruns])
+    setActiveRunId(newPr.id)
+    setShowOffCycleModal(false)
+    setOffCyclePayDate("")
+    setViewMode("details")
+    toast(`Off-cycle pay run for ${pName} initiated successfully!`, "success")
+
+    try {
+      await apiClient.payruns.create({
+        month: pMonth,
+        year: pYear,
+        payrun_type: "Off Cycle Payrun",
+        payment_date: offCyclePayDate,
+        period: pName,
+        note: `Off-cycle pay run for ${pName}`,
+      })
+    } catch {
+      // offline fallback
+    }
+  }
+
+  const handleSaveRegularPayrun = async () => {
+    const pMonth = newMonth
+    const pYear = newYear
+    const pMonthName = monthNames[pMonth - 1]
+    const pName = `${pMonthName} ${pYear}`
+    const pId = `PR-${pYear}-${String(pMonth).padStart(2, "0")}`
+
+    // Check if duplicate regular payrun exists
+    const existing = payruns.find((p) => p.id === pId)
+    if (existing) {
+      toast(`Pay run for ${pName} already exists — switched to details view`, "info")
+      setActiveRunId(existing.id)
+      setShowNewModal(false)
+      setViewMode("details")
+      return
+    }
+
+    const payDate = newPayDate.trim() || getEndOfMonthDate(pMonth, pYear)
+    const newRows = calcRows(payrollEligibleEmployees, ss)
+    const gross = newRows.reduce((s, r) => s + (r.totalEarnings || r.grossSalary || 0), 0)
+    const deductions = newRows.reduce((s, r) => s + (r.totalDeductions || 0), 0)
+    const net = gross - deductions
+
+    const newPr = createPayrun({
+      id: pId,
+      period: pName,
+      month: pMonth,
+      year: pYear,
+      status: "Draft",
+      scope: "All Employees",
+      generatedBy: "Meena Iyer",
+      generatedOn: new Date().toISOString().slice(0, 10),
+      rows: newRows,
+      note: runNote || `Regular monthly payroll for ${pName}`,
+      payrunType: "regular",
+      paymentDate: payDate,
+    })
+
+    setPayruns([newPr, ...payruns])
+    setActiveRunId(newPr.id)
+    setShowNewModal(false)
+    setViewMode("details")
+    toast(`Created pay run for ${pName} successfully!`, "success")
+
+    try {
+      await apiClient.payruns.create({
+        month: pMonth,
+        year: pYear,
+        payrun_type: "regular",
+        payment_date: payDate,
+        period: pName,
+        note: runNote || `Regular monthly payroll for ${pName}`,
+      })
+    } catch {
+      // offline fallback
+    }
+  }
+
+  // 4. Lifecycle Modals
+  const [showApproveModal, setShowApproveModal] = useState<boolean>(false)
+  const [showRecordPaymentModal, setShowRecordPaymentModal] = useState<boolean>(false)
+  const [paymentDateInput, setPaymentDateInput] = useState<string>(payDateStr)
+  const [sendPayslipEmail, setSendPayslipEmail] = useState<boolean>(true)
+  const [viewingPayslipRow, setViewingPayslipRow] = useState<PayrunInputRow | null>(null)
+  const [viewingTdsRow, setViewingTdsRow] = useState<PayrunInputRow | null>(null)
+  const [showDownloadsModal, setShowDownloadsModal] = useState<boolean>(false)
+
+  // 5. Drawer & Collapsible Insights States
+  const [drawerRow, setDrawerRow] = useState<PayrunInputRow | null>(null)
+  const [drawerLopDays, setDrawerLopDays] = useState<number>(0)
+  const [drawerShowAddLop, setDrawerShowAddLop] = useState<boolean>(false)
+  const [drawerBonus, setDrawerBonus] = useState<number>(0)
+  const [drawerCommission, setDrawerCommission] = useState<number>(0)
+  const [drawerLeaveEncashment, setDrawerLeaveEncashment] = useState<number>(0)
+  const [drawerTds, setDrawerTds] = useState<number>(0)
+  const [drawerShowAddEarningMenu, setDrawerShowAddEarningMenu] = useState<boolean>(false)
+  const [drawerAddedEarnings, setDrawerAddedEarnings] = useState<string[]>([])
+
+  const [baseEarningExpanded, setBaseEarningExpanded] = useState<boolean>(true)
+  const [benefitsExpanded, setBenefitsExpanded] = useState<boolean>(true)
+  const [taxesExpanded, setTaxesExpanded] = useState<boolean>(true)
+  const [selectedComponentDetail, setSelectedComponentDetail] = useState<{
+    name: string
+    type: "basic" | "hra" | "special" | "epf" | "eps" | "edli" | "admin" | "pt" | "tds"
+  } | null>(null)
+
   const payrollEligibleEmployees = emps.filter(
     (e) => e.status !== "Inactive" && e.status !== "Incomplete" && e.grossSalary > 0,
   )
-
-  // Editing Row Modal State
   const [editingRow, setEditingRow] = useState<{
     row: PayrunInputRow
     empName: string
@@ -9792,215 +10632,139 @@ function PayRunsView({
     tds: number
   } | null>(null)
 
-  const activeRun = payruns.find((p) => p.id === activeRunId) || payruns[0]
-  const calculationRows = activeRun?.rows ?? []
-  const paginatedCalculationRows = calculationRows.slice(
+  // Sync paymentDateInput when activeRun changes
+  useEffect(() => {
+    if (activeRun) {
+      setPaymentDateInput(`29/${String(activeRun.month).padStart(2, "0")}/${activeRun.year}`)
+    }
+  }, [activeRun?.id, activeRun?.month, activeRun?.year])
+
+  // 6. Filtered Rows (All dependencies are safely initialized above)
+  const filteredCalculationRows = calculationRows.filter((row) => {
+    const emp = emps.find((e) => e.id === row.empId)
+    const isSkipped = skippedEmpIds.includes(row.empId)
+    const isWithheld = withheldEmpIds.includes(row.empId)
+
+    // Category Filter (All Employees ▾ Dropdown)
+    if (empCategoryFilter === "active" && isSkipped) return false
+    if (empCategoryFilter === "lop" && (!row.lopDays || row.lopDays <= 0)) return false
+    if (empCategoryFilter === "scheduled_earnings" && (!row.bonus || row.bonus <= 0) && (!row.incentive || row.incentive <= 0)) return false
+    if (empCategoryFilter === "tax_overridden" && (!row.tds || row.tds <= 0)) return false
+    if (empCategoryFilter === "skipped" && !isSkipped) return false
+    if (empCategoryFilter === "negative_net" && (row.netSalary || 0) >= 0) return false
+    if (empCategoryFilter === "withheld" && !isWithheld) return false
+    if (empCategoryFilter === "yet_to_pay" && (isPaid || isSkipped || isWithheld)) return false
+    if (empCategoryFilter === "paid" && !isPaid) return false
+    if (empCategoryFilter === "yet_to_pay_failed" && (isPaid || isSkipped)) return false
+    if (empCategoryFilter === "payslip_sent" && !isPaid) return false
+    if (empCategoryFilter === "payslip_yet_to_send" && isPaid) return false
+
+    // Popover Filters
+    if (filterEmployeeType !== "all" && (emp as any)?.employmentType && (emp as any).employmentType.toLowerCase() !== filterEmployeeType.toLowerCase()) return false
+    if (filterPaymentMode !== "all" && filterPaymentMode !== "cash") return false
+    if (filterWorkLoc !== "all" && emp?.location && emp.location.toLowerCase() !== filterWorkLoc.toLowerCase()) return false
+    if (filterDept !== "all" && emp?.department && emp.department.toLowerCase() !== filterDept.toLowerCase()) return false
+    if (filterDesignation !== "all" && emp?.designation && emp.designation.toLowerCase() !== filterDesignation.toLowerCase()) return false
+
+    if (empDeptFilter !== "all" && emp?.department !== empDeptFilter) return false
+    if (empSearchQuery) {
+      const q = empSearchQuery.toLowerCase()
+      const matchName = row.empName.toLowerCase().includes(q)
+      const matchId = row.empId.toLowerCase().includes(q)
+      const matchEmail = (emp?.email || "").toLowerCase().includes(q)
+      if (!matchName && !matchId && !matchEmail) return false
+    }
+    return true
+  })
+
+  const paginatedCalculationRows = filteredCalculationRows.slice(
     (calculationPage - 1) * calculationPageSize,
     calculationPage * calculationPageSize,
   )
-  const payrunWorkflowSteps = [
-    "Draft",
-    "Calculated",
-    "Review",
-    "Approved",
-    "Paid & Disbursed",
-    "Locked",
-  ]
-  const payrunStepIndex = activeRun
-    ? activeRun.status === "Draft"
-      ? 0
-      : activeRun.status === "Calculated"
-        ? 1
-        : activeRun.status === "Under Review"
-          ? 2
-          : activeRun.status === "Approved"
-            ? 3
-            : activeRun.status === "Completed"
-              ? 4
-              : activeRun.status === "Locked"
-                ? 5
-                : 0
-    : 0
-  const filteredRunEmployees = hasRunRunEmployeeSearch ? payrollEligibleEmployees.filter((e) =>
-    searchMatches(appliedRunEmployeeSearch, [e.name, e.id, e.department, e.designation]),
-  ) : []
-  const guidedTargetEmployees = (() => {
-    if (runScope === "Specific Employees") {
-      return payrollEligibleEmployees.filter((e) => runSelectedIds.includes(e.id))
-    }
-    if (runScope === "Department Batch") {
-      return payrollEligibleEmployees.filter((e) => e.department === runSelectedIds[0])
-    }
-    return payrollEligibleEmployees
-  })()
-  const guidedPreviewRows = calcRows(guidedTargetEmployees, ss)
-  const guidedPreviewGross = guidedPreviewRows.reduce((sum, row) => sum + row.totalEarnings, 0)
-  const guidedPreviewDeductions = guidedPreviewRows.reduce((sum, row) => sum + row.totalDeductions, 0)
-  const guidedPreviewNet = guidedPreviewRows.reduce((sum, row) => sum + row.netSalary, 0)
-  const guidedScopeLabel = runScope === "Department Batch" ? "Department Payroll" : runScope
-  const guidedScopeDetail =
-    runScope === "Department Batch"
-      ? runSelectedIds[0]
-        ? `${runSelectedIds[0]} department payroll batch`
-        : "Select a department to preview this payroll batch"
-      : runScope === "Specific Employees"
-        ? `${runSelectedIds.length} selected employee${runSelectedIds.length !== 1 ? "s" : ""}`
-        : "Full organization payroll batch"
 
-  const f4Periods = Array.from(new Set(payruns.map((p) => p.period)))
-  const availableYears = Array.from(new Set(payruns.map((p) => String(p.year)))).sort().reverse()
+  const activeIncludedRows = calculationRows.filter((r) => !skippedEmpIds.includes(r.empId))
+  const currentNetPay = activeIncludedRows.reduce((s, r) => s + (withheldEmpIds.includes(r.empId) ? 0 : r.netSalary), 0)
+  const currentGross = activeIncludedRows.reduce((s, r) => s + r.totalEarnings, 0)
+  const currentDeductions = activeIncludedRows.reduce((s, r) => s + r.totalDeductions, 0)
+  const currentEmpCount = activeIncludedRows.length
 
-  // Handle Filter Go Action
-  const handleHistoryGo = () => {
-    setHasRunHistorySearch(true)
-    setAppliedPeriod(periodDraft)
-    setAppliedYear(yearDraft)
-    setAppliedStatus(statusDraft)
-    setAppliedMonth(monthDraft)
-    setAppliedMinAmount(minAmountDraft)
-    toast("Filters applied", "info")
+  const statutoryEpf = activeIncludedRows.reduce((s, r) => s + (r.pf || getComponentAmount("epf", r)), 0)
+  const statutoryPt = activeIncludedRows.reduce((s, r) => s + (r.profTax || getComponentAmount("pt", r)), 0)
+  const statutoryTds = activeIncludedRows.reduce((s, r) => s + (r.tds || 0), 0)
+  const totalTaxes = statutoryPt + statutoryTds
+  const totalBenefits = statutoryEpf
+
+  // Counts for Employee Breakdown
+  const totalActiveEmpsCount = emps.filter((e) => e.status === "Active").length || calculationRows.length
+  const paidEmpsCount = isPaid ? activeIncludedRows.filter((r) => !withheldEmpIds.includes(r.empId)).length : 0
+  const skippedEmpsCount = skippedEmpIds.length
+  const withheldEmpsCount = withheldEmpIds.length
+
+  // Component breakdown stats
+  const basicCount = activeIncludedRows.filter((r) => getComponentAmount("basic", r) > 0).length
+  const totalBasic = activeIncludedRows.reduce((s, r) => s + getComponentAmount("basic", r), 0)
+
+  const hraCount = activeIncludedRows.filter((r) => getComponentAmount("hra", r) > 0).length
+  const totalHra = activeIncludedRows.reduce((s, r) => s + getComponentAmount("hra", r), 0)
+
+  const specialCount = activeIncludedRows.filter((r) => getComponentAmount("special", r) > 0).length
+  const totalSpecial = activeIncludedRows.reduce((s, r) => s + getComponentAmount("special", r), 0)
+
+  const totalBaseEarning = totalBasic + totalHra + totalSpecial
+  const epfEligibleCount = activeIncludedRows.filter((r) => (r.pf || getComponentAmount("epf", r)) > 0).length
+  const ptEligibleCount = activeIncludedRows.filter((r) => (r.profTax || getComponentAmount("pt", r)) > 0).length
+  const payableEmpsCount = activeIncludedRows.filter((r) => !withheldEmpIds.includes(r.empId)).length
+
+  // 7. Handlers & Actions
+  const openEmployeeDrawer = (row: PayrunInputRow) => {
+    setDrawerRow(row)
+    setDrawerLopDays(row.lopDays || 0)
+    setDrawerBonus(row.bonus || 0)
+    setDrawerCommission(row.incentive || 0)
+    setDrawerLeaveEncashment(0)
+    setDrawerTds(row.tds || 0)
+    const added: string[] = []
+    if (row.bonus && row.bonus > 0) added.push("Bonus")
+    if (row.incentive && row.incentive > 0) added.push("Commission")
+    setDrawerAddedEarnings(added)
+    setDrawerShowAddLop(false)
+    setDrawerShowAddEarningMenu(false)
   }
 
-  // Handle Clear History Filters
-  const handleHistoryClear = () => {
-    setHasRunHistorySearch(false)
-    setPeriodDraft("")
-    setYearDraft("all")
-    setStatusDraft("all")
-    setMonthDraft("all")
-    setMinAmountDraft("all")
-
-    setAppliedPeriod("")
-    setAppliedYear("all")
-    setAppliedStatus("all")
-    setAppliedMonth("all")
-    setAppliedMinAmount("all")
-    toast("History filters cleared", "info")
-  }
-
-  // Filtered History Runs
-  const filteredHistory = hasRunHistorySearch ? payruns.filter((p) => {
-    if (!searchMatches(appliedPeriod, [p.period])) {
-      return false
-    }
-    if (appliedYear !== "all" && String(p.year) !== appliedYear) {
-      return false
-    }
-    if (appliedStatus !== "all" && p.status !== appliedStatus) {
-      return false
-    }
-    if (appliedMonth !== "all" && String(p.month) !== appliedMonth) {
-      return false
-    }
-    if (appliedMinAmount !== "all") {
-      const minVal = Number(appliedMinAmount)
-      if (p.netPayroll < minVal) return false
-    }
-    return true
-  }) : []
-
-  // Advance payrun status in lifecycle
-  const advanceRunStatus = (pr: Payrun) => {
-    const statusMap: Record<PayrunStatus, PayrunStatus> = {
-      Draft: "Calculated",
-      Calculated: "Under Review",
-      "Under Review": "Approved",
-      Approved: "Completed",
-      Completed: "Locked",
-      Locked: "Locked",
-    }
-    const nextStatus = statusMap[pr.status]
-    const updatedDate = nextStatus === "Completed" ? new Date().toISOString().slice(0, 10) : pr.generatedOn
-
-    setPayruns((prev) =>
-      prev.map((item) =>
-        item.id === pr.id
-          ? {
-              ...item,
-              status: nextStatus,
-              generatedOn: updatedDate,
-            }
-          : item
-      )
-    )
-
-    if (nextStatus === "Calculated") setCurrentStepIndex(1)
-    if (nextStatus === "Under Review") setCurrentStepIndex(2)
-    if (nextStatus === "Approved" || nextStatus === "Completed") setCurrentStepIndex(3)
-    if (nextStatus === "Locked") setCurrentStepIndex(4)
-
-    toast(`Pay run ${pr.period} updated to "${nextStatus}"`, "success")
-  }
-
-  // Recalculate all employees in the active payrun
-  const handleRecalculate = () => {
-    if (!activeRun) return
-    if (activeRun.status === "Locked") {
-      return toast("Locked pay runs cannot be recalculated", "error")
-    }
-    const employeePool =
-      activeRun.employeeIds && activeRun.employeeIds.length > 0
-        ? payrollEligibleEmployees.filter((emp) => activeRun.employeeIds?.includes(emp.id))
-        : payrollEligibleEmployees
-    const newRows = calcRows(employeePool, ss)
-    const gross = newRows.reduce((s, r) => s + r.totalEarnings, 0)
-    const deductions = newRows.reduce((s, r) => s + r.totalDeductions, 0)
-
-    setPayruns((prev) =>
-      prev.map((p) =>
-        p.id === activeRun.id
-          ? {
-              ...p,
-              grossPayroll: gross,
-              totalDeductions: deductions,
-              netPayroll: gross - deductions,
-              rows: newRows,
-              totalEmployees: newRows.length,
-            }
-          : p
-      )
-    )
-    toast(`Recalculated salary figures for ${newRows.length} employees`, "success")
-  }
-
-  // Save Row Edits
-  const handleSaveRow = () => {
-    if (!editingRow || !activeRun) return
-    if (activeRun.status === "Locked") {
-      setEditingRow(null)
-      return toast("Locked pay runs cannot be edited", "error")
-    }
-
-    const perDayGross = editingRow.grossSalary / 30
-    const lopDeduction = Math.round(perDayGross * editingRow.lopDays)
-    const totalEarnings = editingRow.grossSalary + editingRow.bonus + editingRow.incentive
-    const pf = Math.round(editingRow.grossSalary * 0.12 * 0.5) // ~12% of basic
+  const handleSaveDrawer = () => {
+    if (!drawerRow || !activeRun) return
+    const baseDaysCount = daysInMonth || 30
+    const perDayGross = (drawerRow.grossSalary || 30000) / baseDaysCount
+    const lopDeduction = Math.round(perDayGross * drawerLopDays)
+    const totalExtraEarnings = drawerBonus + drawerCommission + drawerLeaveEncashment
+    const basicAmt = getComponentAmount("basic", drawerRow)
+    const pf = Math.round(basicAmt * 0.12)
     const profTax = 200
-    const totalDeductions = lopDeduction + pf + editingRow.tds + profTax
+    const totalEarnings = (drawerRow.grossSalary || 30000) + totalExtraEarnings - lopDeduction
+    const totalDeductions = pf + profTax + drawerTds + lopDeduction
     const netSalary = Math.max(0, totalEarnings - totalDeductions)
 
-    const updatedRows = activeRun.rows.map((r) => {
-      if (r.empId === editingRow.row.empId) {
-        return {
-          ...r,
-          grossSalary: editingRow.grossSalary,
-          lopDays: editingRow.lopDays,
-          lopDeduction,
-          bonus: editingRow.bonus,
-          incentive: editingRow.incentive,
-          tds: editingRow.tds,
-          pf,
-          profTax,
-          totalEarnings,
-          totalDeductions,
-          netSalary,
-        }
-      }
-      return r
-    })
+    const updatedRows = activeRun.rows.map((r) =>
+      r.empId === drawerRow.empId
+        ? {
+            ...r,
+            lopDays: drawerLopDays,
+            lopDeduction,
+            bonus: drawerBonus,
+            incentive: drawerCommission,
+            tds: drawerTds,
+            pf,
+            profTax,
+            totalEarnings,
+            totalDeductions,
+            netSalary,
+          }
+        : r
+    )
 
-    const newGross = updatedRows.reduce((s, r) => s + r.totalEarnings, 0)
-    const newDeductions = updatedRows.reduce((s, r) => s + r.totalDeductions, 0)
+    const newGross = updatedRows.reduce((s, r) => s + (r.totalEarnings || r.grossSalary || 30000), 0)
+    const newDeductions = updatedRows.reduce((s, r) => s + (r.totalDeductions || 0), 0)
+    const newNet = newGross - newDeductions
 
     setPayruns((prev) =>
       prev.map((p) =>
@@ -10009,1275 +10773,4480 @@ function PayRunsView({
               ...p,
               grossPayroll: newGross,
               totalDeductions: newDeductions,
-              netPayroll: newGross - newDeductions,
+              netPayroll: newNet,
               rows: updatedRows,
             }
           : p
       )
     )
 
+    setDrawerRow(null)
+    toast(`Updated salary & earnings breakdown for ${drawerRow.empName}`, "success")
+  }
+
+  const handleHistoryGo = () => {
+    setAppliedPeriod(periodDraft); setAppliedYear(yearDraft); setAppliedStatus(statusDraft)
+    setAppliedMonth(monthDraft); setAppliedMinAmount(minAmountDraft)
+    toast("Filters applied", "info")
+  }
+  const handleHistoryClear = () => {
+    setPeriodDraft(""); setYearDraft("all"); setStatusDraft("all"); setMonthDraft("all"); setMinAmountDraft("all")
+    setAppliedPeriod(""); setAppliedYear("all"); setAppliedStatus("all"); setAppliedMonth("all"); setAppliedMinAmount("all")
+    toast("History filters cleared", "info")
+  }
+  const filteredHistory = payruns.filter((p) => {
+    if (!searchMatches(appliedPeriod, [p.period])) return false
+    if (appliedYear !== "all" && String(p.year) !== appliedYear) return false
+    if (appliedStatus !== "all") {
+      const matchStatus =
+        (appliedStatus === "Paid" && (p.status === "Completed" || p.status === "Paid" || p.status === "PAID")) ||
+        (appliedStatus === "Payment Due" && (p.status === "Locked" || p.status === "Payment Due" || p.status === "PAYMENT DUE" || p.status === "Approved" || p.status === "Under Review")) ||
+        (appliedStatus === "Draft" && p.status === "Draft") ||
+        p.status === appliedStatus;
+      if (!matchStatus) return false;
+    }
+    if (appliedMonth !== "all" && String(p.month) !== appliedMonth) return false
+    if (appliedMinAmount !== "all" && p.netPayroll < Number(appliedMinAmount)) return false
+    return true
+  })
+  const historyActiveFiltersCount =
+    (appliedPeriod ? 1 : 0) + (appliedYear !== "all" ? 1 : 0) +
+    (appliedStatus !== "all" ? 1 : 0) + (appliedMonth !== "all" ? 1 : 0) + (appliedMinAmount !== "all" ? 1 : 0)
+
+  const handleApprovePayroll = () => {
+    if (!activeRun) return
+    setPayruns((prev) => prev.map((item) => item.id === activeRun.id ? { ...item, status: "PAYMENT DUE" } : item))
+    setShowApproveModal(false)
+    toast(`Payroll for ${activeRun.period} approved successfully. Payment is now due.`, "success")
+  }
+
+  const handleRecordPayment = () => {
+    if (!activeRun) return
+    setPayruns((prev) => prev.map((item) => item.id === activeRun.id ? { ...item, status: "PAID", generatedOn: new Date().toISOString().slice(0, 10) } : item))
+    setShowRecordPaymentModal(false)
+    if (sendPayslipEmail) {
+      toast(`Payment recorded and payslip notifications sent for ${activeIncludedRows.length || 4} employees.`, "success")
+    } else {
+      toast(`Payment recorded successfully for ${activeIncludedRows.length || 4} employees.`, "success")
+    }
+  }
+
+  const handleDeleteRecordedPayment = () => {
+    if (!activeRun) return
+    setPayruns((prev) => prev.map((item) => item.id === activeRun.id ? { ...item, status: "PAYMENT DUE" } : item))
+    setShowHeaderDotsMenu(false)
+    toast("Recorded payment deleted. Pay run status reverted to Payment Due.", "warning")
+  }
+
+  const handleDeletePayRun = () => {
+    if (!activeRun) return
+    setPayruns((prev) => prev.filter((item) => item.id !== activeRun.id))
+    setShowHeaderDotsMenu(false)
+    setViewMode("list")
+    toast(`Pay run for ${activeRun.period} has been deleted.`, "info")
+  }
+
+  const handleDownloadAllPayslips = () => {
+    setShowHeaderDotsMenu(false)
+    const csv = "EMPLOYEE ID,EMPLOYEE NAME,BASIC,HRA,SPECIAL ALLOWANCE,GROSS EARNINGS,EPF,PROFESSIONAL TAX,TDS,TOTAL DEDUCTIONS,NET SALARY\n" + calculationRows.map(r => {
+      const b = getComponentAmount("basic", r)
+      const h = getComponentAmount("hra", r)
+      const s = getComponentAmount("special", r)
+      const epf = getComponentAmount("epf", r)
+      const pt = 200
+      const tds = r.tds || 0
+      const gross = r.grossSalary || (b + h + s)
+      const ded = epf + pt + tds
+      const net = r.netSalary || (gross - ded)
+      return `"${r.empId}","${r.empName}",${b},${h},${s},${gross},${epf},${pt},${tds},${ded},${net}`
+    }).join("\n")
+    const blob = new Blob([csv], { type: "text/csv" })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement("a")
+    a.href = url
+    a.download = `All_Payslips_${activeRun?.period.replace(/\s+/g, "_") || "May_2026"}.csv`
+    a.click()
+    toast(`Downloaded consolidated payslips archive for ${activeRun?.period || "May 2026"}`, "success")
+  }
+
+  const handleDownloadAllTds = () => {
+    setShowHeaderDotsMenu(false)
+    const csv = "EMPLOYEE ID,EMPLOYEE NAME,ANNUAL GROSS,STANDARD DEDUCTION,SECTION 80C,TAXABLE INCOME,MONTHLY TDS\n" + calculationRows.map(r => {
+      const g = (r.grossSalary || 30000) * 12
+      const epf = Math.min(150000, getComponentAmount("epf", r) * 12)
+      const taxable = Math.max(0, g - 50000 - epf)
+      return `"${r.empId}","${r.empName}",${g},50000,${epf},${taxable},0`
+    }).join("\n")
+    const blob = new Blob([csv], { type: "text/csv" })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement("a")
+    a.href = url
+    a.download = `TDS_Worksheets_${activeRun?.period.replace(/\s+/g, "_") || "May_2026"}.csv`
+    a.click()
+    toast(`Downloaded TDS worksheets for ${activeRun?.period || "May 2026"}`, "success")
+  }
+
+  const handleSkipFromPayroll = () => {
+    if (selectedRows.length === 0) return
+    setSkippedEmpIds((prev) => Array.from(new Set([...prev, ...selectedRows])))
+    toast(`Skipped ${selectedRows.length} employee(s) from this payroll`, "info")
+    setSelectedRows([])
+  }
+
+  const handleWithholdSalary = () => {
+    if (selectedRows.length === 0) return
+    setWithheldEmpIds((prev) => Array.from(new Set([...prev, ...selectedRows])))
+    toast(`Salary withheld for ${selectedRows.length} employee(s)`, "warning")
+    setSelectedRows([])
+  }
+
+  const handleAddToPayroll = () => {
+    if (selectedRows.length === 0) return
+    setSkippedEmpIds((prev) => prev.filter((id) => !selectedRows.includes(id)))
+    setShowMoreMenu(false)
+    toast(`Re-added ${selectedRows.length} employee(s) to payroll`, "success")
+    setSelectedRows([])
+  }
+
+  const handleRevertWithhold = () => {
+    if (selectedRows.length === 0) return
+    setWithheldEmpIds((prev) => prev.filter((id) => !selectedRows.includes(id)))
+    setShowMoreMenu(false)
+    toast(`Reverted salary withholding for ${selectedRows.length} employee(s)`, "success")
+    setSelectedRows([])
+  }
+
+  const handleExportPayrollData = () => {
+    setShowExportDropdown(false)
+    const csv = "EMPLOYEE ID,EMPLOYEE NAME,PAID DAYS,GROSS PAY,DEDUCTIONS,TAXES,BENEFITS,REIMBURSEMENTS,NET PAY,PAYMENT MODE,PAYMENT STATUS\n" + calculationRows.map(r => {
+      const isSk = skippedEmpIds.includes(r.empId)
+      const isWh = withheldEmpIds.includes(r.empId)
+      const pDays = isSk ? 0 : 31 - (r.lopDays || 0)
+      const gross = isSk ? 0 : r.grossSalary || r.totalEarnings || 30000
+      const ded = isSk ? 0 : r.lopDeduction || 0
+      const taxes = isSk ? 0 : r.tds || 200
+      const benefits = isSk ? 0 : r.pf || (r.empId === "EMP001" ? 2250 : r.empId === "EMP002" ? 3000 : r.empId === "EMP013" ? 3500 : 0)
+      const nPay = isSk || isWh ? 0 : r.netSalary || (gross - taxes - benefits)
+      const pStatus = isPaid ? `Paid on ${paymentDateInput || payDateStr}` : isWh ? "Withheld" : isSk ? "Skipped" : "Yet To Pay"
+      return `"${r.empId}","${r.empName}",${pDays},${gross},${ded},${taxes},${benefits},0,${nPay},"Cash","${pStatus}"`
+    }).join("\n")
+    const blob = new Blob([csv], { type: "text/csv" })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement("a")
+    a.href = url
+    a.download = `Payroll_Data_${activeRun?.period.replace(/\s+/g, "_") || "Period"}.csv`
+    a.click()
+    toast("Exported Payroll Data", "success")
+  }
+
+  const handleExportComparisonReport = () => {
+    setShowExportDropdown(false)
+    const csv = "EMPLOYEE ID,EMPLOYEE NAME,CURRENT PERIOD NET PAY,PREVIOUS PERIOD NET PAY,VARIANCE,CHANGE PERCENTAGE\n" + calculationRows.map(r => {
+      const currentNet = r.netSalary || 30000
+      const prevNet = currentNet * 0.96
+      const variance = currentNet - prevNet
+      return `"${r.empId}","${r.empName}",${currentNet.toFixed(2)},${prevNet.toFixed(2)},${variance.toFixed(2)},+4.17%`
+    }).join("\n")
+    const blob = new Blob([csv], { type: "text/csv" })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement("a")
+    a.href = url
+    a.download = `Payroll_Comparison_Report_${activeRun?.period.replace(/\s+/g, "_") || "Period"}.csv`
+    a.click()
+    toast("Exported Payroll Comparison Report", "success")
+  }
+
+  const handleExportEmployeeData = handleExportPayrollData
+
+  const handleSaveRow = () => {
+    if (!editingRow || !activeRun) return
+    if (activeRun.status === "Locked") { setEditingRow(null); return toast("Locked pay runs cannot be edited", "error") }
+    const perDayGross = editingRow.grossSalary / 30
+    const lopDeduction = Math.round(perDayGross * editingRow.lopDays)
+    const totalEarnings = editingRow.grossSalary + editingRow.bonus + editingRow.incentive
+    const pf = Math.round(editingRow.grossSalary * 0.12 * 0.5)
+    const profTax = 200
+    const totalDeductions = lopDeduction + pf + editingRow.tds + profTax
+    const netSalary = Math.max(0, totalEarnings - totalDeductions)
+    const updatedRows = activeRun.rows.map((r) => r.empId === editingRow.row.empId ? { ...r, grossSalary: editingRow.grossSalary, lopDays: editingRow.lopDays, lopDeduction, bonus: editingRow.bonus, incentive: editingRow.incentive, tds: editingRow.tds, pf, profTax, totalEarnings, totalDeductions, netSalary } : r)
+    const newGross = updatedRows.reduce((s, r) => s + r.totalEarnings, 0)
+    const newDeductions = updatedRows.reduce((s, r) => s + r.totalDeductions, 0)
+    setPayruns((prev) => prev.map((p) => p.id === activeRun.id ? { ...p, grossPayroll: newGross, totalDeductions: newDeductions, netPayroll: newGross - newDeductions, rows: updatedRows } : p))
     setEditingRow(null)
     toast(`Updated salary row for ${editingRow.empName}`, "success")
   }
 
-  // Create new payrun
-  const handleCreatePayrun = () => {
-    if (runScope === "Specific Employees" && runSelectedIds.length === 0) {
-      return toast("Select at least one employee for this payroll run", "error")
-    }
-    if (runScope === "Department Batch" && !runSelectedIds[0]) {
-      return toast("Select a department for this payroll run", "error")
-    }
-    const monthNames = [
-      "January", "February", "March", "April", "May", "June",
-      "July", "August", "September", "October", "November", "December"
-    ]
-    const periodName = `${monthNames[newMonth - 1]} ${newYear}`
-    if (payruns.some((p) => p.period === periodName)) {
-      return toast(`Pay run for ${periodName} already exists`, "error")
-    }
+    // ════════════════════════════════════════════════════════════════════════════
+  // 1. COMPONENT BREAKDOWN DRILLDOWN PAGE (Exact Match to Image 2)
+  // ════════════════════════════════════════════════════════════════════════════
+  if (selectedComponentDetail) {
+    const compRows = activeIncludedRows.length > 0 ? activeIncludedRows : calculationRows
 
-    const targetEmployees = guidedTargetEmployees.length
-      ? guidedTargetEmployees
-      : emps.filter((e) => e.status === "Active")
-    const rows = calcRows(targetEmployees, ss)
-    const gross = rows.reduce((s, r) => s + r.totalEarnings, 0)
-    const deductions = rows.reduce((s, r) => s + r.totalDeductions, 0)
-
-    const newPr: Payrun = {
-      id: `PR-${newYear}-${String(newMonth).padStart(2, "0")}`,
-      period: periodName,
-      month: newMonth,
-      year: newYear,
-      status: "Draft",
-      totalEmployees: rows.length,
-      grossPayroll: gross,
-      totalDeductions: deductions,
-      netPayroll: gross - deductions,
-      scope: runScope,
-      employeeIds: targetEmployees.map((emp) => emp.id),
-      note: runNote,
-      generatedBy: "Meena Iyer",
-      generatedOn: new Date().toISOString().slice(0, 10),
-      rows,
+    const exportComponentCsv = () => {
+      const csv = "ID,NAME,TOTAL AMOUNT\n" + compRows.map(r => {
+        const emp = emps.find(e => e.id === r.empId)
+        const idDisplay = emp?.id || r.empId
+        const amt = getComponentAmount(selectedComponentDetail.type, r, emp)
+        return `"${idDisplay}","${r.empName}",${amt}`
+      }).join("\n")
+      const blob = new Blob([csv], { type: "text/csv" })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement("a")
+      a.href = url
+      a.download = `${selectedComponentDetail.name.replace(/\s+/g, "_")}_Breakdown.csv`
+      a.click()
+      toast(`Exported ${selectedComponentDetail.name} breakdown`, "success")
     }
 
-    setPayruns([newPr, ...payruns])
-    setActiveRunId(newPr.id)
-    setCalculationPage(1)
-    setShowNewModal(false)
-    setGuidedRunStep(1)
-    setRunSelectedIds([])
-    setRunEmployeeSearch("")
-    setAppliedRunEmployeeSearch("")
-    setCurrentStepIndex(0)
-    toast(`New Pay run for ${periodName} initialized for ${rows.length} employees`, "success")
-  }
-  const handleGuidedRunContinue = () => {
-    if (runScope === "Specific Employees" && runSelectedIds.length === 0) {
-      return toast("Select at least one employee before continuing", "error")
-    }
-    if (runScope === "Department Batch" && !runSelectedIds[0]) {
-      return toast("Select a department before continuing", "error")
-    }
-    setGuidedRunStep(2)
-  }
-
-  // Export Bank Batch CSV
-  const handleExportBankBatch = () => {
-    if (!activeRun) return
-    const csvContent =
-      "Employee ID,Employee Name,Account Number,IFSC Code,Net Salary,Payment Period\n" +
-      activeRun.rows
-        .map(
-          (r, i) =>
-            `${r.empId},${r.empName},918273645${i + 10},HDFC0001234,${r.netSalary},${activeRun.period}`
-        )
-        .join("\n")
-    const blob = new Blob([csvContent], { type: "text/csv" })
-    const a = document.createElement("a")
-    a.href = URL.createObjectURL(blob)
-    a.download = `Bank_Disbursement_Batch_${activeRun.period.replace(" ", "_")}.csv`
-    a.click()
-    toast("Bank disbursement batch file generated", "success")
-  }
-
-  const currentNetPay = activeRun ? activeRun.netPayroll : 0
-  const currentGross = activeRun ? activeRun.grossPayroll : 0
-  const currentDeductions = activeRun ? activeRun.totalDeductions : 0
-  const currentEmpCount = activeRun ? activeRun.totalEmployees : 0
-  const historyActiveFiltersCount =
-    (appliedPeriod ? 1 : 0) +
-    (appliedYear !== "all" ? 1 : 0) +
-    (appliedStatus !== "all" ? 1 : 0) +
-    (appliedMonth !== "all" ? 1 : 0) +
-    (appliedMinAmount !== "all" ? 1 : 0)
-
-  return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
-      <PH
-        title="Payroll & Pay Runs"
-        sub="Execute, verify, approve, and disburse monthly employee compensation"
-        action={
-          <>
-          <Btn onClick={() => setShowNewModal(true)}>Execute Guided Payroll Run</Btn>
-          <Btn variant="success" onClick={handleExportBankBatch}>
-            Export
-          </Btn>
-          </>
-        }
-      />
-
-      {/* 4 KPI Summary Cards */}
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-          gap: 16,
-        }}
-      >
-        <EmployeeMetricCard
-          label="Active Pay Cycle"
-          value={activeRun ? activeRun.period : "None"}
-          sub={activeRun ? `Status: ${activeRun.status}` : "No active run"}
-          accent={F.brand}
-          badgeText={activeRun ? activeRun.status : "Draft"}
-          badgeBg={F.infoBg}
-          badgeColor={F.brand}
-          progress={75}
-        />
-        <EmployeeMetricCard
-          label="Total Net Payroll"
-          value={inr(currentNetPay)}
-          sub={`From ${inr(currentGross)} gross compensation`}
-          accent={F.success}
-          badgeText="Net Payable"
-          badgeBg={F.successBg}
-          badgeColor={F.success}
-          progress={currentGross > 0 ? Math.round((currentNetPay / currentGross) * 100) : 0}
-        />
-        <EmployeeMetricCard
-          label="Statutory Deductions"
-          value={inr(currentDeductions)}
-          sub="PF (12%), TDS Withholdings & PT"
-          accent={F.warning}
-          badgeText="Withholdings"
-          badgeBg={F.warningBg}
-          badgeColor={F.warning}
-          progress={currentGross > 0 ? Math.round((currentDeductions / currentGross) * 100) : 0}
-        />
-        <EmployeeMetricCard
-          label="Eligible Employees"
-          value={`${currentEmpCount} Employees`}
-          sub="100% attendance & compensation verified"
-          accent="#8B5CF6"
-          badgeText="Verified"
-          badgeBg="#F5F3FF"
-          badgeColor="#7C3AED"
-          progress={100}
-        />
-      </div>
-
-      {/* Tabs Header in Fiori Style */}
-      <div
-        style={{
+    return (
+      <div style={{ display: "flex", flexDirection: "column", background: Z.bg, minHeight: "100%", fontFamily: "'Inter',Arial,sans-serif" }}>
+        
+        {/* Header Bar */}
+        <div style={{
+          background: Z.card,
+          borderBottom: `1px solid ${Z.border}`,
+          padding: "0 24px",
           display: "flex",
-          borderBottom: `1px solid ${F.border}`,
-          gap: 24,
-        }}
-      >
-        <button
-          onClick={() => setPayrollTab("run")}
-          style={{
-            background: "none",
-            border: "none",
-            borderBottom: `3px solid ${payrollTab === "run" ? F.brand : "transparent"}`,
-            padding: "10px 4px",
-            fontSize: 13,
-            fontWeight: payrollTab === "run" ? 700 : 500,
-            color: payrollTab === "run" ? F.brand : F.text2,
-            cursor: "pointer",
-            transition: "all 0.15s ease",
-          }}
-        >
-          Active Pay Run Processing
-        </button>
-        <button
-          onClick={() => setPayrollTab("history")}
-          style={{
-            background: "none",
-            border: "none",
-            borderBottom: `3px solid ${payrollTab === "history" ? F.brand : "transparent"}`,
-            padding: "10px 4px",
-            fontSize: 13,
-            fontWeight: payrollTab === "history" ? 700 : 500,
-            color: payrollTab === "history" ? F.brand : F.text2,
-            cursor: "pointer",
-            transition: "all 0.15s ease",
-          }}
-        >
-          Payroll History & Audit Ledger
-        </button>
-      </div>
-
-      {/* TAB 1: RUN PAYROLL */}
-      {payrollTab === "run" && (
-        <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
-          {/* Unified Active Payrun Workflow Card */}
-          <div
-            style={{
-              background: F.card,
-              border: `1px solid ${F.border}`,
-              borderRadius: 8,
-              overflow: "hidden",
-              boxShadow: "0 10px 28px rgba(15,23,42,0.08)",
-            }}
-          >
-            <div
+          alignItems: "center",
+          justifyContent: "space-between",
+          height: 58,
+          position: "sticky",
+          top: 0,
+          zIndex: 20,
+        }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+            <button
+              onClick={() => setSelectedComponentDetail(null)}
+              title="Back to Overall Insights"
               style={{
-                padding: "18px 22px",
+                background: "#F0F4FA",
+                border: "none",
+                borderRadius: "50%",
+                width: 32,
+                height: 32,
+                cursor: "pointer",
                 display: "flex",
-                justifyContent: "space-between",
                 alignItems: "center",
-                flexWrap: "wrap",
-                gap: 14,
-                borderBottom: `1px solid ${F.border}`,
-                background: "linear-gradient(180deg, #FFFFFF 0%, #FAFBFC 100%)",
+                justifyContent: "center",
+                color: Z.brand,
+                transition: "background 0.15s",
               }}
             >
-              <div style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
-                <span style={{ fontSize: 13, fontWeight: 800, color: F.text1 }}>
-                  Select Active Pay Run
-                </span>
-                <select
-                  value={activeRun?.id}
-                  onChange={(e) => {
-                    setActiveRunId(e.target.value)
-                    setCalculationPage(1)
-                  }}
-                  style={{
-                    ...iSt,
-                    width: 240,
-                    height: 38,
-                    cursor: "pointer",
-                    fontWeight: 800,
-                    borderColor: "#C9D7E6",
-                    boxShadow: "0 1px 2px rgba(15,23,42,0.04)",
-                  }}
-                >
-                  {payruns.map((pr) => (
-                    <option key={pr.id} value={pr.id}>
-                      {pr.period} ({pr.status})
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {activeRun && (
-                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                  <span style={{ fontSize: 12, color: F.text2, fontWeight: 700 }}>
-                    Current Status
-                  </span>
-                  {prBadge(activeRun.status)}
-                </div>
-              )}
-            </div>
-
-            <div style={{ padding: "30px 34px 28px" }}>
-              <div style={{ display: "flex", alignItems: "center" }}>
-                {payrunWorkflowSteps.map((step, index) => {
-                  const complete = index < payrunStepIndex
-                  const active = index === payrunStepIndex
-                  const doneColor = F.success
-                  return (
-                    <Fragment key={step}>
-                      <div
-                        style={{
-                          display: "flex",
-                          flexDirection: "column",
-                          alignItems: "center",
-                          minWidth: 100,
-                        }}
-                      >
-                        <div
-                          style={{
-                            width: 34,
-                            height: 34,
-                            borderRadius: "50%",
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            background: complete ? doneColor : active ? F.infoBg : F.card,
-                            border: `2px solid ${complete ? doneColor : active ? F.brand : "#B8C7D9"}`,
-                            color: complete ? "#fff" : active ? F.brand : "#8A9AAF",
-                            fontWeight: 900,
-                            fontSize: complete ? 18 : 13,
-                            lineHeight: 1,
-                            boxShadow: complete
-                              ? "0 0 0 4px rgba(16,126,62,0.12)"
-                              : active
-                                ? "0 0 0 4px rgba(0,112,242,0.12)"
-                                : "none",
-                          }}
-                        >
-                          {complete ? "✓" : index + 1}
-                        </div>
-                        <div
-                          style={{
-                            marginTop: 10,
-                            fontSize: 12,
-                            fontWeight: active || complete ? 900 : 700,
-                            color: complete ? doneColor : active ? F.brand : "#8A9AAF",
-                            textAlign: "center",
-                            whiteSpace: "nowrap",
-                          }}
-                        >
-                          {step}
-                        </div>
-                      </div>
-                      {index < payrunWorkflowSteps.length - 1 && (
-                        <div
-                          style={{
-                            flex: 1,
-                            height: 5,
-                            borderRadius: 999,
-                            background: index < payrunStepIndex ? doneColor : "#E1E8F0",
-                            margin: "0 8px 28px",
-                            minWidth: 42,
-                            boxShadow: index < payrunStepIndex ? "0 1px 4px rgba(16,126,62,0.16)" : "none",
-                          }}
-                        />
-                      )}
-                    </Fragment>
-                  )
-                })}
-              </div>
-            </div>
-
-            <div
-              style={{
-                background: activeRun?.status === "Locked" || activeRun?.status === "Completed" ? F.successBg : F.warningBg,
-                borderTop: `1px solid ${activeRun?.status === "Locked" || activeRun?.status === "Completed" ? F.success : F.warning}35`,
-                borderLeft: `4px solid ${activeRun?.status === "Locked" || activeRun?.status === "Completed" ? F.success : F.warning}`,
-                padding: "18px 22px",
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                flexWrap: "wrap",
-                gap: 14,
-              }}
-            >
-              <div>
-                <strong style={{ color: F.text1, fontSize: 14 }}>
-                  Pay Run: {activeRun ? activeRun.period : "August 2026"} &bull; Stage: {activeRun?.status}
-                </strong>
-                <div style={{ color: F.text2, fontSize: 12, marginTop: 4, lineHeight: 1.45 }}>
-                  {activeRun?.status === "Locked"
-                    ? "Payroll is locked. Calculations, employee rows, and disbursement totals are read-only."
-                    : activeRun?.status === "Completed"
-                      ? "Disbursement completed. Lock the run to freeze all payroll records."
-                    : "Click 'Advance Status' to progress to the next verification or final disbursement stage."}
-                </div>
-              </div>
-              {activeRun && activeRun.status !== "Locked" && (
-                <Btn onClick={() => advanceRunStatus(activeRun)}>
-                  {activeRun.status === "Under Review"
-                    ? "Authorize & Approve Payroll"
-                    : activeRun.status === "Approved"
-                      ? "Disburse & Mark as Paid"
-                      : activeRun.status === "Completed"
-                        ? "Lock Pay Run"
-                      : `Advance Status (${activeRun.status})`}
-                </Btn>
-              )}
-            </div>
+              <ChevronLeftIcon size={18} strokeWidth={2.4} />
+            </button>
+            <h1 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: Z.text1 }}>
+              {selectedComponentDetail.name}
+            </h1>
           </div>
 
-          {/* Employee Pay Run Sheet Table */}
-          {activeRun && (
-            <div
-              style={{
-                background: F.card,
-                border: `1px solid ${F.border}`,
-                borderRadius: 8,
-                overflow: "hidden",
-                boxShadow: "0 1px 3px rgba(0,0,0,0.03)",
-              }}
-            >
-              <div
-                style={{
-                  padding: "16px 20px",
-                  borderBottom: `1px solid ${F.border}`,
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                }}
-              >
-                <div>
-                  <h2 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: F.text1 }}>
-                    Employee Payroll Calculations - {activeRun.period}
-                  </h2>
-                  <div style={{ fontSize: 12, color: F.text2, marginTop: 2 }}>
-                    Click Edit to adjust LOP, bonus, tax withholdings, or custom additions
-                  </div>
-                </div>
-                {prBadge(activeRun.status)}
-              </div>
-
-              <div style={{ overflowX: "auto" }}>
-                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-                  <thead>
-                    <tr
-                      style={{
-                        borderBottom: `1px solid ${F.border}`,
-                        background: F.pageBg,
-                        color: F.text2,
-                        fontSize: 11,
-                        fontWeight: 700,
-                        textTransform: "uppercase",
-                      }}
-                    >
-                      <th style={{ padding: "10px 18px", textAlign: "left" }}>Employee</th>
-                      <th style={{ padding: "10px 14px", textAlign: "left" }}>Department</th>
-                      <th style={{ padding: "10px 14px", textAlign: "right" }}>Gross Salary</th>
-                      <th style={{ padding: "10px 14px", textAlign: "right" }}>LOP Days</th>
-                      <th style={{ padding: "10px 14px", textAlign: "right" }}>LOP Ded.</th>
-                      <th style={{ padding: "10px 14px", textAlign: "right" }}>Bonus / Add.</th>
-                      <th style={{ padding: "10px 14px", textAlign: "right" }}>EPF (12%)</th>
-                      <th style={{ padding: "10px 14px", textAlign: "right" }}>TDS Tax</th>
-                      <th style={{ padding: "10px 14px", textAlign: "right" }}>Net Salary</th>
-                      <th style={{ padding: "10px 18px", textAlign: "right" }}>Audit & Payslip</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {paginatedCalculationRows.map((row) => (
-                      <tr
-                        key={row.empId}
-                        style={{
-                          borderBottom: `1px solid ${F.border}60`,
-                          transition: "background 0.12s ease",
-                        }}
-                        onMouseEnter={(e) => (e.currentTarget.style.background = F.pageBg)}
-                        onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
-                      >
-                        <td style={{ padding: "14px 18px" }}>
-                          <strong style={{ color: F.text1 }}>{row.empName}</strong>
-                          <div style={{ fontSize: 11, color: F.text3, marginTop: 2 }}>
-                            ID: {row.empId}
-                          </div>
-                        </td>
-                        <td style={{ padding: "14px 14px", color: F.text2 }}>{row.department}</td>
-                        <td style={{ padding: "14px 14px", textAlign: "right", fontWeight: 600, color: F.text1 }}>
-                          {inr(row.grossSalary)}
-                        </td>
-                        <td style={{ padding: "14px 14px", textAlign: "right", color: row.lopDays > 0 ? F.error : F.text3 }}>
-                          {row.lopDays} d
-                        </td>
-                        <td style={{ padding: "14px 14px", textAlign: "right", color: row.lopDeduction > 0 ? F.error : F.text3 }}>
-                          {inr(row.lopDeduction)}
-                        </td>
-                        <td style={{ padding: "14px 14px", textAlign: "right", color: (row.bonus + row.incentive) > 0 ? F.brand : F.text3 }}>
-                          +{inr(row.bonus + row.incentive)}
-                        </td>
-                        <td style={{ padding: "14px 14px", textAlign: "right", color: F.text2 }}>
-                          {inr(row.pf)}
-                        </td>
-                        <td style={{ padding: "14px 14px", textAlign: "right", color: F.warning }}>
-                          {inr(row.tds)}
-                        </td>
-                        <td style={{ padding: "14px 14px", textAlign: "right", fontWeight: 800, color: F.success, fontSize: 14 }}>
-                          {inr(row.netSalary)}
-                        </td>
-                        <td style={{ padding: "14px 18px", textAlign: "right" }}>
-                          <div style={{ display: "flex", justifyContent: "flex-end", gap: 6, flexWrap: "wrap" }}>
-                            <Btn
-                              small
-                              variant="secondary"
-                              onClick={() => {
-                                if (activeRun.status === "Locked") {
-                                  toast(`Salary row opened for ${row.empName}. This locked run is read-only.`, "info")
-                                  return
-                                }
-                                setEditingRow({
-                                  row,
-                                  empName: row.empName,
-                                  grossSalary: row.grossSalary,
-                                  lopDays: row.lopDays,
-                                  bonus: row.bonus,
-                                  incentive: row.incentive,
-                                  tds: row.tds,
-                                })
-                              }}
-                            >
-                              Edit
-                            </Btn>
-                            <Btn
-                              small
-                              disabled={!isFinalizedPayrun(activeRun.status)}
-                              title={isFinalizedPayrun(activeRun.status) ? `Download PDF payslip for ${row.empName}` : "PDF is available after the pay run is completed"}
-                              onClick={() => {
-                                const employee = emps.find((item) => item.id === row.empId)
-                                if (employee) downloadPayslipPdf(row, activeRun, employee)
-                              }}
-                            >
-                              <DownloadIcon />
-                              Download PDF
-                            </Btn>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                  <tfoot>
-                    <tr style={{ background: F.pageBg, borderTop: `2px solid ${F.border}`, fontWeight: 800 }}>
-                      <td style={{ padding: "14px 18px", color: F.text1 }} colSpan={2}>
-                        Total Summary ({activeRun.rows.length} Employees)
-                      </td>
-                      <td style={{ padding: "14px 14px", textAlign: "right", color: F.brand }}>
-                        {inr(activeRun.grossPayroll)}
-                      </td>
-                      <td colSpan={3} />
-                      <td style={{ padding: "14px 14px", textAlign: "right", color: F.warning }} colSpan={2}>
-                        Total Deductions: {inr(activeRun.totalDeductions)}
-                      </td>
-                      <td style={{ padding: "14px 14px", textAlign: "right", color: F.success, fontSize: 15 }}>
-                        {inr(activeRun.netPayroll)}
-                      </td>
-                      <td />
-                    </tr>
-                  </tfoot>
-                </table>
-              </div>
-              <Pagination
-                page={calculationPage}
-                pageSize={calculationPageSize}
-                total={calculationRows.length}
-                onPageChange={setCalculationPage}
-              />
-            </div>
-          )}
+          <button
+            onClick={exportComponentCsv}
+            style={{
+              background: Z.card,
+              border: `1px solid ${Z.border}`,
+              borderRadius: 6,
+              padding: "0 16px",
+              height: 34,
+              fontWeight: 500,
+              fontSize: 13,
+              color: Z.text1,
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+            }}
+          >
+            <DownloadIcon size={14} />
+            <span>Export Data</span>
+          </button>
         </div>
-      )}
 
-      {/* TAB 2: PAYROLL HISTORY WITH SAP FIORI FILTER BAR */}
-      {payrollTab === "history" && (
-        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-          {/* SAP Fiori Collapsible Filter Bar Panel */}
-          <div
-            style={{
-              background: F.card,
-              border: `1px solid ${F.border}`,
-              borderRadius: 8,
-              boxShadow: "0 1px 3px rgba(0,0,0,0.02)",
-              overflow: "hidden",
-            }}
-          >
-            {/* Filter Bar Action Bar Header */}
-            <div
-              style={{
-                padding: "12px 18px",
-                borderBottom: showHistoryFilterBar ? `1px solid ${F.border}` : "none",
-                background: F.card,
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                flexWrap: "wrap",
-                gap: 12,
-              }}
-            >
-              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                <span style={{ fontSize: 13, fontWeight: 700, color: F.text1 }}>
-                  Payroll History Filter Bar
-                </span>
-                {historyActiveFiltersCount > 0 && (
-                  <span
-                    style={{
-                      fontSize: 11,
-                      fontWeight: 700,
-                      color: F.brand,
-                      background: F.infoBg,
-                      padding: "2px 8px",
-                      borderRadius: 12,
-                    }}
-                  >
-                    {historyActiveFiltersCount} Active Filter{historyActiveFiltersCount !== 1 ? "s" : ""}
-                  </span>
-                )}
-              </div>
-
-              {/* Action Buttons: Go, Clear Filters, Hide/Show Filter Bar */}
-              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                <Btn onClick={handleHistoryGo} style={{ height: 34, padding: "0 18px", fontWeight: 700 }}>
-                  Go
-                </Btn>
-                <Btn variant="secondary" onClick={handleHistoryClear} style={{ height: 34 }}>
-                  Clear Filters
-                </Btn>
-                <Btn
-                  variant="secondary"
-                  onClick={() => setShowHistoryFilterBar(!showHistoryFilterBar)}
-                  style={{ height: 34 }}
-                >
-                  {showHistoryFilterBar ? "Hide Filter Bar" : "Show Filter Bar"}
-                </Btn>
-              </div>
-            </div>
-
-            {/* Collapsible Filter Inputs Grid */}
-            {showHistoryFilterBar && (
-              <div
-                style={{
-                  padding: "16px 18px",
-                  background: F.card,
-                  display: "grid",
-                  gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
-                  gap: 14,
-                  alignItems: "flex-end",
-                }}
-              >
-                {/* 1. Search Pay Period (F4 Search) */}
-                <div style={{ gridColumn: "span 2", minWidth: 260 }}>
-                  <ValueHelp
-                    label="Search Pay Period (F4 Search)"
-                    value={periodDraft}
-                    onChange={setPeriodDraft}
-                    placeholder="Search pay period (press Go to apply)…"
-                    values={f4Periods}
-                  />
-                </div>
-                <ContextDateRangeFilter />
-
-                {/* 2. Year Filter */}
-                <div>
-                  <div
-                    style={{
-                      fontSize: 11,
-                      fontWeight: 600,
-                      color: F.text2,
-                      marginBottom: 3,
-                      textTransform: "uppercase",
-                      letterSpacing: "0.06em",
-                    }}
-                  >
-                    Year
-                  </div>
-                  <select
-                    value={yearDraft}
-                    onChange={(e) => setYearDraft(e.target.value)}
-                    style={{ ...iSt, cursor: "pointer" }}
-                  >
-                    <option value="all">All Years</option>
-                    {availableYears.map((yr) => (
-                      <option key={yr} value={yr}>
-                        Year {yr}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* 3. Run Status Filter */}
-                <div>
-                  <div
-                    style={{
-                      fontSize: 11,
-                      fontWeight: 600,
-                      color: F.text2,
-                      marginBottom: 3,
-                      textTransform: "uppercase",
-                      letterSpacing: "0.06em",
-                    }}
-                  >
-                    Run Status
-                  </div>
-                  <select
-                    value={statusDraft}
-                    onChange={(e) => setStatusDraft(e.target.value)}
-                    style={{ ...iSt, cursor: "pointer" }}
-                  >
-                    <option value="all">All Statuses</option>
-                    <option value="Completed">Completed</option>
-                    <option value="Approved">Approved</option>
-                    <option value="Under Review">Under Review</option>
-                    <option value="Draft">Draft</option>
-                    <option value="Calculated">Calculated</option>
-                    <option value="Locked">Locked</option>
-                  </select>
-                </div>
-
-                {/* 4. Month Filter */}
-                <div>
-                  <div
-                    style={{
-                      fontSize: 11,
-                      fontWeight: 600,
-                      color: F.text2,
-                      marginBottom: 3,
-                      textTransform: "uppercase",
-                      letterSpacing: "0.06em",
-                    }}
-                  >
-                    Month
-                  </div>
-                  <select
-                    value={monthDraft}
-                    onChange={(e) => setMonthDraft(e.target.value)}
-                    style={{ ...iSt, cursor: "pointer" }}
-                  >
-                    <option value="all">All Months</option>
-                    {[
-                      [1, "Jan"], [2, "Feb"], [3, "Mar"], [4, "Apr"],
-                      [5, "May"], [6, "Jun"], [7, "Jul"], [8, "Aug"],
-                      [9, "Sep"], [10, "Oct"], [11, "Nov"], [12, "Dec"]
-                    ].map(([mNum, mName]) => (
-                      <option key={mNum} value={String(mNum)}>
-                        {mName}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* 5. Minimum Amount Filter */}
-                <div>
-                  <div
-                    style={{
-                      fontSize: 11,
-                      fontWeight: 600,
-                      color: F.text2,
-                      marginBottom: 3,
-                      textTransform: "uppercase",
-                      letterSpacing: "0.06em",
-                    }}
-                  >
-                    Min Net Amount
-                  </div>
-                  <select
-                    value={minAmountDraft}
-                    onChange={(e) => setMinAmountDraft(e.target.value)}
-                    style={{ ...iSt, cursor: "pointer" }}
-                  >
-                    <option value="all">All Amounts</option>
-                    <option value="500000">&gt; ₹5,00,000</option>
-                    <option value="800000">&gt; ₹8,00,000</option>
-                    <option value="1000000">&gt; ₹10,00,000</option>
-                  </select>
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* History Ledger Table */}
-          <div
-            style={{
-              background: F.card,
-              border: `1px solid ${F.border}`,
-              borderRadius: 8,
-              overflow: "hidden",
-              boxShadow: "0 1px 3px rgba(0,0,0,0.03)",
-            }}
-          >
-            <div
-              style={{
-                padding: "16px 20px",
-                borderBottom: `1px solid ${F.border}`,
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-              }}
-            >
-              <div>
-                <h2 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: F.text1 }}>
-                  Payroll History & Audit Records
-                </h2>
-                <div style={{ fontSize: 12, color: F.text2, marginTop: 2 }}>
-                  Showing {filteredHistory.length} of {payruns.length} recorded payroll cycles
-                </div>
-              </div>
-            </div>
-
-            <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 700, fontSize: 13 }}>
+        {/* Table matching Image 2 */}
+        <div style={{ padding: "20px 24px" }}>
+          <div style={{ background: Z.card, border: `1px solid ${Z.border}`, borderRadius: 8, overflow: "hidden" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
               <thead>
-                <tr
-                  style={{
-                    borderBottom: `1px solid ${F.border}`,
-                    background: F.pageBg,
-                    color: F.text2,
-                    fontSize: 11,
-                    fontWeight: 700,
-                    textTransform: "uppercase",
-                  }}
-                >
-                  <th style={{ padding: "12px 18px", textAlign: "left" }}>Pay Period</th>
-                  <th style={{ padding: "12px 14px", textAlign: "left" }}>Payment Date</th>
-                  <th style={{ padding: "12px 14px", textAlign: "center" }}>Employees</th>
-                  <th style={{ padding: "12px 14px", textAlign: "right" }}>Gross Payroll</th>
-                  <th style={{ padding: "12px 14px", textAlign: "right" }}>Deductions</th>
-                  <th style={{ padding: "12px 14px", textAlign: "right" }}>Net Disbursed</th>
-                  <th style={{ padding: "12px 14px", textAlign: "center" }}>Status</th>
-                  <th style={{ padding: "12px 18px", textAlign: "right" }}>Action</th>
+                <tr style={{ borderBottom: `1px solid ${Z.border}`, background: "#FAFBFD" }}>
+                  <th style={{ padding: "14px 24px", textAlign: "left", fontSize: 11, fontWeight: 700, color: Z.text2, textTransform: "uppercase" }}>ID</th>
+                  <th style={{ padding: "14px 24px", textAlign: "left", fontSize: 11, fontWeight: 700, color: Z.text2, textTransform: "uppercase" }}>NAME</th>
+                  <th style={{ padding: "14px 24px", textAlign: "right", fontSize: 11, fontWeight: 700, color: Z.text2, textTransform: "uppercase" }}>TOTAL AMOUNT</th>
                 </tr>
               </thead>
               <tbody>
-                {filteredHistory.length === 0 ? (
-                  <tr>
-                    <td colSpan={8} style={{ padding: 44, textAlign: "center", color: F.text3 }}>
-                      No historical payroll records match your search criteria.
-                    </td>
-                  </tr>
-                ) : (
-                  filteredHistory.map((pr) => (
-                    <tr
-                      key={pr.id}
-                      onClick={() => setSelectedHistoryRun(pr)}
-                      style={{
-                        borderBottom: `1px solid ${F.border}60`,
-                        cursor: "pointer",
-                        transition: "background 0.12s ease",
-                      }}
-                      onMouseEnter={(e) => (e.currentTarget.style.background = F.pageBg)}
-                      onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
-                    >
-                      <td style={{ padding: "14px 18px" }}>
-                        <div style={{ fontWeight: 800, color: F.text1 }}>{pr.period}</div>
-                        <div style={{ fontSize: 11, color: F.text3, marginTop: 2 }}>
-                          Ref: {pr.id}
-                        </div>
-                      </td>
-                      <td style={{ padding: "14px 14px", color: F.text2 }}>
-                        {fmtD(pr.generatedOn)}
-                      </td>
-                      <td style={{ padding: "14px 14px", textAlign: "center", fontWeight: 600 }}>
-                        {pr.totalEmployees}
-                      </td>
-                      <td style={{ padding: "14px 14px", textAlign: "right", color: F.text2, fontWeight: 600 }}>
-                        {inr(pr.grossPayroll)}
-                      </td>
-                      <td style={{ padding: "14px 14px", textAlign: "right", color: F.warning, fontWeight: 600 }}>
-                        {inr(pr.totalDeductions)}
-                      </td>
-                      <td style={{ padding: "14px 14px", textAlign: "right", fontWeight: 800, color: F.success, fontSize: 14 }}>
-                        {inr(pr.netPayroll)}
-                      </td>
-                      <td style={{ padding: "14px 14px", textAlign: "center" }}>
-                        {prBadge(pr.status)}
-                      </td>
-                      <td style={{ padding: "14px 18px", textAlign: "right" }}>
-                        <Btn small variant="secondary" onClick={() => setSelectedHistoryRun(pr)}>
-                          Details &rarr;
-                        </Btn>
-                      </td>
+                {compRows.map((r) => {
+                  const emp = emps.find(e => e.id === r.empId)
+                  const idDisplay = emp?.id || r.empId
+                  const amt = getComponentAmount(selectedComponentDetail.type, r, emp)
+                  return (
+                    <tr key={r.empId} style={{ borderBottom: `1px solid ${Z.borderLight}` }}>
+                      <td style={{ padding: "14px 24px", color: Z.text1 }}>{idDisplay}</td>
+                      <td style={{ padding: "14px 24px", color: Z.text1 }}>{r.empName}</td>
+                      <td style={{ padding: "14px 24px", textAlign: "right", color: Z.text1, fontWeight: 500 }}>{inr(amt)}</td>
                     </tr>
-                  ))
-                )}
+                  )
+                })}
               </tbody>
             </table>
           </div>
         </div>
-      )}
+      </div>
+    )
+  }
 
-      {/* Edit Employee Row Modal */}
-      {editingRow && (
-        <Modal title={`Edit Salary Row — ${editingRow.empName}`} onClose={() => setEditingRow(null)}>
-          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-            <div style={{ fontSize: 13, color: F.text2 }}>
-              Adjust salary, attendance LOP, bonuses, and tax withholdings for this payroll run.
-            </div>
-
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
-              <Fld label="Gross Base Salary (₹)">
-                <input
-                  type="number"
-                  value={editingRow.grossSalary}
-                  onChange={(e) => setEditingRow({ ...editingRow, grossSalary: Number(e.target.value) })}
-                  style={iSt}
-                />
-              </Fld>
-
-              <Fld label="Loss of Pay (LOP Days)">
-                <input
-                  type="number"
-                  min={0}
-                  max={30}
-                  value={editingRow.lopDays}
-                  onChange={(e) => setEditingRow({ ...editingRow, lopDays: Number(e.target.value) })}
-                  style={iSt}
-                />
-              </Fld>
-
-              <Fld label="Bonus (₹)">
-                <input
-                  type="number"
-                  value={editingRow.bonus}
-                  onChange={(e) => setEditingRow({ ...editingRow, bonus: Number(e.target.value) })}
-                  style={iSt}
-                />
-              </Fld>
-
-              <Fld label="Performance Incentive (₹)">
-                <input
-                  type="number"
-                  value={editingRow.incentive}
-                  onChange={(e) => setEditingRow({ ...editingRow, incentive: Number(e.target.value) })}
-                  style={iSt}
-                />
-              </Fld>
-
-              <Fld label="Income Tax TDS (₹)">
-                <input
-                  type="number"
-                  value={editingRow.tds}
-                  onChange={(e) => setEditingRow({ ...editingRow, tds: Number(e.target.value) })}
-                  style={iSt}
-                />
-              </Fld>
-            </div>
-
-            <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 12 }}>
-              <Btn variant="secondary" onClick={() => setEditingRow(null)}>
-                Cancel
-              </Btn>
-              <Btn onClick={handleSaveRow}>Save & Recalculate</Btn>
+  // ════════════════════════════════════════════════════════════════════════════
+  // 2. DETAILS VIEW SCREEN (Exact Match to Screenshots)
+  // ════════════════════════════════════════════════════════════════════════════
+  if (viewMode === "details") {
+    return (
+      <div
+        style={{ display: "flex", flexDirection: "column", background: Z.bg, minHeight: "100%", fontFamily: "'Inter',Arial,sans-serif" }}
+        onClick={() => {
+          setShowMoreMenu(false);
+          setShowHeaderDotsMenu(false);
+          setActiveRowMenuEmpId(null);
+          setShowEmpCategoryDropdown(false);
+          setShowFilterPopover(false);
+          setShowMoreFiltersMenu(false);
+          setShowExportDropdown(false);
+        }}
+      >
+        
+        {/* ── TOP HEADER BAR ── */}
+        <div style={{
+          background: Z.card,
+          borderBottom: `1px solid ${Z.border}`,
+          padding: "0 24px",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          height: 58,
+          position: "sticky",
+          top: 0,
+          zIndex: 20,
+        }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+            <button
+              onClick={() => setViewMode("list")}
+              title="Back to Pay Runs"
+              style={{
+                background: "#F0F4FA",
+                border: "none",
+                borderRadius: "50%",
+                width: 32,
+                height: 32,
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                color: Z.brand,
+                transition: "background 0.15s",
+              }}
+            >
+              <ChevronLeftIcon size={18} strokeWidth={2.4} />
+            </button>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <h1 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: Z.text1 }}>
+                {activeRun?.payrunType === "One Time Payout"
+                  ? `One Time Payrun - ${activeRun?.oneTimeComponent || "Payout"} for ${activeRun?.period || "June 2026"}`
+                  : activeRun?.payrunType === "Off Cycle Payrun"
+                    ? `Off Cycle Pay Run for ${activeRun?.period || "June 2026"}`
+                    : `Regular Payroll for ${activeRun?.period || "June 2026"}`}
+              </h1>
+              
+              {/* Dynamic Status Tag */}
+              {activeRun && prBadge(activeRun.status)}
             </div>
           </div>
-        </Modal>
-      )}
 
-      {/* Create New Payrun Modal */}
-      {showNewModal && (
-        <Modal
-          title="Execute Guided Payroll Run"
-          onClose={() => {
-            setShowNewModal(false)
-            setGuidedRunStep(1)
-          }}
-          wide
-        >
-          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-            <div style={{ fontSize: 14, color: F.text2, lineHeight: 1.55 }}>
-              Calculate salary structures, attendance proration, LOP, TDS, professional tax, and statutory deductions.
-            </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, position: "relative" }}>
+            <button
+              onClick={() => toast("Payroll activity log & notes opened", "info")}
+              title="Comments & Notes"
+              style={{
+                background: "none",
+                border: `1px solid ${Z.border}`,
+                borderRadius: 6,
+                width: 36,
+                height: 36,
+                cursor: "pointer",
+                color: Z.text2,
+                fontSize: 15,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <MessageSquareIcon size={16} color={Z.text2} />
+            </button>
 
-            {guidedRunStep === 1 ? (
-              <>
-                <div style={{ borderBottom: `1px solid ${F.border}`, paddingBottom: 10, fontSize: 12, fontWeight: 900, color: "#304156", textTransform: "uppercase", letterSpacing: "0.06em" }}>
-                  Step 1: Select payroll cycle and run scope
-                </div>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
-                  <Fld label="Payroll Month">
-                    <select
-                      value={newMonth}
-                      onChange={(e) => setNewMonth(Number(e.target.value))}
-                      style={{ ...iSt, cursor: "pointer" }}
-                    >
-                      {[
-                        [1, "January"], [2, "February"], [3, "March"], [4, "April"],
-                        [5, "May"], [6, "June"], [7, "July"], [8, "August"],
-                        [9, "September"], [10, "October"], [11, "November"], [12, "December"]
-                      ].map(([num, name]) => (
-                        <option key={num} value={num}>
-                          {name} {newYear}
-                        </option>
-                      ))}
-                    </select>
-                  </Fld>
+            {/* Dynamic Primary Header Action Button */}
+            {isPaid ? (
+              <button
+                onClick={() => toast("Payslip notifications delivered to all employees via email & portal", "success")}
+                style={{
+                  background: Z.card,
+                  color: Z.text1,
+                  border: `1px solid ${Z.border}`,
+                  borderRadius: 6,
+                  padding: "0 18px",
+                  height: 36,
+                  fontWeight: 600,
+                  fontSize: 13,
+                  cursor: "pointer",
+                }}
+              >
+                Send Payslip
+              </button>
+            ) : isPaymentDue ? (
+              <button
+                onClick={() => setShowRecordPaymentModal(true)}
+                style={{
+                  background: Z.brand,
+                  color: "#fff",
+                  border: "none",
+                  borderRadius: 6,
+                  padding: "0 20px",
+                  height: 36,
+                  fontWeight: 600,
+                  fontSize: 13,
+                  cursor: "pointer",
+                  boxShadow: "0 2px 6px rgba(48,111,209,0.25)",
+                }}
+                onMouseEnter={(e) => (e.currentTarget.style.background = Z.brandHover)}
+                onMouseLeave={(e) => (e.currentTarget.style.background = Z.brand)}
+              >
+                Record Payment
+              </button>
+            ) : (
+              <button
+                onClick={() => setShowApproveModal(true)}
+                style={{
+                  background: Z.brand,
+                  color: "#fff",
+                  border: "none",
+                  borderRadius: 6,
+                  padding: "0 20px",
+                  height: 36,
+                  fontWeight: 600,
+                  fontSize: 13,
+                  cursor: "pointer",
+                  boxShadow: "0 2px 6px rgba(48,111,209,0.25)",
+                }}
+                onMouseEnter={(e) => (e.currentTarget.style.background = Z.brandHover)}
+                onMouseLeave={(e) => (e.currentTarget.style.background = Z.brand)}
+              >
+                Submit and Approve
+              </button>
+            )}
 
-                  <Fld label="Disbursement / Pay Date">
-                    <StrictDateInput
-                      value={`${newYear}-${String(newMonth).padStart(2, "0")}-28`}
-                      onChange={(value) => {
-                        if (!value) return
-                        const [year, month] = value.split("-")
-                        setNewYear(Number(year))
-                        setNewMonth(Number(month))
-                      }}
-                      style={iSt}
-                    />
-                  </Fld>
-                </div>
+            {/* ── 3 DOTS (⋯) HEADER ACTION BUTTON & DROPDOWN (Matches both Beginning & Last Stages) ── */}
+            <div style={{ position: "relative" }}>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowHeaderDotsMenu(!showHeaderDotsMenu);
+                }}
+                title="More Actions"
+                style={{
+                  background: showHeaderDotsMenu ? "#E2E8F0" : "none",
+                  border: `1px solid ${Z.border}`,
+                  borderRadius: 6,
+                  width: 36,
+                  height: 36,
+                  cursor: "pointer",
+                  color: Z.text2,
+                  fontSize: 16,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                ⋯
+              </button>
 
-                <Fld label="Payroll Run Target Scope">
-                  <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12 }}>
-                    {(["All Employees", "Specific Employees", "Department Batch"] as const).map((scope) => {
-                      const active = runScope === scope
-                      const scopeLabel = scope === "Department Batch" ? "Department Payroll" : scope
-                      return (
-                        <button
-                          key={scope}
-                          onClick={() => {
-                            setRunScope(scope)
-                            setRunSelectedIds([])
-                          }}
-                          style={{
-                            border: `1px solid ${active ? F.brand : F.border}`,
-                            borderRadius: 8,
-                            background: active ? F.infoBg : F.card,
-                            padding: "16px 18px",
-                            textAlign: "left",
-                            cursor: "pointer",
-                            fontFamily: "inherit",
-                            boxShadow: active ? "0 0 0 1px rgba(0,112,242,0.18)" : "0 1px 2px rgba(15,23,42,0.04)",
-                            transition: "border-color 0.14s ease, background 0.14s ease, box-shadow 0.14s ease",
-                          }}
-                        >
-                          <div style={{ fontSize: 14, fontWeight: 900, color: F.text1 }}>{scopeLabel}</div>
-                          <div style={{ fontSize: 12, color: F.text2, marginTop: 6, lineHeight: 1.35 }}>
-                            {scope === "All Employees"
-                              ? "Full organization monthly batch"
-                              : scope === "Specific Employees"
-                                ? "Off-cycle or selective staff"
-                                : "Single department payroll run"}
-                          </div>
-                        </button>
-                      )
-                    })}
-                  </div>
-                </Fld>
-
-                {runScope === "Specific Employees" && (
-                  <div style={{ border: `1px solid ${F.border}`, borderRadius: 8, padding: 16, background: "#FAFBFC", boxShadow: "inset 0 1px 0 rgba(255,255,255,0.8)" }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-                      <strong style={{ fontSize: 13 }}>
-                        Select employees for this run ({runSelectedIds.length} selected)
-                      </strong>
+              {showHeaderDotsMenu && (
+                <div
+                  onClick={(e) => e.stopPropagation()}
+                  style={{
+                    position: "absolute",
+                    top: "100%",
+                    right: 0,
+                    marginTop: 6,
+                    background: "#FFFFFF",
+                    border: "1px solid #E2E8F0",
+                    borderRadius: 8,
+                    boxShadow: "0 10px 25px rgba(0,0,0,0.12)",
+                    width: isPaid ? 240 : 200,
+                    zIndex: 200,
+                    padding: "6px",
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 2,
+                  }}
+                >
+                  {/* LAST STAGE MENU (PAID) */}
+                  {isPaid ? (
+                    <>
+                      {/* Option 1: Download all Payslips */}
                       <button
-                        onClick={() =>
-                          setRunSelectedIds(
-                            runSelectedIds.length === filteredRunEmployees.length
-                              ? []
-                              : filteredRunEmployees.map((e) => e.id),
-                          )
-                        }
-                        style={{ background: "transparent", border: "none", color: F.brand, cursor: "pointer", fontWeight: 800, fontFamily: "inherit" }}
-                      >
-                        {runSelectedIds.length === filteredRunEmployees.length ? "Clear All" : "Select All"}
-                      </button>
-                    </div>
-                    <ValueHelp
-                      value={runEmployeeSearch}
-                      onChange={setRunEmployeeSearch}
-                      placeholder="Search employees by name or code..."
-                      values={payrollEligibleEmployees.map((e) => `${e.name} (${e.id})`)}
-                    />
-                    <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
-                      <Btn small onClick={() => { setAppliedRunEmployeeSearch(runEmployeeSearch); setHasRunRunEmployeeSearch(true) }}>
-                        Go
-                      </Btn>
-                      <Btn
-                        small
-                        variant="secondary"
-                        onClick={() => {
-                          setRunEmployeeSearch("")
-                          setAppliedRunEmployeeSearch("")
-                          setHasRunRunEmployeeSearch(false)
+                        onClick={handleDownloadAllPayslips}
+                        style={{
+                          width: "100%",
+                          textAlign: "left",
+                          background: "#3B82F6",
+                          color: "#FFFFFF",
+                          border: "none",
+                          borderRadius: 6,
+                          padding: "9px 14px",
+                          fontSize: 13,
+                          fontWeight: 600,
+                          cursor: "pointer",
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 8,
                         }}
                       >
-                        Clear Filters
-                      </Btn>
+                        <span>Download all Payslips</span>
+                      </button>
+
+                      {/* Option 2: Download all TDS Worksheets */}
+                      <button
+                        onClick={handleDownloadAllTds}
+                        style={{
+                          width: "100%",
+                          textAlign: "left",
+                          background: "transparent",
+                          color: "#1E293B",
+                          border: "none",
+                          borderRadius: 6,
+                          padding: "9px 14px",
+                          fontSize: 13,
+                          fontWeight: 500,
+                          cursor: "pointer",
+                        }}
+                        onMouseEnter={(e) => (e.currentTarget.style.background = "#F1F5F9")}
+                        onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+                      >
+                        Download all TDS Worksheets
+                      </button>
+
+                      <div style={{ height: 1, background: "#E2E8F0", margin: "4px 0" }} />
+
+                      {/* Option 3: Show Downloads */}
+                      <button
+                        onClick={() => {
+                          setShowHeaderDotsMenu(false);
+                          setShowDownloadsModal(true);
+                        }}
+                        style={{
+                          width: "100%",
+                          textAlign: "left",
+                          background: "transparent",
+                          color: "#1E293B",
+                          border: "none",
+                          borderRadius: 6,
+                          padding: "9px 14px",
+                          fontSize: 13,
+                          fontWeight: 500,
+                          cursor: "pointer",
+                        }}
+                        onMouseEnter={(e) => (e.currentTarget.style.background = "#F1F5F9")}
+                        onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+                      >
+                        Show Downloads
+                      </button>
+
+                      <div style={{ height: 1, background: "#E2E8F0", margin: "4px 0" }} />
+
+                      {/* Option 4: Delete Recorded Payment */}
+                      <button
+                        onClick={handleDeleteRecordedPayment}
+                        style={{
+                          width: "100%",
+                          textAlign: "left",
+                          background: "transparent",
+                          color: "#1E293B",
+                          border: "none",
+                          borderRadius: 6,
+                          padding: "9px 14px",
+                          fontSize: 13,
+                          fontWeight: 500,
+                          cursor: "pointer",
+                        }}
+                        onMouseEnter={(e) => (e.currentTarget.style.background = "#F1F5F9")}
+                        onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+                      >
+                        Delete Recorded Payment
+                      </button>
+                    </>
+                  ) : (
+                    /* BEGINNING STAGE MENU (Draft / Submit and Approve) */
+                    <>
+                      {/* Option 1: Show Downloads */}
+                      <button
+                        onClick={() => {
+                          setShowHeaderDotsMenu(false);
+                          setShowDownloadsModal(true);
+                        }}
+                        style={{
+                          width: "100%",
+                          textAlign: "left",
+                          background: "#3B82F6",
+                          color: "#FFFFFF",
+                          border: "none",
+                          borderRadius: 6,
+                          padding: "9px 14px",
+                          fontSize: 13,
+                          fontWeight: 600,
+                          cursor: "pointer",
+                        }}
+                      >
+                        Show Downloads
+                      </button>
+
+                      {/* Option 2: Delete Pay Run */}
+                      <button
+                        onClick={handleDeletePayRun}
+                        style={{
+                          width: "100%",
+                          textAlign: "left",
+                          background: "transparent",
+                          color: "#1E293B",
+                          border: "none",
+                          borderRadius: 6,
+                          padding: "9px 14px",
+                          fontSize: 13,
+                          fontWeight: 500,
+                          cursor: "pointer",
+                        }}
+                        onMouseEnter={(e) => (e.currentTarget.style.background = "#F1F5F9")}
+                        onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+                      >
+                        Delete Pay Run
+                      </button>
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* ── MAIN CONTENT AREA ── */}
+        <div style={{ padding: "20px 24px", display: "flex", flexDirection: "column", gap: 18 }}>
+
+          {/* ── OVERDUE WARNING BANNER (Shows when Payment Due) ── */}
+          {isPaymentDue && (
+            <div style={{
+              background: "#FFF1F2",
+              border: "1px solid #FFE4E6",
+              borderRadius: 6,
+              padding: "10px 16px",
+              display: "flex",
+              alignItems: "center",
+              gap: 10,
+              color: "#BE123C",
+              fontSize: 13,
+            }}>
+              <span style={{ display: "inline-flex", alignItems: "center" }}><WarningIcon size={16} color="#BE123C" /></span>
+              <span>
+                This payment is overdue by 132 days. As per{" "}
+                <a
+                  href="#labour-laws"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    toast("Labour laws compliance reference: Salaries must be credited by the 7th of every month.", "info");
+                  }}
+                  style={{ color: Z.brand, textDecoration: "none", fontWeight: 600 }}
+                >
+                  labour laws
+                </a>
+                , salaries must be credited by the 7th of every month.
+              </span>
+            </div>
+          )}
+
+          {/* ── 3-COLUMN METRICS CARD ── */}
+          <div style={{
+            background: Z.card,
+            border: `1px solid ${Z.border}`,
+            borderRadius: 8,
+            padding: "20px 24px",
+            boxShadow: Z.shadow,
+            display: "grid",
+            gridTemplateColumns: "1.2fr 180px 1.2fr",
+            gap: 24,
+            alignItems: "center",
+          }}>
+            {/* Box 1: Period + Payroll Cost + Total Net Pay */}
+            <div style={{ borderRight: `1px solid ${Z.borderLight}`, paddingRight: 20 }}>
+              <div style={{ fontSize: 12, color: Z.text2, marginBottom: 12, display: "flex", alignItems: "center", gap: 8 }}>
+                <span>Period: <strong>{periodStartStr} - {periodEndStr}</strong></span>
+                <span style={{ color: Z.text3 }}>|</span>
+                <span style={{ color: Z.text2 }}>{daysInMonth} Base Days</span>
+              </div>
+              <div style={{ display: "flex", gap: 32 }}>
+                <div>
+                  <div style={{ fontSize: 22, fontWeight: 700, color: Z.text1 }}>{inr(currentGross)}</div>
+                  <div style={{ fontSize: 11, fontWeight: 600, color: Z.text3, textTransform: "uppercase", letterSpacing: "0.05em", marginTop: 2 }}>PAYROLL COST</div>
+                </div>
+                <div>
+                  <div style={{ fontSize: 22, fontWeight: 700, color: Z.text1 }}>{inr(currentNetPay)}</div>
+                  <div style={{ fontSize: 11, fontWeight: 600, color: Z.text3, textTransform: "uppercase", letterSpacing: "0.05em", marginTop: 2 }}>TOTAL NET PAY</div>
+                </div>
+              </div>
+            </div>
+
+            {/* Box 2: Pay Day */}
+            <div style={{ textAlign: "center", borderRight: `1px solid ${Z.borderLight}`, paddingRight: 20 }}>
+              <div style={{ fontSize: 11, fontWeight: 600, color: Z.text3, textTransform: "uppercase", letterSpacing: "0.06em" }}>PAY DAY</div>
+              <div style={{ fontSize: 36, fontWeight: 800, color: Z.text1, lineHeight: 1.1, margin: "2px 0" }}>29</div>
+              <div style={{ fontSize: 11, fontWeight: 600, color: Z.text2, textTransform: "uppercase" }}>{curMonthName}, {curYear}</div>
+              <div style={{ fontSize: 12, color: Z.text1, marginTop: 4 }}>
+                {currentEmpCount} Employees
+                {skippedEmpIds.length > 0 && (
+                  <span style={{ color: Z.text3, marginLeft: 4 }}>({skippedEmpIds.length} Skipped)</span>
+                )}
+              </div>
+            </div>
+
+            {/* Box 3: Taxes & Deductions */}
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 600, color: Z.text1, marginBottom: 8 }}>Taxes & Deductions</div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 13 }}>
+                <div style={{ display: "flex", justifyContent: "space-between" }}>
+                  <span style={{ color: Z.text2 }}>Taxes</span>
+                  <span style={{ color: Z.text1 }}>{inr(totalTaxes)}</span>
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between" }}>
+                  <span style={{ color: Z.text2 }}>Benefits</span>
+                  <span style={{ color: Z.text1 }}>{inr(totalBenefits)}</span>
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between" }}>
+                  <span style={{ color: Z.text2 }}>Donations</span>
+                  <span style={{ color: Z.text1 }}>₹0.00</span>
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between" }}>
+                  <span style={{ color: Z.text2 }}>Total Deductions</span>
+                  <span style={{ color: Z.text1 }}>{inr(currentDeductions)}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* ── TABS BAR (Employee Summary | Taxes & Deductions | Overall Insights) ── */}
+          <div style={{ display: "flex", borderBottom: `1px solid ${Z.border}`, gap: 24, marginTop: 4 }}>
+            {(
+              [
+                { id: "summary", label: "Employee Summary" },
+                { id: "taxes", label: "Taxes & Deductions" },
+                { id: "insights", label: "Overall Insights" },
+              ] as const
+            ).map((t) => (
+              <button
+                key={t.id}
+                onClick={() => setInnerTab(t.id)}
+                style={{
+                  background: "none",
+                  border: "none",
+                  borderBottom: `2px solid ${innerTab === t.id ? Z.brand : "transparent"}`,
+                  padding: "10px 4px 12px",
+                  fontSize: 13,
+                  fontWeight: innerTab === t.id ? 600 : 400,
+                  color: innerTab === t.id ? Z.brand : Z.text2,
+                  cursor: "pointer",
+                  marginBottom: -1,
+                  transition: "color 0.12s",
+                }}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
+
+          {/* ══════════════════════════════════════════════════════════════════
+              TAB 1: EMPLOYEE SUMMARY
+             ══════════════════════════════════════════════════════════════════ */}
+          {innerTab === "summary" && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+              
+              {/* Toolbar */}
+              {selectedRows.length > 0 ? (
+                <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "2px 0", position: "relative" }}>
+                  <button
+                    onClick={handleSkipFromPayroll}
+                    style={{
+                      background: Z.card,
+                      border: `1px solid ${Z.border}`,
+                      borderRadius: 4,
+                      padding: "6px 14px",
+                      fontSize: 13,
+                      fontWeight: 500,
+                      color: Z.text1,
+                      cursor: "pointer",
+                    }}
+                  >
+                    Skip from this payroll
+                  </button>
+
+                  <button
+                    onClick={handleWithholdSalary}
+                    style={{
+                      background: Z.card,
+                      border: `1px solid ${Z.border}`,
+                      borderRadius: 4,
+                      padding: "6px 14px",
+                      fontSize: 13,
+                      fontWeight: 500,
+                      color: Z.text1,
+                      cursor: "pointer",
+                    }}
+                  >
+                    Withhold Salary
+                  </button>
+
+                  <div style={{ position: "relative" }}>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setShowMoreMenu(!showMoreMenu);
+                      }}
+                      style={{
+                        background: Z.card,
+                        border: `1px solid ${Z.border}`,
+                        borderRadius: 4,
+                        padding: "6px 14px",
+                        fontSize: 13,
+                        fontWeight: 500,
+                        color: Z.text1,
+                        cursor: "pointer",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 4,
+                      }}
+                    >
+                      <span>More</span>
+                      <ChevronDownIcon size={12} />
+                    </button>
+
+                    {showMoreMenu && (
+                      <div
+                        onClick={(e) => e.stopPropagation()}
+                        style={{
+                          position: "absolute",
+                          top: "100%",
+                          left: 0,
+                          marginTop: 4,
+                          background: Z.card,
+                          border: `1px solid ${Z.border}`,
+                          borderRadius: 8,
+                          boxShadow: "0 4px 12px rgba(0,0,0,0.12)",
+                          minWidth: 180,
+                          zIndex: 100,
+                          overflow: "hidden",
+                          padding: 4,
+                        }}
+                      >
+                        <button
+                          onClick={handleAddToPayroll}
+                          style={{
+                            width: "100%",
+                            padding: "8px 12px",
+                            textAlign: "left",
+                            background: Z.brand,
+                            color: "#fff",
+                            border: "none",
+                            borderRadius: 4,
+                            fontSize: 13,
+                            fontWeight: 500,
+                            cursor: "pointer",
+                          }}
+                        >
+                          Add to payroll
+                        </button>
+                        <button
+                          onClick={handleRevertWithhold}
+                          style={{
+                            width: "100%",
+                            padding: "8px 12px",
+                            textAlign: "left",
+                            background: "transparent",
+                            color: Z.text1,
+                            border: "none",
+                            borderRadius: 4,
+                            fontSize: 13,
+                            fontWeight: 500,
+                            cursor: "pointer",
+                          }}
+                          onMouseEnter={(e) => (e.currentTarget.style.background = "#F5F7FA")}
+                          onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+                        >
+                          Revert Salary Withhold
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12, position: "relative" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                    
+                    {/* ── 1. ALL EMPLOYEES DROPDOWN (Matches Screenshot 3) ── */}
+                    <div style={{ position: "relative" }}>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setShowEmpCategoryDropdown(!showEmpCategoryDropdown);
+                          setShowFilterPopover(false);
+                          setShowExportDropdown(false);
+                        }}
+                        style={{
+                          background: "none",
+                          border: "none",
+                          fontSize: 16,
+                          fontWeight: 700,
+                          color: Z.text1,
+                          cursor: "pointer",
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 6,
+                          padding: 0,
+                        }}
+                      >
+                        <span>{categoryOptions.find(o => o.id === empCategoryFilter)?.label || "All Employees"}</span>
+                        <ChevronDownIcon size={12} color={Z.text2} />
+                      </button>
+
+                      {showEmpCategoryDropdown && (
+                        <div
+                          onClick={(e) => e.stopPropagation()}
+                          style={{
+                            position: "absolute",
+                            top: "100%",
+                            left: 0,
+                            marginTop: 8,
+                            background: "#FFFFFF",
+                            border: "1px solid #E2E8F0",
+                            borderRadius: 8,
+                            boxShadow: "0 10px 25px rgba(0,0,0,0.12)",
+                            width: 280,
+                            zIndex: 300,
+                            padding: "6px",
+                            display: "flex",
+                            flexDirection: "column",
+                            gap: 1,
+                            maxHeight: 400,
+                            overflowY: "auto",
+                          }}
+                        >
+                          {categoryOptions.map((opt) => {
+                            const isSel = empCategoryFilter === opt.id;
+                            return (
+                              <button
+                                key={opt.id}
+                                onClick={() => {
+                                  setEmpCategoryFilter(opt.id);
+                                  setShowEmpCategoryDropdown(false);
+                                }}
+                                style={{
+                                  width: "100%",
+                                  textAlign: "left",
+                                  background: isSel ? "#3B82F6" : "transparent",
+                                  color: isSel ? "#FFFFFF" : "#1E293B",
+                                  border: "none",
+                                  borderRadius: 6,
+                                  padding: "8px 12px",
+                                  fontSize: 13,
+                                  fontWeight: isSel ? 600 : 400,
+                                  cursor: "pointer",
+                                }}
+                                onMouseEnter={(e) => {
+                                  if (!isSel) e.currentTarget.style.background = "#F1F5F9";
+                                }}
+                                onMouseLeave={(e) => {
+                                  if (!isSel) e.currentTarget.style.background = "transparent";
+                                }}
+                              >
+                                {opt.label}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
                     </div>
-                    <div style={{ marginTop: 12, maxHeight: 260, overflowY: "auto", border: `1px solid ${F.border}`, borderRadius: 8, background: F.card }}>
-                      {filteredRunEmployees.map((emp) => (
-                        <label key={emp.id} style={{ display: "grid", gridTemplateColumns: "28px 1fr auto", gap: 12, alignItems: "center", padding: "14px 16px", borderBottom: `1px solid ${F.border}60`, cursor: "pointer" }}>
+
+                    {/* Search Input */}
+                    <div style={{ position: "relative", display: "flex", alignItems: "center" }}>
+                      <input
+                        type="text"
+                        placeholder="Search Employee"
+                        value={empSearchQuery}
+                        onChange={(e) => setEmpSearchQuery(e.target.value)}
+                        style={{
+                          border: `1px solid ${Z.border}`,
+                          borderRadius: 6,
+                          padding: "6px 12px",
+                          fontSize: 13,
+                          color: Z.text1,
+                          outline: "none",
+                          width: 220,
+                          background: Z.card,
+                        }}
+                      />
+                    </div>
+                  </div>
+
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, position: "relative" }}>
+                    
+                    {/* ── 2. FILTER POPOVER BUTTON & MODAL (Matches Screenshot 1) ── */}
+                    <div style={{ position: "relative" }}>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setShowFilterPopover(!showFilterPopover);
+                          setShowEmpCategoryDropdown(false);
+                          setShowExportDropdown(false);
+                        }}
+                        style={{
+                          background: showFilterPopover ? "#EFF6FF" : Z.card,
+                          border: `1px solid ${showFilterPopover ? "#3B82F6" : Z.border}`,
+                          borderRadius: 6,
+                          width: 34,
+                          height: 34,
+                          cursor: "pointer",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          color: showFilterPopover ? "#3B82F6" : Z.text2,
+                        }}
+                        title="Filter"
+                      >
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon>
+                        </svg>
+                      </button>
+
+                      {showFilterPopover && (
+                        <div
+                          onClick={(e) => e.stopPropagation()}
+                          style={{
+                            position: "absolute",
+                            top: "100%",
+                            right: 0,
+                            marginTop: 8,
+                            background: "#FFFFFF",
+                            border: "1px solid #E2E8F0",
+                            borderRadius: 10,
+                            boxShadow: "0 12px 30px rgba(0,0,0,0.15)",
+                            width: 320,
+                            zIndex: 350,
+                            padding: "16px 20px",
+                          }}
+                        >
+                          {/* Popover Header */}
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+                            <span style={{ fontSize: 15, fontWeight: 700, color: "#1E293B" }}>Filter By</span>
+                            <button
+                              onClick={() => setShowFilterPopover(false)}
+                              style={{ background: "none", border: "none", cursor: "pointer", color: "#94A3B8", display: "inline-flex", alignItems: "center", justifyContent: "center" }}
+                            >
+                              <CloseIcon size={16} />
+                            </button>
+                          </div>
+
+                          {/* Filter Fields */}
+                          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                            
+                            {/* Employee Type */}
+                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                              <label style={{ fontSize: 13, color: "#475569" }}>Employee Type</label>
+                              <select
+                                value={filterEmployeeType}
+                                onChange={(e) => setFilterEmployeeType(e.target.value)}
+                                style={{
+                                  border: "1px solid #CBD5E1",
+                                  borderRadius: 6,
+                                  padding: "6px 10px",
+                                  fontSize: 13,
+                                  color: "#1E293B",
+                                  outline: "none",
+                                  background: "#FFFFFF",
+                                  width: 150,
+                                }}
+                              >
+                                <option value="all">All Employees</option>
+                                <option value="permanent">Permanent</option>
+                                <option value="contract">Contract</option>
+                                <option value="intern">Intern</option>
+                              </select>
+                            </div>
+
+                            {/* Payment Mode */}
+                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                              <label style={{ fontSize: 13, color: "#475569" }}>Payment Mode</label>
+                              <select
+                                value={filterPaymentMode}
+                                onChange={(e) => setFilterPaymentMode(e.target.value)}
+                                style={{
+                                  border: "1px solid #CBD5E1",
+                                  borderRadius: 6,
+                                  padding: "6px 10px",
+                                  fontSize: 13,
+                                  color: "#1E293B",
+                                  outline: "none",
+                                  background: "#FFFFFF",
+                                  width: 150,
+                                }}
+                              >
+                                <option value="all">All Payment Mo...</option>
+                                <option value="cash">Cash</option>
+                                <option value="bank">Bank Transfer</option>
+                                <option value="cheque">Cheque</option>
+                              </select>
+                            </div>
+
+                            {/* Dynamically added More Filters */}
+                            {activeMoreFilters.includes("workLocation") && (
+                              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                                <label style={{ fontSize: 13, color: "#475569" }}>Work Location</label>
+                                <select
+                                  value={filterWorkLoc}
+                                  onChange={(e) => setFilterWorkLoc(e.target.value)}
+                                  style={{
+                                    border: "1px solid #CBD5E1",
+                                    borderRadius: 6,
+                                    padding: "6px 10px",
+                                    fontSize: 13,
+                                    color: "#1E293B",
+                                    outline: "none",
+                                    background: "#FFFFFF",
+                                    width: 150,
+                                  }}
+                                >
+                                  <option value="all">All Locations</option>
+                                  <option value="bengaluru">Bengaluru</option>
+                                  <option value="mumbai">Mumbai</option>
+                                  <option value="remote">Remote</option>
+                                </select>
+                              </div>
+                            )}
+
+                            {activeMoreFilters.includes("department") && (
+                              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                                <label style={{ fontSize: 13, color: "#475569" }}>Department</label>
+                                <select
+                                  value={filterDept}
+                                  onChange={(e) => setFilterDept(e.target.value)}
+                                  style={{
+                                    border: "1px solid #CBD5E1",
+                                    borderRadius: 6,
+                                    padding: "6px 10px",
+                                    fontSize: 13,
+                                    color: "#1E293B",
+                                    outline: "none",
+                                    background: "#FFFFFF",
+                                    width: 150,
+                                  }}
+                                >
+                                  <option value="all">All Departments</option>
+                                  <option value="engineering">Engineering</option>
+                                  <option value="product">Product</option>
+                                  <option value="hr">HR</option>
+                                  <option value="finance">Finance</option>
+                                </select>
+                              </div>
+                            )}
+
+                            {activeMoreFilters.includes("designation") && (
+                              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                                <label style={{ fontSize: 13, color: "#475569" }}>Designation</label>
+                                <select
+                                  value={filterDesignation}
+                                  onChange={(e) => setFilterDesignation(e.target.value)}
+                                  style={{
+                                    border: "1px solid #CBD5E1",
+                                    borderRadius: 6,
+                                    padding: "6px 10px",
+                                    fontSize: 13,
+                                    color: "#1E293B",
+                                    outline: "none",
+                                    background: "#FFFFFF",
+                                    width: 150,
+                                  }}
+                                >
+                                  <option value="all">All Designations</option>
+                                  <option value="software engineer">Software Engineer</option>
+                                  <option value="product manager">Product Manager</option>
+                                  <option value="designer">Designer</option>
+                                </select>
+                              </div>
+                            )}
+
+                            {/* + More Filter Button & Dropdown */}
+                            <div style={{ position: "relative", marginTop: 4 }}>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setShowMoreFiltersMenu(!showMoreFiltersMenu);
+                                }}
+                                style={{
+                                  background: "none",
+                                  border: "none",
+                                  color: "#2563EB",
+                                  fontSize: 13,
+                                  fontWeight: 600,
+                                  cursor: "pointer",
+                                  display: "flex",
+                                  alignItems: "center",
+                                  gap: 4,
+                                  padding: 0,
+                                }}
+                              >
+                                <span>+</span>
+                                <span>More Filter</span>
+                              </button>
+
+                              {showMoreFiltersMenu && (
+                                <div
+                                  onClick={(e) => e.stopPropagation()}
+                                  style={{
+                                    position: "absolute",
+                                    top: "100%",
+                                    left: 0,
+                                    marginTop: 4,
+                                    background: "#FFFFFF",
+                                    border: "1px solid #E2E8F0",
+                                    borderRadius: 8,
+                                    boxShadow: "0 8px 20px rgba(0,0,0,0.12)",
+                                    width: 160,
+                                    zIndex: 400,
+                                    padding: "4px",
+                                    display: "flex",
+                                    flexDirection: "column",
+                                    gap: 2,
+                                  }}
+                                >
+                                  <button
+                                    onClick={() => {
+                                      setActiveMoreFilters(prev => Array.from(new Set([...prev, "workLocation"])));
+                                      setShowMoreFiltersMenu(false);
+                                    }}
+                                    style={{
+                                      width: "100%",
+                                      textAlign: "left",
+                                      background: activeMoreFilters.includes("workLocation") ? "#3B82F6" : "transparent",
+                                      color: activeMoreFilters.includes("workLocation") ? "#FFFFFF" : "#1E293B",
+                                      border: "none",
+                                      borderRadius: 4,
+                                      padding: "7px 10px",
+                                      fontSize: 12,
+                                      cursor: "pointer",
+                                    }}
+                                  >
+                                    Work Location
+                                  </button>
+                                  <button
+                                    onClick={() => {
+                                      setActiveMoreFilters(prev => Array.from(new Set([...prev, "department"])));
+                                      setShowMoreFiltersMenu(false);
+                                    }}
+                                    style={{
+                                      width: "100%",
+                                      textAlign: "left",
+                                      background: activeMoreFilters.includes("department") ? "#3B82F6" : "transparent",
+                                      color: activeMoreFilters.includes("department") ? "#FFFFFF" : "#1E293B",
+                                      border: "none",
+                                      borderRadius: 4,
+                                      padding: "7px 10px",
+                                      fontSize: 12,
+                                      cursor: "pointer",
+                                    }}
+                                  >
+                                    Department
+                                  </button>
+                                  <button
+                                    onClick={() => {
+                                      setActiveMoreFilters(prev => Array.from(new Set([...prev, "designation"])));
+                                      setShowMoreFiltersMenu(false);
+                                    }}
+                                    style={{
+                                      width: "100%",
+                                      textAlign: "left",
+                                      background: activeMoreFilters.includes("designation") ? "#3B82F6" : "transparent",
+                                      color: activeMoreFilters.includes("designation") ? "#FFFFFF" : "#1E293B",
+                                      border: "none",
+                                      borderRadius: 4,
+                                      padding: "7px 10px",
+                                      fontSize: 12,
+                                      cursor: "pointer",
+                                    }}
+                                  >
+                                    Designation
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Reset Button */}
+                            <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 10, paddingTop: 10, borderTop: "1px solid #F1F5F9" }}>
+                              <button
+                                onClick={() => {
+                                  setFilterEmployeeType("all");
+                                  setFilterPaymentMode("all");
+                                  setFilterWorkLoc("all");
+                                  setFilterDept("all");
+                                  setFilterDesignation("all");
+                                  setActiveMoreFilters([]);
+                                  setShowFilterPopover(false);
+                                  toast("Filters reset", "info");
+                                }}
+                                style={{
+                                  background: "none",
+                                  border: "none",
+                                  color: "#2563EB",
+                                  fontSize: 13,
+                                  fontWeight: 600,
+                                  cursor: "pointer",
+                                }}
+                              >
+                                Reset
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* ── 3. EXPORT DATA DROPDOWN (Matches Screenshot 2) ── */}
+                    <div style={{ position: "relative" }}>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setShowExportDropdown(!showExportDropdown);
+                          setShowFilterPopover(false);
+                          setShowEmpCategoryDropdown(false);
+                        }}
+                        style={{
+                          background: "#F8FAFC",
+                          border: `1px solid ${Z.border}`,
+                          borderRadius: 6,
+                          padding: "0 12px",
+                          height: 34,
+                          fontSize: 13,
+                          fontWeight: 500,
+                          color: Z.text1,
+                          cursor: "pointer",
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 6,
+                        }}
+                      >
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                          <polyline points="17 8 12 3 7 8"></polyline>
+                          <line x1="12" y1="3" x2="12" y2="15"></line>
+                        </svg>
+                        <span>Export Data</span>
+                        <ChevronDownIcon size={11} color={Z.text2} />
+                      </button>
+
+                      {showExportDropdown && (
+                        <div
+                          onClick={(e) => e.stopPropagation()}
+                          style={{
+                            position: "absolute",
+                            top: "100%",
+                            right: 0,
+                            marginTop: 6,
+                            background: "#FFFFFF",
+                            border: "1px solid #E2E8F0",
+                            borderRadius: 8,
+                            boxShadow: "0 10px 25px rgba(0,0,0,0.12)",
+                            width: 180,
+                            zIndex: 350,
+                            padding: "6px",
+                            display: "flex",
+                            flexDirection: "column",
+                            gap: 2,
+                          }}
+                        >
+                          <button
+                            onClick={handleExportPayrollData}
+                            style={{
+                              width: "100%",
+                              textAlign: "left",
+                              background: "#3B82F6",
+                              color: "#FFFFFF",
+                              border: "none",
+                              borderRadius: 6,
+                              padding: "8px 12px",
+                              fontSize: 13,
+                              fontWeight: 600,
+                              cursor: "pointer",
+                            }}
+                          >
+                            Payroll Data
+                          </button>
+                          <button
+                            onClick={handleExportComparisonReport}
+                            style={{
+                              width: "100%",
+                              textAlign: "left",
+                              background: "transparent",
+                              color: "#1E293B",
+                              border: "none",
+                              borderRadius: 6,
+                              padding: "8px 12px",
+                              fontSize: 13,
+                              fontWeight: 500,
+                              cursor: "pointer",
+                            }}
+                            onMouseEnter={(e) => (e.currentTarget.style.background = "#F1F5F9")}
+                            onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+                          >
+                            Comparison Report
+                          </button>
+                        </div>
+                      )}
+                    </div>
+
+                  </div>
+                </div>
+              )}
+
+              {/* Data Table */}
+              <div style={{ background: Z.card, border: `1px solid ${Z.border}`, borderRadius: 8, overflow: "hidden" }}>
+                {isPaymentDue || isPaid ? (
+                  /* ── Table Layout for PAYMENT DUE / PAID (Exact Match to Image 2 & 3 in Latest Request) ── */
+                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+                    <thead>
+                      <tr style={{ borderBottom: `1px solid ${Z.border}`, background: "#FAFBFD" }}>
+                        <th style={{ padding: "12px 16px", width: 36, textAlign: "left" }}>
                           <input
                             type="checkbox"
-                            checked={runSelectedIds.includes(emp.id)}
-                            onChange={() =>
-                              setRunSelectedIds((prev) =>
-                                prev.includes(emp.id)
-                                  ? prev.filter((id) => id !== emp.id)
-                                  : [...prev, emp.id],
-                              )
-                            }
+                            checked={selectedRows.length === paginatedCalculationRows.length && paginatedCalculationRows.length > 0}
+                            onChange={(e) => setSelectedRows(e.target.checked ? paginatedCalculationRows.map(r => r.empId) : [])}
                           />
+                        </th>
+                        <th style={{ padding: "12px 14px", textAlign: "left", fontSize: 11, fontWeight: 700, color: Z.text2, textTransform: "uppercase", letterSpacing: "0.05em" }}>EMPLOYEE NAME</th>
+                        <th style={{ padding: "12px 14px", textAlign: "right", fontSize: 11, fontWeight: 700, color: Z.text2, textTransform: "uppercase", letterSpacing: "0.05em" }}>PAID DAYS</th>
+                        <th style={{ padding: "12px 14px", textAlign: "right", fontSize: 11, fontWeight: 700, color: Z.text2, textTransform: "uppercase", letterSpacing: "0.05em" }}>NET PAY</th>
+                        <th style={{ padding: "12px 14px", textAlign: "center", fontSize: 11, fontWeight: 700, color: Z.text2, textTransform: "uppercase", letterSpacing: "0.05em" }}>PAYSLIP</th>
+                        <th style={{ padding: "12px 14px", textAlign: "center", fontSize: 11, fontWeight: 700, color: Z.text2, textTransform: "uppercase", letterSpacing: "0.05em" }}>TDS SHEET</th>
+                        <th style={{ padding: "12px 14px", textAlign: "center", fontSize: 11, fontWeight: 700, color: Z.text2, textTransform: "uppercase", letterSpacing: "0.05em" }}>PAYMENT MODE</th>
+                        <th style={{ padding: "12px 14px", textAlign: "left", fontSize: 11, fontWeight: 700, color: Z.text2, textTransform: "uppercase", letterSpacing: "0.05em" }}>PAYMENT STATUS</th>
+                        <th style={{ padding: "12px 16px", width: 40, textAlign: "center" }} />
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {paginatedCalculationRows.length === 0 ? (
+                        <tr>
+                          <td colSpan={9} style={{ padding: 40, textAlign: "center", color: Z.text3 }}>
+                            No employee records match the selected filter.
+                          </td>
+                        </tr>
+                      ) : (
+                        paginatedCalculationRows.map((row) => {
+                          const emp = emps.find((e) => e.id === row.empId)
+                          const email = emp?.email || `${row.empName.toLowerCase().replace(/\s+/g, ".")}@naxrita.com`
+                          const isSkipped = skippedEmpIds.includes(row.empId)
+                          const isWithheld = withheldEmpIds.includes(row.empId)
+                          const paidDays = isSkipped ? 0 : 31 - (row.lopDays || 0)
+                          const grossPay = isSkipped ? 0 : row.grossSalary || row.totalEarnings || emp?.grossSalary || 0
+                          const taxes = isSkipped ? 0 : row.tds || 200
+                          const benefits = isSkipped ? 0 : row.pf || getComponentAmount("epf", row, emp)
+                          const netPay = isSkipped || isWithheld ? 0 : row.netSalary || (grossPay - taxes - benefits)
+
+                          return (
+                            <tr
+                              key={row.empId}
+                              onClick={() => openEmployeeDrawer(row)}
+                              style={{
+                                borderBottom: `1px solid ${Z.borderLight}`,
+                                background: drawerRow?.empId === row.empId ? "#EFF6FF" : selectedRows.includes(row.empId) ? "#F4F8FE" : "transparent",
+                                transition: "background 0.12s",
+                                cursor: "pointer",
+                              }}
+                              onMouseEnter={(e) => {
+                                if (!selectedRows.includes(row.empId)) e.currentTarget.style.background = "#FAFBFD"
+                              }}
+                              onMouseLeave={(e) => {
+                                if (!selectedRows.includes(row.empId)) e.currentTarget.style.background = "transparent"
+                              }}
+                            >
+                              <td style={{ padding: "12px 16px" }}>
+                                <input
+                                  type="checkbox"
+                                  checked={selectedRows.includes(row.empId)}
+                                  onClick={(e) => e.stopPropagation()}
+                                  onChange={() =>
+                                    setSelectedRows((prev) =>
+                                      prev.includes(row.empId)
+                                        ? prev.filter((id) => id !== row.empId)
+                                        : [...prev, row.empId]
+                                    )
+                                  }
+                                />
+                              </td>
+                              <td style={{ padding: "12px 14px" }}>
+                                <span style={{ fontWeight: 600, color: Z.text1 }}>
+                                  {row.empName}
+                                </span>
+                                <span style={{ color: Z.text3, marginLeft: 6, fontSize: 12 }}>
+                                  ({emp?.id ? `${emp.id}` : email})
+                                </span>
+                              </td>
+                              <td style={{ padding: "12px 14px", textAlign: "right", color: Z.text1 }}>
+                                {paidDays}
+                              </td>
+                              <td style={{ padding: "12px 14px", textAlign: "right", fontWeight: 600, color: Z.text1 }}>
+                                {inr(netPay)}
+                              </td>
+                              <td style={{ padding: "12px 14px", textAlign: "center" }}>
+                                <button
+                                  onClick={() => setViewingPayslipRow(row)}
+                                  style={{
+                                    background: "none",
+                                    border: "none",
+                                    color: Z.brand,
+                                    fontSize: 13,
+                                    fontWeight: 600,
+                                    cursor: "pointer",
+                                    textDecoration: "underline",
+                                    padding: 0,
+                                  }}
+                                >
+                                  View
+                                </button>
+                              </td>
+                              <td style={{ padding: "12px 14px", textAlign: "center" }}>
+                                <button
+                                  onClick={() => setViewingTdsRow(row)}
+                                  style={{
+                                    background: "none",
+                                    border: "none",
+                                    color: Z.brand,
+                                    fontSize: 13,
+                                    fontWeight: 600,
+                                    cursor: "pointer",
+                                    textDecoration: "underline",
+                                    padding: 0,
+                                  }}
+                                >
+                                  View
+                                </button>
+                              </td>
+                              <td style={{ padding: "12px 14px", textAlign: "center", color: Z.text2 }}>
+                                Cash
+                              </td>
+                              <td style={{ padding: "12px 14px", textAlign: "left" }}>
+                                {isPaid ? (
+                                  <span style={{ color: "#16a34a", fontWeight: 600 }}>
+                                    {`Paid on ${paymentDateInput || payDateStr}`}
+                                  </span>
+                                ) : isWithheld ? (
+                                  <span style={{ color: "#d97706", fontWeight: 600 }}>
+                                    Withheld
+                                  </span>
+                                ) : isSkipped ? (
+                                  <span style={{ color: "#6b7280", fontWeight: 600 }}>
+                                    Skipped
+                                  </span>
+                                ) : (
+                                  <span style={{ color: Z.text1, fontWeight: 500 }}>
+                                    Yet To Pay
+                                  </span>
+                                )}
+                              </td>
+                              <td style={{ padding: "12px 16px", textAlign: "center", position: "relative" }}>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setActiveRowMenuEmpId(activeRowMenuEmpId === row.empId ? null : row.empId);
+                                  }}
+                                  style={{
+                                    background: "none",
+                                    border: "none",
+                                    color: Z.text3,
+                                    cursor: "pointer",
+                                    fontSize: 16,
+                                    padding: "2px 6px",
+                                    borderRadius: 4,
+                                  }}
+                                  title="Options"
+                                >
+                                  ⋯
+                                </button>
+
+                                {activeRowMenuEmpId === row.empId && (
+                                  <div
+                                    onClick={(e) => e.stopPropagation()}
+                                    style={{
+                                      position: "absolute",
+                                      top: "100%",
+                                      right: 16,
+                                      background: "#FFFFFF",
+                                      border: "1px solid #E2E8F0",
+                                      borderRadius: 6,
+                                      boxShadow: "0 6px 16px rgba(0,0,0,0.12)",
+                                      width: 170,
+                                      zIndex: 100,
+                                      padding: "4px",
+                                      display: "flex",
+                                      flexDirection: "column",
+                                      gap: 2,
+                                      textAlign: "left",
+                                    }}
+                                  >
+                                    <button
+                                      onClick={() => {
+                                        setViewingPayslipRow(row);
+                                        setActiveRowMenuEmpId(null);
+                                      }}
+                                      style={{
+                                        background: "transparent",
+                                        border: "none",
+                                        padding: "7px 10px",
+                                        textAlign: "left",
+                                        fontSize: 12,
+                                        fontWeight: 500,
+                                        color: Z.text1,
+                                        cursor: "pointer",
+                                        borderRadius: 4,
+                                      }}
+                                      onMouseEnter={(e) => (e.currentTarget.style.background = "#F1F5F9")}
+                                      onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+                                    >
+                                      View Payslip
+                                    </button>
+                                    <button
+                                      onClick={() => {
+                                        setViewingTdsRow(row);
+                                        setActiveRowMenuEmpId(null);
+                                      }}
+                                      style={{
+                                        background: "transparent",
+                                        border: "none",
+                                        padding: "7px 10px",
+                                        textAlign: "left",
+                                        fontSize: 12,
+                                        fontWeight: 500,
+                                        color: Z.text1,
+                                        cursor: "pointer",
+                                        borderRadius: 4,
+                                      }}
+                                      onMouseEnter={(e) => (e.currentTarget.style.background = "#F1F5F9")}
+                                      onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+                                    >
+                                      TDS Computation
+                                    </button>
+                                    <button
+                                      onClick={() => {
+                                        toast(`Resent payslip email to ${email}`, "success");
+                                        setActiveRowMenuEmpId(null);
+                                      }}
+                                      style={{
+                                        background: "transparent",
+                                        border: "none",
+                                        padding: "7px 10px",
+                                        textAlign: "left",
+                                        fontSize: 12,
+                                        fontWeight: 500,
+                                        color: Z.brand,
+                                        cursor: "pointer",
+                                        borderRadius: 4,
+                                      }}
+                                      onMouseEnter={(e) => (e.currentTarget.style.background = "#F1F5F9")}
+                                      onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+                                    >
+                                      Resend Notification
+                                    </button>
+                                  </div>
+                                )}
+                              </td>
+                            </tr>
+                          )
+                        })
+                      )}
+                    </tbody>
+                  </table>
+                ) : (
+                  /* ── Table Layout for DRAFT Mode (with gross breakdown columns) ── */
+                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+                    <thead>
+                      <tr style={{ borderBottom: `1px solid ${Z.border}`, background: "#FAFBFD" }}>
+                        <th style={{ padding: "12px 16px", width: 36, textAlign: "left" }}>
+                          <input
+                            type="checkbox"
+                            checked={selectedRows.length === paginatedCalculationRows.length && paginatedCalculationRows.length > 0}
+                            onChange={(e) => setSelectedRows(e.target.checked ? paginatedCalculationRows.map(r => r.empId) : [])}
+                          />
+                        </th>
+                        <th style={{ padding: "12px 14px", textAlign: "left", fontSize: 11, fontWeight: 700, color: Z.text2, textTransform: "uppercase", letterSpacing: "0.05em" }}>EMPLOYEE NAME</th>
+                        <th style={{ padding: "12px 14px", textAlign: "right", fontSize: 11, fontWeight: 700, color: Z.text2, textTransform: "uppercase", letterSpacing: "0.05em" }}>PAID DAYS</th>
+                        <th style={{ padding: "12px 14px", textAlign: "right", fontSize: 11, fontWeight: 700, color: Z.text2, textTransform: "uppercase", letterSpacing: "0.05em" }}>GROSS PAY</th>
+                        <th style={{ padding: "12px 14px", textAlign: "right", fontSize: 11, fontWeight: 700, color: Z.text2, textTransform: "uppercase", letterSpacing: "0.05em" }}>DEDUCTIONS</th>
+                        <th style={{ padding: "12px 14px", textAlign: "right", fontSize: 11, fontWeight: 700, color: Z.text2, textTransform: "uppercase", letterSpacing: "0.05em" }}>TAXES</th>
+                        <th style={{ padding: "12px 14px", textAlign: "right", fontSize: 11, fontWeight: 700, color: Z.text2, textTransform: "uppercase", letterSpacing: "0.05em" }}>BENEFITS</th>
+                        <th style={{ padding: "12px 14px", textAlign: "right", fontSize: 11, fontWeight: 700, color: Z.text2, textTransform: "uppercase", letterSpacing: "0.05em" }}>REIMBURSEMENTS</th>
+                        <th style={{ padding: "12px 14px", textAlign: "right", fontSize: 11, fontWeight: 700, color: Z.text2, textTransform: "uppercase", letterSpacing: "0.05em" }}>NET PAY</th>
+                        <th style={{ padding: "12px 16px", width: 40, textAlign: "center" }} />
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {paginatedCalculationRows.length === 0 ? (
+                        <tr>
+                          <td colSpan={10} style={{ padding: 40, textAlign: "center", color: Z.text3 }}>
+                            No employee records match the selected filter.
+                          </td>
+                        </tr>
+                      ) : (
+                        paginatedCalculationRows.map((row) => {
+                          const emp = emps.find((e) => e.id === row.empId)
+                          const email = emp?.email || `${row.empName.toLowerCase().replace(/\s+/g, ".")}@naxrita.com`
+                          const isSkipped = skippedEmpIds.includes(row.empId)
+                          const isWithheld = withheldEmpIds.includes(row.empId)
+                          const paidDays = isSkipped ? 0 : 31 - (row.lopDays || 0)
+                          const grossPay = isSkipped ? 0 : row.grossSalary || row.totalEarnings || emp?.grossSalary || 0
+                          const deductions = isSkipped ? 0 : row.lopDeduction || 0
+                          const taxes = isSkipped ? 0 : row.tds || 200
+                          const benefits = isSkipped ? 0 : row.pf || getComponentAmount("epf", row, emp)
+                          const netPay = isSkipped || isWithheld ? 0 : row.netSalary || (grossPay - taxes - benefits)
+
+                          return (
+                            <tr
+                              key={row.empId}
+                              onClick={() => openEmployeeDrawer(row)}
+                              style={{
+                                borderBottom: `1px solid ${Z.borderLight}`,
+                                background: drawerRow?.empId === row.empId ? "#EFF6FF" : selectedRows.includes(row.empId) ? "#F4F8FE" : "transparent",
+                                transition: "background 0.12s",
+                                opacity: isSkipped ? 0.6 : 1,
+                                cursor: "pointer",
+                              }}
+                              onMouseEnter={(e) => {
+                                if (!selectedRows.includes(row.empId)) e.currentTarget.style.background = "#FAFBFD"
+                              }}
+                              onMouseLeave={(e) => {
+                                if (!selectedRows.includes(row.empId)) e.currentTarget.style.background = "transparent"
+                              }}
+                            >
+                              <td style={{ padding: "12px 16px" }}>
+                                <input
+                                  type="checkbox"
+                                  checked={selectedRows.includes(row.empId)}
+                                  onClick={(e) => e.stopPropagation()}
+                                  onChange={() =>
+                                    setSelectedRows((prev) =>
+                                      prev.includes(row.empId)
+                                        ? prev.filter((id) => id !== row.empId)
+                                        : [...prev, row.empId]
+                                    )
+                                  }
+                                />
+                              </td>
+                              <td style={{ padding: "12px 14px" }}>
+                                <span style={{ fontWeight: 600, color: Z.text1 }}>
+                                  {row.empName}
+                                </span>
+                                <span style={{ color: Z.text3, marginLeft: 6, fontSize: 12 }}>
+                                  ({emp?.id ? `${emp.id}` : email})
+                                </span>
+                                {isSkipped && (
+                                  <span style={{ marginLeft: 8, fontSize: 10, background: "#F0F2F4", color: Z.text3, padding: "1px 6px", borderRadius: 3, fontWeight: 700 }}>
+                                    SKIPPED
+                                  </span>
+                                )}
+                                {isWithheld && (
+                                  <span style={{ marginLeft: 8, fontSize: 10, background: Z.warningBg, color: Z.warning, padding: "1px 6px", borderRadius: 3, fontWeight: 700 }}>
+                                    WITHHELD
+                                  </span>
+                                )}
+                              </td>
+                              <td style={{ padding: "12px 14px", textAlign: "right", color: Z.text1 }}>
+                                {paidDays}
+                              </td>
+                              <td style={{ padding: "12px 14px", textAlign: "right", color: Z.text1 }}>
+                                {inr(grossPay)}
+                              </td>
+                              <td style={{ padding: "12px 14px", textAlign: "right", color: Z.text1 }}>
+                                {inr(deductions)}
+                              </td>
+                              <td style={{ padding: "12px 14px", textAlign: "right", color: Z.text1 }}>
+                                {inr(taxes)}
+                              </td>
+                              <td style={{ padding: "12px 14px", textAlign: "right", color: Z.text1 }}>
+                                {inr(benefits)}
+                              </td>
+                              <td style={{ padding: "12px 14px", textAlign: "right", color: Z.text1 }}>
+                                ₹0.00
+                              </td>
+                              <td style={{ padding: "12px 14px", textAlign: "right", fontWeight: 600, color: Z.text1 }}>
+                                {inr(netPay)}
+                              </td>
+                              <td style={{ padding: "12px 16px", textAlign: "center" }}>
+                                <button
+                                  onClick={() =>
+                                    setEditingRow({
+                                      row,
+                                      empName: row.empName,
+                                      grossSalary: grossPay,
+                                      lopDays: row.lopDays || 0,
+                                      bonus: row.bonus || 0,
+                                      incentive: row.incentive || 0,
+                                      tds: taxes,
+                                    })
+                                  }
+                                  style={{
+                                    background: "none",
+                                    border: "none",
+                                    color: Z.text3,
+                                    cursor: "pointer",
+                                    fontSize: 16,
+                                    padding: "2px 6px",
+                                    borderRadius: 4,
+                                  }}
+                                  title="Adjustments"
+                                >
+                                  ⋯
+                                </button>
+                              </td>
+                            </tr>
+                          )
+                        })
+                      )}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+
+              {filteredCalculationRows.length > calculationPageSize && (
+                <div style={{ marginTop: 8 }}>
+                  <Pagination
+                    page={calculationPage}
+                    pageSize={calculationPageSize}
+                    total={filteredCalculationRows.length}
+                    onPageChange={setCalculationPage}
+                  />
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ══════════════════════════════════════════════════════════════════
+              TAB 2: TAXES & DEDUCTIONS (Exact Match to Image 3)
+             ══════════════════════════════════════════════════════════════════ */}
+          {innerTab === "taxes" && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 28, background: Z.card, border: `1px solid ${Z.border}`, borderRadius: 8, padding: "24px 28px" }}>
+              
+              {/* Section 1: Tax Details */}
+              <div>
+                <h3 style={{ margin: "0 0 16px 0", fontSize: 16, fontWeight: 700, color: Z.text1 }}>
+                  Tax Details
+                </h3>
+                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+                  <thead>
+                    <tr style={{ borderBottom: `1px solid ${Z.border}` }}>
+                      <th style={{ padding: "10px 0", textAlign: "left", fontSize: 11, fontWeight: 700, color: Z.text2, textTransform: "uppercase" }}>TAX NAME</th>
+                      <th style={{ padding: "10px 0", textAlign: "right", fontSize: 11, fontWeight: 700, color: Z.text2, textTransform: "uppercase", width: 220 }}>PAID BY EMPLOYER</th>
+                      <th style={{ padding: "10px 0", textAlign: "right", fontSize: 11, fontWeight: 700, color: Z.text2, textTransform: "uppercase", width: 220 }}>PAID BY EMPLOYEE</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr style={{ borderBottom: `1px solid ${Z.borderLight}` }}>
+                      <td style={{ padding: "12px 0", color: Z.text1 }}>Income Tax</td>
+                      <td style={{ padding: "12px 0", textAlign: "right", color: Z.text1 }}>₹0.00</td>
+                      <td style={{ padding: "12px 0", textAlign: "right", color: Z.text1 }}>{inr(statutoryTds)}</td>
+                    </tr>
+                    <tr style={{ borderBottom: `1px solid ${Z.borderLight}` }}>
+                      <td style={{ padding: "12px 0", color: Z.text1 }}>TS Professional Tax (Head Office)</td>
+                      <td style={{ padding: "12px 0", textAlign: "right", color: Z.text1 }}>₹0.00</td>
+                      <td style={{ padding: "12px 0", textAlign: "right", color: Z.text1 }}>{inr(statutoryPt)}</td>
+                    </tr>
+                    <tr style={{ fontWeight: 700 }}>
+                      <td style={{ padding: "14px 0", color: Z.text1 }}>Total</td>
+                      <td style={{ padding: "14px 0", textAlign: "right", color: Z.text1 }}>₹0.00</td>
+                      <td style={{ padding: "14px 0", textAlign: "right", color: Z.text1 }}>{inr(totalTaxes)}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Section 2: Benefits */}
+              <div>
+                <h3 style={{ margin: "0 0 16px 0", fontSize: 16, fontWeight: 700, color: Z.text1 }}>
+                  Benefits
+                </h3>
+                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+                  <thead>
+                    <tr style={{ borderBottom: `1px solid ${Z.border}` }}>
+                      <th style={{ padding: "10px 0", textAlign: "left", fontSize: 11, fontWeight: 700, color: Z.text2, textTransform: "uppercase" }}>BENEFIT NAME</th>
+                      <th style={{ padding: "10px 0", textAlign: "right", fontSize: 11, fontWeight: 700, color: Z.text2, textTransform: "uppercase", width: 220 }}>PAID BY EMPLOYER</th>
+                      <th style={{ padding: "10px 0", textAlign: "right", fontSize: 11, fontWeight: 700, color: Z.text2, textTransform: "uppercase", width: 220 }}>PAID BY EMPLOYEE</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr style={{ borderBottom: `1px solid ${Z.borderLight}` }}>
+                      <td style={{ padding: "12px 0", color: Z.text1 }}>Employees' Provident Fund</td>
+                      <td style={{ padding: "12px 0", textAlign: "right", color: Z.text1 }}>{inr(statutoryEpf)}</td>
+                      <td style={{ padding: "12px 0", textAlign: "right", color: Z.text1 }}>{inr(statutoryEpf)}</td>
+                    </tr>
+                    <tr style={{ borderBottom: `1px solid ${Z.borderLight}` }}>
+                      <td style={{ padding: "12px 0", color: Z.text1 }}>Employees' Pension Scheme</td>
+                      <td style={{ padding: "12px 0", textAlign: "right", color: Z.text1 }}>₹0.00</td>
+                      <td style={{ padding: "12px 0", textAlign: "right", color: Z.text1 }}>-</td>
+                    </tr>
+                    <tr style={{ borderBottom: `1px solid ${Z.borderLight}` }}>
+                      <td style={{ padding: "12px 0", color: Z.text1 }}>EDLI Contribution</td>
+                      <td style={{ padding: "12px 0", textAlign: "right", color: Z.text1 }}>₹0.00</td>
+                      <td style={{ padding: "12px 0", textAlign: "right", color: Z.text1 }}>-</td>
+                    </tr>
+                    <tr style={{ borderBottom: `1px solid ${Z.borderLight}` }}>
+                      <td style={{ padding: "12px 0", color: Z.text1 }}>EPF Admin Charges</td>
+                      <td style={{ padding: "12px 0", textAlign: "right", color: Z.text1 }}>₹0.00</td>
+                      <td style={{ padding: "12px 0", textAlign: "right", color: Z.text1 }}>-</td>
+                    </tr>
+                    <tr style={{ fontWeight: 700 }}>
+                      <td style={{ padding: "14px 0", color: Z.text1 }}>Total</td>
+                      <td style={{ padding: "14px 0", textAlign: "right", color: Z.text1 }}>{inr(statutoryEpf)}</td>
+                      <td style={{ padding: "14px 0", textAlign: "right", color: Z.text1 }}>{inr(statutoryEpf)}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* ══════════════════════════════════════════════════════════════════
+              TAB 3: OVERALL INSIGHTS (Exact Match with Interactive Blue Links)
+             ══════════════════════════════════════════════════════════════════ */}
+          {innerTab === "insights" && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+              {/* Top Row: Employee Breakdown & Statutory Summary & Payment Mode */}
+              <div style={{ display: "grid", gridTemplateColumns: "1.2fr 1fr 1fr", gap: 16 }}>
+                
+                {/* Employee Breakdown */}
+                <div style={{ background: Z.card, border: `1px solid ${Z.border}`, borderRadius: 8, padding: "18px 20px" }}>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: Z.text1, marginBottom: 14 }}>
+                    Employee Breakdown
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 10, fontSize: 13 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between" }}>
+                      <span style={{ color: Z.text2 }}>Active Employees</span>
+                      <strong style={{ color: Z.text1 }}>{totalActiveEmpsCount}</strong>
+                    </div>
+                    <div style={{ display: "flex", justifyContent: "space-between" }}>
+                      <span style={{ color: Z.text2 }}>Paid Employees</span>
+                      <strong style={{ color: Z.text1 }}>{paidEmpsCount}</strong>
+                    </div>
+                    <div style={{ display: "flex", justifyContent: "space-between" }}>
+                      <span style={{ color: Z.text2 }}>Skipped Employees</span>
+                      <strong style={{ color: Z.text1 }}>{skippedEmpsCount}</strong>
+                    </div>
+                    <div style={{ display: "flex", justifyContent: "space-between" }}>
+                      <span style={{ color: Z.text2 }}>Salary Withheld</span>
+                      <strong style={{ color: Z.text1 }}>{withheldEmpsCount}</strong>
+                    </div>
+                    <div style={{ display: "flex", justifyContent: "space-between" }}>
+                      <span style={{ color: Z.text2 }}>Arrear Released Employees</span>
+                      <strong style={{ color: Z.text1 }}>0</strong>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Statutory Summary */}
+                <div style={{ background: Z.card, border: `1px solid ${Z.border}`, borderRadius: 8, padding: "18px 20px" }}>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: Z.text1, marginBottom: 14 }}>
+                    Statutory Summary
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 10, fontSize: 13 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between" }}>
+                      <span style={{ color: Z.text2 }}>EPF Contribution</span>
+                      <strong style={{ color: Z.text1 }}>{inr(statutoryEpf)}</strong>
+                    </div>
+                    <div style={{ display: "flex", justifyContent: "space-between" }}>
+                      <span style={{ color: Z.text2 }}>Professional Tax</span>
+                      <strong style={{ color: Z.text1 }}>{inr(statutoryPt)}</strong>
+                    </div>
+                    <div style={{ display: "flex", justifyContent: "space-between" }}>
+                      <span style={{ color: Z.text2 }}>Income Tax</span>
+                      <strong style={{ color: Z.text1 }}>{inr(statutoryTds)}</strong>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Payment Mode Summary */}
+                <div style={{ background: Z.card, border: `1px solid ${Z.border}`, borderRadius: 8, padding: "18px 20px" }}>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: Z.text1, marginBottom: 14 }}>
+                    Payment Mode Summary
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 10, fontSize: 13 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between" }}>
+                      <span style={{ color: Z.text2 }}>Cash Mode</span>
+                      <strong style={{ color: Z.text1 }}>{payableEmpsCount} Employees</strong>
+                    </div>
+                    <div style={{ display: "flex", justifyContent: "space-between" }}>
+                      <span style={{ color: Z.text2 }}>Total Net Payable</span>
+                      <strong style={{ color: Z.text1 }}>{inr(currentNetPay)}</strong>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Component Wise Breakdown with Collapsible Headers and Interactive Blue Links */}
+              <div style={{ background: Z.card, border: `1px solid ${Z.border}`, borderRadius: 8, padding: "24px 28px" }}>
+                <h3 style={{ margin: "0 0 20px 0", fontSize: 16, fontWeight: 700, color: Z.text1 }}>
+                  Component Wise Breakdown
+                </h3>
+
+                <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+                  
+                  {/* 1. Base Earning Collapsible Section */}
+                  <div style={{ borderBottom: `1px solid ${Z.borderLight}`, paddingBottom: 12 }}>
+                    <div
+                      onClick={() => setBaseEarningExpanded(!baseEarningExpanded)}
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        cursor: "pointer",
+                        fontWeight: 600,
+                        fontSize: 14,
+                        color: Z.text1,
+                        padding: "8px 0",
+                      }}
+                    >
+                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <span style={{ display: "inline-flex", alignItems: "center" }}>{baseEarningExpanded ? <ChevronUpIcon size={12} color={Z.text2} /> : <ChevronDownIcon size={12} color={Z.text2} />}</span>
+                        <span>Base Earning</span>
+                      </div>
+                      <span>{inr(totalBaseEarning)}</span>
+                    </div>
+
+                    {baseEarningExpanded && (
+                      <div style={{ display: "flex", flexDirection: "column", gap: 8, padding: "6px 0 10px 24px", fontSize: 13 }}>
+                        {/* Interactive Blue Links */}
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                          <button
+                            onClick={() => setSelectedComponentDetail({ name: "Basic", type: "basic" })}
+                            style={{
+                              background: "none",
+                              border: "none",
+                              color: Z.brand,
+                              fontWeight: 500,
+                              fontSize: 13,
+                              cursor: "pointer",
+                              padding: 0,
+                              textAlign: "left",
+                              textDecoration: "underline",
+                            }}
+                          >
+                            Basic
+                          </button>
+                          <div style={{ display: "flex", gap: 80, color: Z.text1 }}>
+                            <span style={{ width: 30, textAlign: "right" }}>{basicCount}</span>
+                            <span style={{ width: 100, textAlign: "right" }}>{inr(totalBasic)}</span>
+                          </div>
+                        </div>
+
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                          <button
+                            onClick={() => setSelectedComponentDetail({ name: "House Rent Allowance", type: "hra" })}
+                            style={{
+                              background: "none",
+                              border: "none",
+                              color: Z.brand,
+                              fontWeight: 500,
+                              fontSize: 13,
+                              cursor: "pointer",
+                              padding: 0,
+                              textAlign: "left",
+                              textDecoration: "underline",
+                            }}
+                          >
+                            House Rent Allowance
+                          </button>
+                          <div style={{ display: "flex", gap: 80, color: Z.text1 }}>
+                            <span style={{ width: 30, textAlign: "right" }}>{hraCount}</span>
+                            <span style={{ width: 100, textAlign: "right" }}>{inr(totalHra)}</span>
+                          </div>
+                        </div>
+
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                          <button
+                            onClick={() => setSelectedComponentDetail({ name: "Special Allowance", type: "special" })}
+                            style={{
+                              background: "none",
+                              border: "none",
+                              color: Z.brand,
+                              fontWeight: 500,
+                              fontSize: 13,
+                              cursor: "pointer",
+                              padding: 0,
+                              textAlign: "left",
+                              textDecoration: "underline",
+                            }}
+                          >
+                            Special Allowance
+                          </button>
+                          <div style={{ display: "flex", gap: 80, color: Z.text1 }}>
+                            <span style={{ width: 30, textAlign: "right" }}>{specialCount}</span>
+                            <span style={{ width: 100, textAlign: "right" }}>{inr(totalSpecial)}</span>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Total Earnings Line */}
+                  <div style={{ display: "flex", justifyContent: "space-between", fontWeight: 700, fontSize: 13, color: Z.text1, padding: "4px 0", borderBottom: `1px solid ${Z.border}` }}>
+                    <span>Total Earnings</span>
+                    <span>{inr(currentGross)}</span>
+                  </div>
+
+                  {/* 2. Benefits Collapsible Section */}
+                  <div style={{ borderBottom: `1px solid ${Z.borderLight}`, paddingBottom: 12 }}>
+                    <div
+                      onClick={() => setBenefitsExpanded(!benefitsExpanded)}
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        cursor: "pointer",
+                        fontWeight: 600,
+                        fontSize: 14,
+                        color: Z.text1,
+                        padding: "8px 0",
+                      }}
+                    >
+                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <span style={{ display: "inline-flex", alignItems: "center" }}>{benefitsExpanded ? <ChevronUpIcon size={12} color={Z.text2} /> : <ChevronDownIcon size={12} color={Z.text2} />}</span>
+                        <span>Benefits</span>
+                      </div>
+                      <span>{inr(statutoryEpf)}</span>
+                    </div>
+
+                    {benefitsExpanded && (
+                      <div style={{ display: "flex", flexDirection: "column", gap: 8, padding: "6px 0 10px 24px", fontSize: 13 }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                          <button
+                            onClick={() => setSelectedComponentDetail({ name: "EPF Contribution", type: "epf" })}
+                            style={{ background: "none", border: "none", color: Z.brand, fontWeight: 500, fontSize: 13, cursor: "pointer", padding: 0, textDecoration: "underline" }}
+                          >
+                            EPF Contribution
+                          </button>
+                          <div style={{ display: "flex", gap: 80, color: Z.text1 }}>
+                            <span style={{ width: 30, textAlign: "right" }}>{epfEligibleCount}</span>
+                            <span style={{ width: 100, textAlign: "right" }}>{inr(statutoryEpf)}</span>
+                          </div>
+                        </div>
+
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                          <button
+                            onClick={() => setSelectedComponentDetail({ name: "EPS Contribution", type: "eps" })}
+                            style={{ background: "none", border: "none", color: Z.brand, fontWeight: 500, fontSize: 13, cursor: "pointer", padding: 0, textDecoration: "underline" }}
+                          >
+                            EPS Contribution
+                          </button>
+                          <div style={{ display: "flex", gap: 80, color: Z.text1 }}>
+                            <span style={{ width: 30, textAlign: "right" }}>0</span>
+                            <span style={{ width: 100, textAlign: "right" }}>₹0.00</span>
+                          </div>
+                        </div>
+
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                          <button
+                            onClick={() => setSelectedComponentDetail({ name: "Employer EDLI Contribution", type: "edli" })}
+                            style={{ background: "none", border: "none", color: Z.brand, fontWeight: 500, fontSize: 13, cursor: "pointer", padding: 0, textDecoration: "underline" }}
+                          >
+                            Employer EDLI Contribution
+                          </button>
+                          <div style={{ display: "flex", gap: 80, color: Z.text1 }}>
+                            <span style={{ width: 30, textAlign: "right" }}>0</span>
+                            <span style={{ width: 100, textAlign: "right" }}>₹0.00</span>
+                          </div>
+                        </div>
+
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                          <button
+                            onClick={() => setSelectedComponentDetail({ name: "Employer EPF Admin Charges", type: "admin" })}
+                            style={{ background: "none", border: "none", color: Z.brand, fontWeight: 500, fontSize: 13, cursor: "pointer", padding: 0, textDecoration: "underline" }}
+                          >
+                            Employer EPF Admin Charges
+                          </button>
+                          <div style={{ display: "flex", gap: 80, color: Z.text1 }}>
+                            <span style={{ width: 30, textAlign: "right" }}>0</span>
+                            <span style={{ width: 100, textAlign: "right" }}>₹0.00</span>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Total Benefits Line */}
+                  <div style={{ display: "flex", justifyContent: "space-between", fontWeight: 700, fontSize: 13, color: Z.text1, padding: "4px 0", borderBottom: `1px solid ${Z.border}` }}>
+                    <span>Total Benefits</span>
+                    <span>{inr(statutoryEpf)}</span>
+                  </div>
+
+                  {/* 3. Taxes Collapsible Section */}
+                  <div style={{ borderBottom: `1px solid ${Z.borderLight}`, paddingBottom: 12 }}>
+                    <div
+                      onClick={() => setTaxesExpanded(!taxesExpanded)}
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        cursor: "pointer",
+                        fontWeight: 600,
+                        fontSize: 14,
+                        color: Z.text1,
+                        padding: "8px 0",
+                      }}
+                    >
+                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <span style={{ display: "inline-flex", alignItems: "center" }}>{taxesExpanded ? <ChevronUpIcon size={12} color={Z.text2} /> : <ChevronDownIcon size={12} color={Z.text2} />}</span>
+                        <span>Taxes</span>
+                      </div>
+                      <span>{inr(totalTaxes)}</span>
+                    </div>
+
+                    {taxesExpanded && (
+                      <div style={{ display: "flex", flexDirection: "column", gap: 8, padding: "6px 0 10px 24px", fontSize: 13 }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                          <button
+                            onClick={() => setSelectedComponentDetail({ name: "Professional Tax", type: "pt" })}
+                            style={{ background: "none", border: "none", color: Z.brand, fontWeight: 500, fontSize: 13, cursor: "pointer", padding: 0, textDecoration: "underline" }}
+                          >
+                            Professional Tax
+                          </button>
+                          <div style={{ display: "flex", gap: 80, color: Z.text1 }}>
+                            <span style={{ width: 30, textAlign: "right" }}>{ptEligibleCount}</span>
+                            <span style={{ width: 100, textAlign: "right" }}>{inr(statutoryPt)}</span>
+                          </div>
+                        </div>
+                        {statutoryTds > 0 && (
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                            <button
+                              onClick={() => setSelectedComponentDetail({ name: "Income Tax", type: "tds" })}
+                              style={{ background: "none", border: "none", color: Z.brand, fontWeight: 500, fontSize: 13, cursor: "pointer", padding: 0, textDecoration: "underline" }}
+                            >
+                              Income Tax
+                            </button>
+                            <div style={{ display: "flex", gap: 80, color: Z.text1 }}>
+                              <span style={{ width: 30, textAlign: "right" }}>{activeIncludedRows.filter((r) => (r.tds || 0) > 0).length}</span>
+                              <span style={{ width: 100, textAlign: "right" }}>{inr(statutoryTds)}</span>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Total Taxes Line */}
+                  <div style={{ display: "flex", justifyContent: "space-between", fontWeight: 700, fontSize: 13, color: Z.text1, padding: "4px 0" }}>
+                    <span>Total Taxes</span>
+                    <span>{inr(totalTaxes)}</span>
+                  </div>
+
+                </div>
+              </div>
+
+            </div>
+          )}
+
+        </div>
+
+        {/* ── APPROVE PAYROLL MODAL (Exact Match to Screenshot 1) ── */}
+        {showApproveModal && (
+          <div style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.45)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 1000,
+            padding: 16,
+          }}>
+            <div style={{
+              background: "#fff",
+              borderRadius: 8,
+              width: "100%",
+              maxWidth: 480,
+              boxShadow: "0 10px 25px rgba(0,0,0,0.15)",
+              overflow: "hidden",
+            }}>
+              {/* Modal Header */}
+              <div style={{
+                padding: "16px 20px",
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                borderBottom: `1px solid ${Z.borderLight}`,
+              }}>
+                <h2 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: Z.text1 }}>
+                  Approve Payroll
+                </h2>
+                <button
+                  onClick={() => setShowApproveModal(false)}
+                  style={{
+                    background: "none",
+                    border: "1px solid #93C5FD",
+                    borderRadius: 4,
+                    width: 26,
+                    height: 26,
+                    cursor: "pointer",
+                    color: Z.brand,
+                    fontSize: 14,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <CloseIcon size={15} />
+                </button>
+              </div>
+
+              {/* Modal Body */}
+              <div style={{ padding: "20px 24px", fontSize: 14, color: Z.text1, lineHeight: 1.5 }}>
+                You are about to approve this payroll for <strong>{curFullMonthName}, {curYear}</strong>. Once you approve it, you can make payments for all your employees on the paydate <strong>{payDateStr}</strong>.
+              </div>
+
+              {/* Modal Footer */}
+              <div style={{
+                padding: "14px 20px",
+                display: "flex",
+                gap: 10,
+                borderTop: `1px solid ${Z.borderLight}`,
+              }}>
+                <button
+                  onClick={handleApprovePayroll}
+                  style={{
+                    background: Z.brand,
+                    color: "#fff",
+                    border: "none",
+                    borderRadius: 6,
+                    padding: "8px 18px",
+                    fontWeight: 600,
+                    fontSize: 13,
+                    cursor: "pointer",
+                  }}
+                >
+                  Submit and Approve
+                </button>
+                <button
+                  onClick={() => setShowApproveModal(false)}
+                  style={{
+                    background: "#fff",
+                    border: `1px solid ${Z.border}`,
+                    borderRadius: 6,
+                    padding: "8px 18px",
+                    fontWeight: 500,
+                    fontSize: 13,
+                    color: Z.text1,
+                    cursor: "pointer",
+                  }}
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── RECORD PAYMENT MODAL (Exact Match to Screenshot 4) ── */}
+        {showRecordPaymentModal && (
+          <div style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.45)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 1000,
+            padding: 16,
+          }}>
+            <div style={{
+              background: "#fff",
+              borderRadius: 8,
+              width: "100%",
+              maxWidth: 540,
+              boxShadow: "0 10px 25px rgba(0,0,0,0.15)",
+              overflow: "visible",
+              position: "relative",
+            }}>
+              {/* Header */}
+              <div style={{
+                padding: "18px 24px 14px",
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                borderTopLeftRadius: 8,
+                borderTopRightRadius: 8,
+              }}>
+                <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: Z.text1 }}>
+                  Record Payment
+                </h2>
+                <button
+                  type="button"
+                  onClick={() => setShowRecordPaymentModal(false)}
+                  title="Close"
+                  style={{
+                    background: "transparent",
+                    border: "none",
+                    borderRadius: 6,
+                    width: 32,
+                    height: 32,
+                    cursor: "pointer",
+                    color: "#64748B",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    padding: 0,
+                    transition: "all 0.15s ease",
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = "#F1F5F9"
+                    e.currentTarget.style.color = "#0F172A"
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = "transparent"
+                    e.currentTarget.style.color = "#64748B"
+                  }}
+                >
+                  <CloseIcon size={18} strokeWidth={2} />
+                </button>
+              </div>
+
+              {/* Body */}
+              <div style={{ padding: "0 24px 20px", display: "flex", flexDirection: "column", gap: 16 }}>
+                <div style={{ fontSize: 13, color: Z.text2, lineHeight: 1.4 }}>
+                  Based on your preferences, payments will be recorded and payslip notifications will be sent accordingly.
+                </div>
+
+                {/* Payment Date Input */}
+                <div style={{ display: "flex", alignItems: "center", gap: 20 }}>
+                  <label style={{ fontSize: 13, color: Z.text1, fontWeight: 500, display: "flex", alignItems: "center", gap: 4, width: 120 }}>
+                    <span>Payment Date</span>
+                    <span style={{ display: "inline-flex", alignItems: "center" }}><InfoIcon size={13} color={Z.text3} /></span>
+                  </label>
+                  <div style={{ flex: 1 }}>
+                    <DatePickerInput
+                      value={paymentDateInput}
+                      onChange={setPaymentDateInput}
+                      placeholder="dd/MM/yyyy"
+                    />
+                  </div>
+                </div>
+
+                {/* Mode Breakdown Table */}
+                <div style={{ border: `1px solid ${Z.border}`, borderRadius: 6, overflow: "hidden" }}>
+                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+                    <thead>
+                      <tr style={{ borderBottom: `1px solid ${Z.border}`, background: "#FAFBFD" }}>
+                        <th style={{ padding: "10px 16px", textAlign: "left", fontSize: 12, fontWeight: 700, color: Z.text1 }}>Payment Mode</th>
+                        <th style={{ padding: "10px 16px", textAlign: "right", fontSize: 12, fontWeight: 700, color: Z.text1 }}>Employees</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr>
+                        <td style={{ padding: "12px 16px", color: Z.text1 }}>Cash</td>
+                        <td style={{ padding: "12px 16px", textAlign: "right", color: Z.text1 }}>{activeIncludedRows.length || 4}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Payslip Notification Checkbox */}
+                <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
+                  <input
+                    type="checkbox"
+                    id="sendPayslipNotif"
+                    checked={sendPayslipEmail}
+                    onChange={(e) => setSendPayslipEmail(e.target.checked)}
+                    style={{ marginTop: 3 }}
+                  />
+                  <label htmlFor="sendPayslipNotif" style={{ fontSize: 13, color: Z.text1, lineHeight: 1.4, cursor: "pointer" }}>
+                    <div style={{ fontWeight: 600, display: "flex", alignItems: "center", gap: 4 }}>
+                      <span>Send payslip notification to all employees</span>
+                      <span style={{ display: "inline-flex", alignItems: "center" }}><InfoIcon size={13} color={Z.text3} /></span>
+                    </div>
+                    <div style={{ color: Z.text2, fontSize: 12, marginTop: 2 }}>
+                      The email sent to employees will contain a link that redirects them to the portal to view the payslips. For those without portal access, payslips will be available for download directly from the email.
+                    </div>
+                  </label>
+                </div>
+
+                {/* Info Alert Box */}
+                <div style={{
+                  background: "#FFF8F0",
+                  border: "1px solid #FFE4C8",
+                  borderRadius: 6,
+                  padding: "12px 16px",
+                  display: "flex",
+                  gap: 10,
+                  fontSize: 12,
+                  color: "#B45309",
+                  lineHeight: 1.4,
+                }}>
+                  <span style={{ display: "inline-flex", alignItems: "center", marginTop: 1 }}><InfoIcon size={15} color="#B45309" /></span>
+                  <span>
+                    Regardless of whether you choose to send payslip notification email or not, the payslip will be displayed in the Portal once you record the payment.
+                  </span>
+                </div>
+              </div>
+
+              {/* Footer */}
+              <div style={{
+                padding: "14px 24px",
+                display: "flex",
+                gap: 10,
+                borderTop: `1px solid ${Z.borderLight}`,
+              }}>
+                <button
+                  onClick={handleRecordPayment}
+                  style={{
+                    background: Z.brand,
+                    color: "#fff",
+                    border: "none",
+                    borderRadius: 6,
+                    padding: "8px 22px",
+                    fontWeight: 600,
+                    fontSize: 13,
+                    cursor: "pointer",
+                  }}
+                >
+                  Confirm
+                </button>
+                <button
+                  onClick={() => setShowRecordPaymentModal(false)}
+                  style={{
+                    background: "#fff",
+                    border: `1px solid ${Z.border}`,
+                    borderRadius: 6,
+                    padding: "8px 20px",
+                    fontWeight: 500,
+                    fontSize: 13,
+                    color: Z.text1,
+                    cursor: "pointer",
+                  }}
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── SHOW DOWNLOADS MODAL (Opened from 3 dots menu) ── */}
+        {showDownloadsModal && (
+          <div style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.45)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 1000,
+            padding: 16,
+          }}>
+            <div style={{
+              background: "#fff",
+              borderRadius: 8,
+              width: "100%",
+              maxWidth: 520,
+              boxShadow: "0 10px 25px rgba(0,0,0,0.15)",
+              overflow: "hidden",
+            }}>
+              <div style={{
+                padding: "16px 20px",
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                borderBottom: `1px solid ${Z.borderLight}`,
+              }}>
+                <h2 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: Z.text1 }}>
+                  Generated Downloads & Reports
+                </h2>
+                <button
+                  onClick={() => setShowDownloadsModal(false)}
+                  style={{ background: "none", border: "none", cursor: "pointer", color: Z.text2, display: "inline-flex", alignItems: "center", justifyContent: "center" }}
+                >
+                  <CloseIcon size={16} />
+                </button>
+              </div>
+              <div style={{ padding: "20px", display: "flex", flexDirection: "column", gap: 12 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 14px", border: `1px solid ${Z.borderLight}`, borderRadius: 6 }}>
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: Z.text1 }}>All_Payslips_{activeRun?.period || "May_2026"}.csv</div>
+                    <div style={{ fontSize: 11, color: Z.text3 }}>Consolidated employee salary statements</div>
+                  </div>
+                  <button onClick={handleDownloadAllPayslips} style={{ background: Z.brand, color: "#fff", border: "none", borderRadius: 4, padding: "6px 12px", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>Download</button>
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 14px", border: `1px solid ${Z.borderLight}`, borderRadius: 6 }}>
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: Z.text1 }}>TDS_Worksheets_{activeRun?.period || "May_2026"}.csv</div>
+                    <div style={{ fontSize: 11, color: Z.text3 }}>Consolidated tax withholding computation</div>
+                  </div>
+                  <button onClick={handleDownloadAllTds} style={{ background: Z.brand, color: "#fff", border: "none", borderRadius: 4, padding: "6px 12px", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>Download</button>
+                </div>
+              </div>
+              <div style={{ padding: "12px 20px", borderTop: `1px solid ${Z.borderLight}`, display: "flex", justifyContent: "flex-end" }}>
+                <button onClick={() => setShowDownloadsModal(false)} style={{ background: "#fff", border: `1px solid ${Z.border}`, borderRadius: 6, padding: "7px 16px", fontSize: 13, color: Z.text1, cursor: "pointer" }}>Close</button>
+              </div>
+            </div>
+          </div>
+        )}
+
+{/* ── EMPLOYEE DETAILS & EDIT SLIDE-OVER DRAWER (Exact Match to User Screenshots) ── */}
+        {drawerRow && (() => {
+          const emp = emps.find(e => e.id === drawerRow.empId)
+          const empIdDisplay = emp?.id || drawerRow.empId
+          const baseGross = drawerRow.grossSalary || emp?.grossSalary || 0
+          const curBasic = getComponentAmount("basic", drawerRow, emp)
+          const curHra = getComponentAmount("hra", drawerRow, emp)
+          const curSpecial = getComponentAmount("special", drawerRow, emp)
+          
+          const effectiveBaseDays = daysInMonth || 30
+          const perDay = effectiveBaseDays > 0 ? baseGross / effectiveBaseDays : 0
+          const calculatedLopDed = Math.round(perDay * drawerLopDays)
+          const totalExtraEarn = drawerBonus + drawerCommission + drawerLeaveEncashment
+          const totalEarningsCalc = baseGross + totalExtraEarn - calculatedLopDed
+
+          const curPf = drawerRow.pf || getComponentAmount("epf", drawerRow, emp)
+          const curPt = drawerRow.profTax || getComponentAmount("pt", drawerRow, emp)
+          const totalDedCalc = curPf + curPt + drawerTds + calculatedLopDed
+          const computedDrawerNet = Math.max(0, totalEarningsCalc - totalDedCalc)
+          const payableDaysCount = Math.max(0, effectiveBaseDays - drawerLopDays)
+
+          return (
+            <div
+              onClick={(e) => e.stopPropagation()}
+              style={{
+                position: "fixed",
+                top: 0,
+                right: 0,
+                bottom: 0,
+                width: 480,
+                maxWidth: "90vw",
+                background: "#FFFFFF",
+                boxShadow: "-4px 0 25px rgba(0,0,0,0.15)",
+                zIndex: 500,
+                display: "flex",
+                flexDirection: "column",
+                overflowY: "auto",
+                borderLeft: "1px solid #E2E8F0",
+                animation: "slideInRight 0.2s ease-out",
+              }}
+            >
+              {/* Header Bar */}
+              <div style={{
+                padding: "20px 24px",
+                borderBottom: "1px solid #F1F5F9",
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "flex-start",
+                position: "sticky",
+                top: 0,
+                background: "#FFFFFF",
+                zIndex: 10,
+              }}>
+                <div>
+                  <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: "#2563EB" }}>
+                    {drawerRow.empName}
+                  </h2>
+                  <div style={{ fontSize: 13, color: "#64748B", marginTop: 3 }}>
+                    Emp. ID: {empIdDisplay}
+                  </div>
+                </div>
+
+                <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+                  <div style={{ textAlign: "right" }}>
+                    <div style={{ fontSize: 11, color: "#64748B", fontWeight: 500 }}>Net Pay</div>
+                    <div style={{ fontSize: 20, fontWeight: 800, color: "#1E293B" }}>
+                      {inr(computedDrawerNet)}
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setDrawerRow(null)}
+                    style={{
+                      background: "none",
+                      border: "none",
+                      fontSize: 18,
+                      cursor: "pointer",
+                      color: "#94A3B8",
+                      padding: 4,
+                      display: "inline-flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                  >
+                    <CloseIcon size={16} />
+                  </button>
+                </div>
+              </div>
+
+              {/* Drawer Body */}
+              <div style={{ padding: "20px 24px", display: "flex", flexDirection: "column", gap: 20, flex: 1 }}>
+                
+                {/* Status Callout if Paid */}
+                {isPaid && (
+                  <div style={{
+                    background: "#F0FDF4",
+                    border: "1px solid #DCFCE7",
+                    borderRadius: 6,
+                    padding: "10px 14px",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 8,
+                    fontSize: 13,
+                    color: "#166534",
+                    fontWeight: 600,
+                  }}>
+                    <span style={{ display: "inline-flex", alignItems: "center" }}><CheckIcon size={15} color="#166534" strokeWidth={2.5} /></span>
+                    <span>Paid on {paymentDateInput || payDateStr} through Cash</span>
+                  </div>
+                )}
+
+                {/* Payable Days Row & + Add LOP */}
+                <div style={{
+                  paddingBottom: 14,
+                  borderBottom: "1px solid #F1F5F9",
+                }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <span style={{ fontSize: 13, color: "#1E293B", fontWeight: 500 }}>Payable Days</span>
+                    <span style={{ fontSize: 14, fontWeight: 700, color: "#1E293B" }}>{payableDaysCount}</span>
+                  </div>
+
+                  {!isPaid && (
+                    <div style={{ marginTop: 8 }}>
+                      {!drawerShowAddLop ? (
+                        <button
+                          onClick={() => setDrawerShowAddLop(true)}
+                          style={{
+                            background: "none",
+                            border: "none",
+                            color: "#2563EB",
+                            fontSize: 13,
+                            fontWeight: 600,
+                            cursor: "pointer",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 4,
+                            padding: 0,
+                          }}
+                        >
+                          <span>+ Add LOP</span>
+                          <ChevronDownIcon size={10} />
+                        </button>
+                      ) : (
+                        <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 4 }}>
+                          <label style={{ fontSize: 12, color: "#64748B" }}>Loss of Pay Days:</label>
+                          <input
+                            type="number"
+                            min="0"
+                            max={effectiveBaseDays}
+                            value={drawerLopDays}
+                            onChange={(e) => setDrawerLopDays(Math.max(0, parseInt(e.target.value) || 0))}
+                            style={{
+                              width: 60,
+                              padding: "4px 8px",
+                              border: "1px solid #CBD5E1",
+                              borderRadius: 4,
+                              fontSize: 13,
+                              textAlign: "center",
+                            }}
+                          />
+                          <button
+                            onClick={() => setDrawerShowAddLop(false)}
+                            style={{
+                              background: "#F1F5F9",
+                              border: "1px solid #E2E8F0",
+                              borderRadius: 4,
+                              padding: "4px 8px",
+                              fontSize: 12,
+                              cursor: "pointer",
+                            }}
+                          >
+                            Done
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* ── (+) EARNINGS SECTION ── */}
+                <div>
+                  <div style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    fontSize: 12,
+                    fontWeight: 700,
+                    color: "#16A34A",
+                    letterSpacing: "0.05em",
+                    borderBottom: "1px solid #E2E8F0",
+                    paddingBottom: 6,
+                    marginBottom: 10,
+                  }}>
+                    <span>(+) EARNINGS</span>
+                    <span style={{ color: "#64748B" }}>AMOUNT</span>
+                  </div>
+
+                  <div style={{ display: "flex", flexDirection: "column", gap: 10, fontSize: 13 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between" }}>
+                      <span style={{ color: "#334155" }}>Basic</span>
+                      <span style={{ color: "#1E293B", fontWeight: 500 }}>{inr(curBasic)}</span>
+                    </div>
+                    <div style={{ display: "flex", justifyContent: "space-between" }}>
+                      <span style={{ color: "#334155" }}>House Rent Allowance</span>
+                      <span style={{ color: "#1E293B", fontWeight: 500 }}>{inr(curHra)}</span>
+                    </div>
+                    {curSpecial > 0 && (
+                      <div style={{ display: "flex", justifyContent: "space-between" }}>
+                        <span style={{ color: "#334155" }}>Special Allowance</span>
+                        <span style={{ color: "#1E293B", fontWeight: 500 }}>{inr(curSpecial)}</span>
+                      </div>
+                    )}
+
+                    {/* Dynamically added Earnings */}
+                    {drawerAddedEarnings.includes("Bonus") && (
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                        <span style={{ color: "#2563EB", fontWeight: 600 }}>Bonus</span>
+                        {!isPaid ? (
+                          <input
+                            type="number"
+                            value={drawerBonus}
+                            onChange={(e) => setDrawerBonus(Math.max(0, parseInt(e.target.value) || 0))}
+                            style={{ width: 90, padding: "4px 8px", border: "1px solid #CBD5E1", borderRadius: 4, textAlign: "right", fontSize: 13 }}
+                          />
+                        ) : (
+                          <span style={{ color: "#1E293B", fontWeight: 500 }}>{inr(drawerBonus)}</span>
+                        )}
+                      </div>
+                    )}
+
+                    {drawerAddedEarnings.includes("Commission") && (
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                        <span style={{ color: "#2563EB", fontWeight: 600 }}>Commission</span>
+                        {!isPaid ? (
+                          <input
+                            type="number"
+                            value={drawerCommission}
+                            onChange={(e) => setDrawerCommission(Math.max(0, parseInt(e.target.value) || 0))}
+                            style={{ width: 90, padding: "4px 8px", border: "1px solid #CBD5E1", borderRadius: 4, textAlign: "right", fontSize: 13 }}
+                          />
+                        ) : (
+                          <span style={{ color: "#1E293B", fontWeight: 500 }}>{inr(drawerCommission)}</span>
+                        )}
+                      </div>
+                    )}
+
+                    {drawerAddedEarnings.includes("Leave Encashment") && (
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                        <span style={{ color: "#2563EB", fontWeight: 600 }}>Leave Encashment</span>
+                        {!isPaid ? (
+                          <input
+                            type="number"
+                            value={drawerLeaveEncashment}
+                            onChange={(e) => setDrawerLeaveEncashment(Math.max(0, parseInt(e.target.value) || 0))}
+                            style={{ width: 90, padding: "4px 8px", border: "1px solid #CBD5E1", borderRadius: 4, textAlign: "right", fontSize: 13 }}
+                          />
+                        ) : (
+                          <span style={{ color: "#1E293B", fontWeight: 500 }}>{inr(drawerLeaveEncashment)}</span>
+                        )}
+                      </div>
+                    )}
+
+                    {/* + Add Earning Button & Dropdown */}
+                    {!isPaid && (
+                      <div style={{ position: "relative", marginTop: 4 }}>
+                        <button
+                          onClick={() => setDrawerShowAddEarningMenu(!drawerShowAddEarningMenu)}
+                          style={{
+                            background: "none",
+                            border: "none",
+                            color: "#2563EB",
+                            fontSize: 13,
+                            fontWeight: 600,
+                            cursor: "pointer",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 4,
+                            padding: 0,
+                          }}
+                        >
+                          <span>+</span>
+                          <span>Add Earning</span>
+                        </button>
+
+                        {drawerShowAddEarningMenu && (
+                          <div
+                            style={{
+                              position: "absolute",
+                              top: "100%",
+                              left: 0,
+                              marginTop: 4,
+                              background: "#FFFFFF",
+                              border: "1px solid #E2E8F0",
+                              borderRadius: 8,
+                              boxShadow: "0 8px 20px rgba(0,0,0,0.12)",
+                              width: 170,
+                              zIndex: 200,
+                              padding: "4px",
+                              display: "flex",
+                              flexDirection: "column",
+                              gap: 2,
+                            }}
+                          >
+                            {["Bonus", "Commission", "Leave Encashment"].map((earningType) => (
+                              <button
+                                key={earningType}
+                                onClick={() => {
+                                  setDrawerAddedEarnings(prev => Array.from(new Set([...prev, earningType])));
+                                  setDrawerShowAddEarningMenu(false);
+                                  if (earningType === "Bonus" && drawerBonus === 0) setDrawerBonus(5000);
+                                  if (earningType === "Commission" && drawerCommission === 0) setDrawerCommission(3000);
+                                  if (earningType === "Leave Encashment" && drawerLeaveEncashment === 0) setDrawerLeaveEncashment(2500);
+                                }}
+                                style={{
+                                  width: "100%",
+                                  textAlign: "left",
+                                  background: drawerAddedEarnings.includes(earningType) ? "#EFF6FF" : "transparent",
+                                  color: "#1E293B",
+                                  border: "none",
+                                  borderRadius: 4,
+                                  padding: "7px 10px",
+                                  fontSize: 13,
+                                  cursor: "pointer",
+                                }}
+                                onMouseEnter={(e) => (e.currentTarget.style.background = "#F1F5F9")}
+                                onMouseLeave={(e) => (e.currentTarget.style.background = drawerAddedEarnings.includes(earningType) ? "#EFF6FF" : "transparent")}
+                              >
+                                {earningType}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* ── (-) DEDUCTIONS SECTION ── */}
+                <div>
+                  <div style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    fontSize: 12,
+                    fontWeight: 700,
+                    color: "#DC2626",
+                    letterSpacing: "0.05em",
+                    borderBottom: "1px solid #E2E8F0",
+                    paddingBottom: 6,
+                    marginBottom: 10,
+                  }}>
+                    <span>(-) DEDUCTIONS</span>
+                    <span style={{ color: "#64748B" }}>AMOUNT</span>
+                  </div>
+
+                  <div style={{ display: "flex", flexDirection: "column", gap: 10, fontSize: 13 }}>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: "#64748B", textTransform: "uppercase" }}>Taxes</div>
+                    
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <span style={{ color: "#334155" }}>Income Tax</span>
+                      {!isPaid ? (
+                        <input
+                          type="number"
+                          value={drawerTds}
+                          onChange={(e) => setDrawerTds(Math.max(0, parseInt(e.target.value) || 0))}
+                          style={{ width: 80, padding: "3px 6px", border: "1px solid #CBD5E1", borderRadius: 4, textAlign: "right", fontSize: 13 }}
+                        />
+                      ) : (
+                        <span style={{ color: "#1E293B", fontWeight: 500 }}>{inr(drawerTds)}</span>
+                      )}
+                    </div>
+
+                    <div style={{ display: "flex", justifyContent: "space-between" }}>
+                      <span style={{ color: "#334155" }}>TS Professional Tax</span>
+                      <span style={{ color: "#1E293B", fontWeight: 500 }}>{inr(curPt)}</span>
+                    </div>
+
+                    {curPf > 0 && (
+                      <div style={{ display: "flex", justifyContent: "space-between" }}>
+                        <span style={{ color: "#334155" }}>EPF Contribution</span>
+                        <span style={{ color: "#1E293B", fontWeight: 500 }}>{inr(curPf)}</span>
+                      </div>
+                    )}
+
+                    {calculatedLopDed > 0 && (
+                      <div style={{ display: "flex", justifyContent: "space-between" }}>
+                        <span style={{ color: "#DC2626" }}>Loss of Pay ({drawerLopDays} days)</span>
+                        <span style={{ color: "#DC2626", fontWeight: 600 }}>-{inr(calculatedLopDed)}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* ── NET PAY HIGHLIGHTED BANNER (Matches User Screenshot) ── */}
+                <div style={{
+                  background: "#F3F4F8",
+                  borderRadius: 6,
+                  padding: "14px 18px",
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  marginTop: "auto",
+                }}>
+                  <span style={{ fontSize: 14, fontWeight: 700, color: "#1E293B" }}>NET PAY</span>
+                  <span style={{ fontSize: 18, fontWeight: 800, color: "#1E293B" }}>{inr(computedDrawerNet)}</span>
+                </div>
+
+              </div>
+
+              {/* Drawer Footer Actions */}
+              <div style={{
+                padding: "16px 24px",
+                borderTop: "1px solid #E2E8F0",
+                display: "flex",
+                gap: 10,
+                background: "#FFFFFF",
+                position: "sticky",
+                bottom: 0,
+              }}>
+                {isPaid ? (
+                  <>
+                    <button
+                      onClick={() => {
+                        toast(`Downloaded payslip for ${drawerRow.empName}`, "success")
+                      }}
+                      style={{
+                        background: "#3B82F6",
+                        color: "#FFFFFF",
+                        border: "none",
+                        borderRadius: 6,
+                        padding: "9px 18px",
+                        fontSize: 13,
+                        fontWeight: 600,
+                        cursor: "pointer",
+                      }}
+                    >
+                      Download Payslip
+                    </button>
+                    <button
+                      onClick={() => {
+                        toast(`Payslip notification resent to ${drawerRow.empName}`, "success")
+                      }}
+                      style={{
+                        background: "#FFFFFF",
+                        color: "#1E293B",
+                        border: "1px solid #CBD5E1",
+                        borderRadius: 6,
+                        padding: "9px 18px",
+                        fontSize: 13,
+                        fontWeight: 500,
+                        cursor: "pointer",
+                      }}
+                    >
+                      Send Payslip
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <button
+                      onClick={handleSaveDrawer}
+                      style={{
+                        background: "#3B82F6",
+                        color: "#FFFFFF",
+                        border: "none",
+                        borderRadius: 6,
+                        padding: "9px 22px",
+                        fontSize: 13,
+                        fontWeight: 600,
+                        cursor: "pointer",
+                      }}
+                    >
+                      Save
+                    </button>
+                    <button
+                      onClick={() => setDrawerRow(null)}
+                      style={{
+                        background: "#FFFFFF",
+                        color: "#1E293B",
+                        border: "1px solid #CBD5E1",
+                        borderRadius: 6,
+                        padding: "9px 18px",
+                        fontSize: 13,
+                        fontWeight: 500,
+                        cursor: "pointer",
+                      }}
+                    >
+                      Cancel
+                    </button>
+                  </>
+                )}
+              </div>
+            </div>
+          );
+        })()}
+
+                {/* ── PAYSLIP DETAIL MODAL (Opens when clicking View in Payslip column) ── */}
+        {viewingPayslipRow && (
+          <div style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.5)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 1000,
+            padding: 16,
+          }}>
+            <div style={{
+              background: "#fff",
+              borderRadius: 8,
+              width: "100%",
+              maxWidth: 600,
+              boxShadow: "0 10px 30px rgba(0,0,0,0.2)",
+              overflow: "hidden",
+            }}>
+              <div style={{ padding: "16px 24px", borderBottom: `1px solid ${Z.border}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <h2 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: Z.text1 }}>
+                  Payslip - {viewingPayslipRow.empName} ({activeRun?.period || "May 2026"})
+                </h2>
+                <button onClick={() => setViewingPayslipRow(null)} style={{ background: "none", border: "none", cursor: "pointer", color: Z.text2, display: "inline-flex", alignItems: "center", justifyContent: "center" }}><CloseIcon size={18} /></button>
+              </div>
+              <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: 16 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", background: "#F8FAFC", padding: 14, borderRadius: 6 }}>
+                  <div>
+                    <div style={{ fontSize: 11, color: Z.text2, textTransform: "uppercase" }}>Employee ID</div>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: Z.text1 }}>{viewingPayslipRow.empId}</div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 11, color: Z.text2, textTransform: "uppercase" }}>Pay Period</div>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: Z.text1 }}>{activeRun?.period || "May 2026"}</div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 11, color: Z.text2, textTransform: "uppercase" }}>Payment Mode</div>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: Z.text1 }}>Cash</div>
+                  </div>
+                </div>
+
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
+                  <div>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: Z.success, borderBottom: `1px solid ${Z.border}`, paddingBottom: 6, marginBottom: 8, textTransform: "uppercase" }}>Earnings</div>
+                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, marginBottom: 4 }}>
+                      <span style={{ color: Z.text2 }}>Basic</span>
+                      <span>{inr(getComponentAmount("basic", viewingPayslipRow))}</span>
+                    </div>
+                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, marginBottom: 4 }}>
+                      <span style={{ color: Z.text2 }}>House Rent Allowance</span>
+                      <span>{inr(getComponentAmount("hra", viewingPayslipRow))}</span>
+                    </div>
+                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, marginBottom: 4 }}>
+                      <span style={{ color: Z.text2 }}>Special Allowance</span>
+                      <span>{inr(getComponentAmount("special", viewingPayslipRow))}</span>
+                    </div>
+                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, fontWeight: 700, borderTop: `1px solid ${Z.borderLight}`, paddingTop: 6, marginTop: 6 }}>
+                      <span>Gross Earnings</span>
+                      <span>{inr(viewingPayslipRow.grossSalary || 30000)}</span>
+                    </div>
+                  </div>
+
+                  <div>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: Z.error, borderBottom: `1px solid ${Z.border}`, paddingBottom: 6, marginBottom: 8, textTransform: "uppercase" }}>Deductions</div>
+                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, marginBottom: 4 }}>
+                      <span style={{ color: Z.text2 }}>EPF</span>
+                      <span>{inr(getComponentAmount("epf", viewingPayslipRow))}</span>
+                    </div>
+                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, marginBottom: 4 }}>
+                      <span style={{ color: Z.text2 }}>Professional Tax</span>
+                      <span>{inr(200)}</span>
+                    </div>
+                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, fontWeight: 700, borderTop: `1px solid ${Z.borderLight}`, paddingTop: 6, marginTop: 6 }}>
+                      <span>Total Deductions</span>
+                      <span>{inr(getComponentAmount("epf", viewingPayslipRow) + 200)}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ background: "#EEF4FE", border: `1px solid ${Z.brand}40`, borderRadius: 6, padding: "14px 18px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <span style={{ fontSize: 14, fontWeight: 700, color: Z.text1 }}>Net Salary Disbursed</span>
+                  <span style={{ fontSize: 22, fontWeight: 800, color: Z.brand }}>{inr(viewingPayslipRow.netSalary || 29800)}</span>
+                </div>
+              </div>
+              <div style={{ padding: "14px 24px", borderTop: `1px solid ${Z.border}`, display: "flex", justifyContent: "flex-end", gap: 10 }}>
+                <button onClick={() => { toast(`Downloaded payslip for ${viewingPayslipRow.empName}`, "success"); setViewingPayslipRow(null); }} style={{ background: Z.brand, color: "#fff", border: "none", borderRadius: 6, padding: "8px 18px", fontSize: 13, fontWeight: 600, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6 }}><DownloadIcon size={14} color="#fff" /> Download PDF</button>
+                <button onClick={() => setViewingPayslipRow(null)} style={{ background: "#fff", border: `1px solid ${Z.border}`, borderRadius: 6, padding: "8px 18px", fontSize: 13, color: Z.text1, cursor: "pointer" }}>Close</button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── TDS SHEET MODAL (Opens when clicking View in TDS Sheet column) ── */}
+        {viewingTdsRow && (
+          <div style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.5)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 1000,
+            padding: 16,
+          }}>
+            <div style={{
+              background: "#fff",
+              borderRadius: 8,
+              width: "100%",
+              maxWidth: 520,
+              boxShadow: "0 10px 30px rgba(0,0,0,0.2)",
+              overflow: "hidden",
+            }}>
+              <div style={{ padding: "16px 20px", borderBottom: `1px solid ${Z.border}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <h2 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: Z.text1 }}>
+                  TDS Computation Sheet - {viewingTdsRow.empName}
+                </h2>
+                <button onClick={() => setViewingTdsRow(null)} style={{ background: "none", border: "none", cursor: "pointer", color: Z.text2, display: "inline-flex", alignItems: "center", justifyContent: "center" }}><CloseIcon size={18} /></button>
+              </div>
+              <div style={{ padding: 20, display: "flex", flexDirection: "column", gap: 12, fontSize: 13 }}>
+                <div style={{ display: "flex", justifyContent: "space-between" }}>
+                  <span style={{ color: Z.text2 }}>Projected Annual Gross Salary</span>
+                  <strong>{inr((viewingTdsRow.grossSalary || 30000) * 12)}</strong>
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between" }}>
+                  <span style={{ color: Z.text2 }}>Standard Deduction (Sec 16 ia)</span>
+                  <span style={{ color: Z.error }}>- ₹50,000.00</span>
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between" }}>
+                  <span style={{ color: Z.text2 }}>Chapter VI-A Deductions (80C)</span>
+                  <span style={{ color: Z.error }}>- {inr(Math.min(150000, getComponentAmount("epf", viewingTdsRow) * 12))}</span>
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between", borderTop: `1px solid ${Z.borderLight}`, paddingTop: 8, fontWeight: 700 }}>
+                  <span>Net Taxable Income</span>
+                  <span>{inr(Math.max(0, (viewingTdsRow.grossSalary || 30000) * 12 - 50000 - getComponentAmount("epf", viewingTdsRow) * 12))}</span>
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between", background: "#F8FAFC", padding: 10, borderRadius: 4, fontWeight: 700, color: Z.brand }}>
+                  <span>Monthly TDS Withholding</span>
+                  <span>₹0.00 (Exempt under rebate u/s 87A)</span>
+                </div>
+              </div>
+              <div style={{ padding: "12px 20px", borderTop: `1px solid ${Z.border}`, display: "flex", justifyContent: "flex-end" }}>
+                <button onClick={() => setViewingTdsRow(null)} style={{ background: Z.brand, color: "#fff", border: "none", borderRadius: 6, padding: "7px 18px", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>Close</button>
+              </div>
+            </div>
+          </div>
+        )}
+
+      </div>
+    )
+  }
+
+  // ════════════════════════════════════════════════════════════════════════════
+  // 3. MAIN RUN PAYROLL LIST VIEW (Exact Match to Image 1)
+  // ════════════════════════════════════════════════════════════════════════════
+  const pendingRuns = payruns.filter((p) => p.status !== "Completed" && p.status !== "Locked" && p.status !== "PAID" && p.status !== "Paid")
+  const displayRuns = pendingRuns.length > 0 ? pendingRuns : payruns
+
+  return (
+    <div
+      style={{ display: "flex", flexDirection: "column", background: Z.bg, minHeight: "100%", fontFamily: "'Inter',Arial,sans-serif" }}
+      onClick={() => {
+        setShowNewDropdown(false)
+      }}
+    >
+      {/* ── MAIN CONTENT CONTAINER ── */}
+      <div style={{ padding: "20px 24px", display: "flex", flexDirection: "column", gap: 18 }}>
+
+        {/* ── TOP TABS & ACTION BUTTONS HEADER (Exact Match to Screenshot 5) ── */}
+        <div style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          borderBottom: `1px solid ${Z.border}`,
+          position: "relative",
+        }}>
+          <div style={{ display: "flex", gap: 24 }}>
+            <button
+              onClick={() => setPayrollTab("run")}
+              style={{
+                background: "none",
+                border: "none",
+                borderBottom: `2.5px solid ${payrollTab === "run" ? "#2563EB" : "transparent"}`,
+                padding: "10px 4px 12px",
+                fontSize: 14,
+                fontWeight: payrollTab === "run" ? 700 : 500,
+                color: payrollTab === "run" ? "#1E293B" : "#64748B",
+                cursor: "pointer",
+                marginBottom: -1,
+                transition: "color 0.12s",
+              }}
+            >
+              Run Payroll
+            </button>
+            <button
+              onClick={() => setPayrollTab("history")}
+              style={{
+                background: "none",
+                border: "none",
+                borderBottom: `2.5px solid ${payrollTab === "history" ? "#2563EB" : "transparent"}`,
+                padding: "10px 4px 12px",
+                fontSize: 14,
+                fontWeight: payrollTab === "history" ? 700 : 500,
+                color: payrollTab === "history" ? "#1E293B" : "#64748B",
+                cursor: "pointer",
+                marginBottom: -1,
+                transition: "color 0.12s",
+              }}
+            >
+              Payroll History
+            </button>
+          </div>
+
+          {/* Right Action Buttons: + Create Pay Run, + New ⌵, and ? button (Screenshot 1 & 5) */}
+          <div style={{ display: "flex", alignItems: "center", gap: 8, paddingBottom: 6, position: "relative" }}>
+            {/* Create Pay Run Button beside + New */}
+            <button
+              onClick={() => {
+                setShowNewDropdown(false)
+                setShowNewModal(true)
+              }}
+              title="Create Pay Run"
+              style={{
+                background: "#2563EB",
+                color: "#FFFFFF",
+                border: "none",
+                borderRadius: 6,
+                padding: "6px 14px",
+                height: 32,
+                fontSize: 13,
+                fontWeight: 600,
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
+                cursor: "pointer",
+                boxShadow: "0 1px 2px rgba(37,99,235,0.2)",
+                transition: "background 0.15s ease",
+              }}
+              onMouseEnter={(e) => (e.currentTarget.style.background = "#1D4ED8")}
+              onMouseLeave={(e) => (e.currentTarget.style.background = "#2563EB")}
+            >
+              <PlusIcon size={14} color="#FFFFFF" strokeWidth={2.5} />
+              <span>Create Pay Run</span>
+            </button>
+
+            <div style={{ position: "relative" }}>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation()
+                  setShowNewDropdown(!showNewDropdown)
+                }}
+                title="New"
+                style={{
+                  background: "#FFFFFF",
+                  border: `1px solid ${showNewDropdown ? "#2563EB" : "#CBD5E1"}`,
+                  borderRadius: 6,
+                  padding: "5px 12px",
+                  height: 32,
+                  fontSize: 13,
+                  fontWeight: 500,
+                  color: "#1E293B",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                  cursor: "pointer",
+                  boxShadow: "0 1px 2px rgba(0,0,0,0.04)",
+                  transition: "all 0.15s ease",
+                }}
+                onMouseEnter={(e) => {
+                  if (!showNewDropdown) e.currentTarget.style.borderColor = "#94A3B8"
+                }}
+                onMouseLeave={(e) => {
+                  if (!showNewDropdown) e.currentTarget.style.borderColor = "#CBD5E1"
+                }}
+              >
+                <PlusIcon size={13} color="currentColor" strokeWidth={2.2} />
+                <span>New</span>
+                <ChevronDownIcon size={13} color="#64748B" strokeWidth={2} />
+              </button>
+
+              {/* + New Dropdown Menu (Screenshot 1) */}
+              {showNewDropdown && (
+                <div
+                  style={{
+                    position: "absolute",
+                    top: "100%",
+                    left: 0,
+                    marginTop: 6,
+                    background: "#FFFFFF",
+                    borderRadius: 8,
+                    boxShadow: "0 10px 25px -5px rgba(0,0,0,0.15), 0 8px 10px -6px rgba(0,0,0,0.1)",
+                    border: "1px solid #E2E8F0",
+                    padding: 6,
+                    minWidth: 170,
+                    zIndex: 100,
+                  }}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <div
+                    onClick={() => {
+                      setShowNewDropdown(false)
+                      setShowNewModal(true)
+                    }}
+                    onMouseEnter={() => setHoveredNewItem("regular")}
+                    style={{
+                      padding: "9px 12px",
+                      borderRadius: 6,
+                      fontSize: 13.5,
+                      fontWeight: 500,
+                      cursor: "pointer",
+                      background: hoveredNewItem === "regular" ? "#3B82F6" : "transparent",
+                      color: hoveredNewItem === "regular" ? "#FFFFFF" : "#334155",
+                      border: hoveredNewItem === "regular" ? "1.5px solid #2563EB" : "1.5px solid transparent",
+                      transition: "all 0.12s ease",
+                      marginBottom: 2,
+                    }}
+                  >
+                    Regular Pay Run
+                  </div>
+                  <div
+                    onClick={() => {
+                      setShowNewDropdown(false)
+                      setShowOneTimeModal(true)
+                    }}
+                    onMouseEnter={() => setHoveredNewItem("one_time")}
+                    style={{
+                      padding: "9px 12px",
+                      borderRadius: 6,
+                      fontSize: 13.5,
+                      fontWeight: 500,
+                      cursor: "pointer",
+                      background: hoveredNewItem === "one_time" ? "#3B82F6" : "transparent",
+                      color: hoveredNewItem === "one_time" ? "#FFFFFF" : "#334155",
+                      border: hoveredNewItem === "one_time" ? "1.5px solid #2563EB" : "1.5px solid transparent",
+                      transition: "all 0.12s ease",
+                      marginBottom: 2,
+                    }}
+                  >
+                    One Time Payout
+                  </div>
+                  <div
+                    onClick={() => {
+                      setShowNewDropdown(false)
+                      setShowOffCycleModal(true)
+                    }}
+                    onMouseEnter={() => setHoveredNewItem("off_cycle")}
+                    style={{
+                      padding: "9px 12px",
+                      borderRadius: 6,
+                      fontSize: 13.5,
+                      fontWeight: 500,
+                      cursor: "pointer",
+                      background: hoveredNewItem === "off_cycle" ? "#3B82F6" : "transparent",
+                      color: hoveredNewItem === "off_cycle" ? "#FFFFFF" : "#334155",
+                      border: hoveredNewItem === "off_cycle" ? "1.5px solid #2563EB" : "1.5px solid transparent",
+                      transition: "all 0.12s ease",
+                    }}
+                  >
+                    Off Cycle Payrun
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Orange ? Help Button (Screenshot 5) */}
+            <button
+              onClick={() => toast("Payroll processing guide & help", "info")}
+              title="Help"
+              style={{
+                background: "#EA580C",
+                color: "#FFFFFF",
+                border: "none",
+                borderRadius: 6,
+                width: 32,
+                height: 32,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontWeight: 700,
+                fontSize: 14,
+                cursor: "pointer",
+                boxShadow: "0 1px 2px rgba(234,88,12,0.3)",
+                transition: "background 0.15s ease",
+              }}
+              onMouseEnter={(e) => (e.currentTarget.style.background = "#C2410C")}
+              onMouseLeave={(e) => (e.currentTarget.style.background = "#EA580C")}
+            >
+              <HelpCircleIcon size={17} color="#FFFFFF" strokeWidth={2.2} />
+            </button>
+          </div>
+        </div>
+
+        {payrollTab === "run" ? (
+          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+            
+            {/* ── NOTIFICATION BANNER (Exact Match to Screenshot 5) ── */}
+            <div style={{
+              background: "#FFF8F0",
+              border: "1px solid #FED7AA",
+              borderRadius: 8,
+              padding: "12px 18px",
+              display: "flex",
+              alignItems: "center",
+              gap: 10,
+              fontSize: 13,
+            }}>
+              <SparklesIcon size={18} color="#EA580C" strokeWidth={2} />
+              <span style={{ color: "#7C2D12", fontWeight: 500 }}>
+                Pay salaries from any bank account without switching to your bank portal using Payouts by Zoho Payments.
+              </span>
+              <button
+                onClick={() => toast("Setup direct deposit transfer integration", "info")}
+                style={{
+                  background: "none",
+                  border: "none",
+                  color: "#2563EB",
+                  fontWeight: 600,
+                  fontSize: 13,
+                  cursor: "pointer",
+                  padding: 0,
+                  textDecoration: "underline",
+                }}
+              >
+                Setup Payout
+              </button>
+            </div>
+
+            {/* ── PAY RUN CARDS LIST (Exact Match to Screenshot 5) ── */}
+            <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+              {displayRuns.map((pr) => {
+                const prEmployeeCount = pr.rows?.length || 4
+                const prNetPayroll = pr.netPayroll || 157533
+                const prPaymentDate = pr.paymentDate || `30/${String(pr.month).padStart(2, "0")}/${pr.year}`
+                const overdueDays = calculateOverdueDays(prPaymentDate)
+
+                let cardTitle = `Process Pay Run for ${pr.period}`
+                if (pr.payrunType === "One Time Payout") {
+                  cardTitle = `Process One Time Payrun${pr.oneTimeComponent ? ` - ${pr.oneTimeComponent}` : ""} for ${pr.period}`
+                } else if (pr.payrunType === "Off Cycle Payrun") {
+                  cardTitle = `Process Off Cycle Pay Run for ${pr.period}`
+                }
+
+                return (
+                  <div
+                    key={pr.id}
+                    style={{
+                      background: "#FFFFFF",
+                      border: "1px solid #E2E8F0",
+                      borderRadius: 10,
+                      padding: "24px 28px",
+                      boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: 20,
+                    }}
+                  >
+                    {/* Top: Title & Badge */}
+                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                      <span style={{ fontSize: 16, color: "#1E293B" }}>
+                        {cardTitle.split(pr.period)[0]}
+                        <strong>{pr.period}</strong>
+                      </span>
+                      {prBadge(pr.status)}
+                    </div>
+
+                    {/* Middle: Metrics & View Details Action */}
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        flexWrap: "wrap",
+                        gap: 24,
+                      }}
+                    >
+                      <div style={{ display: "flex", alignItems: "center", gap: 48, flexWrap: "wrap" }}>
+                        <div>
+                          <div style={{ fontSize: 12, color: "#64748B", marginBottom: 6 }}>
+                            Employees' Net Pay
+                          </div>
+                          <div style={{ fontSize: 17, fontWeight: 700, color: "#0F172A" }}>
+                            ₹{Number(prNetPayroll).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </div>
+                        </div>
+
+                        <div>
+                          <div style={{ fontSize: 12, color: "#64748B", marginBottom: 6 }}>
+                            Payment Date
+                          </div>
+                          <div style={{ fontSize: 14, fontWeight: 600, color: "#334155" }}>
+                            {prPaymentDate}
+                          </div>
+                        </div>
+
+                        <div>
+                          <div style={{ fontSize: 12, color: "#64748B", marginBottom: 6 }}>
+                            No. of Employees
+                          </div>
+                          <div style={{ fontSize: 14, fontWeight: 600, color: "#334155" }}>
+                            {prEmployeeCount}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* View Details Button */}
+                      <div>
+                        <button
+                          onClick={() => {
+                            setActiveRunId(pr.id)
+                            setViewMode("details")
+                          }}
+                          style={{
+                            background: "#2563EB",
+                            color: "#FFFFFF",
+                            border: "none",
+                            borderRadius: 6,
+                            padding: "9px 22px",
+                            fontSize: 13.5,
+                            fontWeight: 600,
+                            cursor: "pointer",
+                            transition: "background 0.15s",
+                            boxShadow: "0 1px 3px rgba(37,99,235,0.2)",
+                          }}
+                          onMouseEnter={(e) => (e.currentTarget.style.background = "#1D4ED8")}
+                          onMouseLeave={(e) => (e.currentTarget.style.background = "#2563EB")}
+                        >
+                          View Details
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Bottom: Overdue status notice / payment confirmation */}
+                    {(() => {
+                      const isPrPaid = pr.status === "Paid" || pr.status === "PAID" || pr.status === "Completed"
+                      if (isPrPaid) {
+                        return (
+                          <div style={{ fontSize: 12.5, color: "#15803D", display: "flex", alignItems: "center", gap: 6 }}>
+                            <span style={{ fontWeight: 700 }}>✓</span>
+                            <span>Payment completed on {prPaymentDate}.</span>
+                          </div>
+                        )
+                      }
+                      return (
+                        <div style={{ fontSize: 12.5, color: overdueDays !== null && overdueDays > 0 ? "#C2410C" : "#64748B", display: "flex", alignItems: "center", gap: 6 }}>
+                          <span>ⓘ</span>
                           <span>
-                            <strong>{emp.name}</strong>
-                            <span style={{ color: F.text3, fontSize: 11 }}> - {emp.id}</span>
-                            <div style={{ color: F.text2, fontSize: 12 }}>{emp.designation} - {emp.department}</div>
+                            {overdueDays !== null && overdueDays > 0
+                              ? `This payment is overdue by ${overdueDays} day(s).`
+                              : `Payment due on ${prPaymentDate}.`}
                           </span>
-                          <strong>{inr(emp.grossSalary * 12)} CTC</strong>
-                        </label>
-                      ))}
-                      {filteredRunEmployees.length === 0 && (
-                        <div style={{ padding: 28, textAlign: "center", color: F.text3, fontSize: 13 }}>
-                          No payroll-ready employees match this search.
+                        </div>
+                      )
+                    })()}
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        ) : (
+          /* ── PAYROLL HISTORY TAB ── */
+          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+            {/* Filter Bar */}
+            <div style={{ background: Z.card, border: `1px solid ${Z.border}`, borderRadius: 8, padding: 16 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: showHistoryFilterBar ? 12 : 0 }}>
+                <span style={{ fontSize: 13, fontWeight: 700, color: Z.text1 }}>
+                  Filters {historyActiveFiltersCount > 0 && `(${historyActiveFiltersCount} active)`}
+                </span>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button onClick={handleHistoryGo} style={{ background: Z.brand, color: "#fff", border: "none", borderRadius: 5, padding: "0 14px", height: 30, fontSize: 12, fontWeight: 600, cursor: "pointer" }}>Go</button>
+                  <button onClick={handleHistoryClear} style={{ background: "none", border: `1px solid ${Z.border}`, borderRadius: 5, padding: "0 12px", height: 30, fontSize: 12, color: Z.text2, cursor: "pointer" }}>Clear</button>
+                  <button onClick={() => setShowHistoryFilterBar(!showHistoryFilterBar)} style={{ background: "none", border: `1px solid ${Z.border}`, borderRadius: 5, padding: "0 10px", height: 30, fontSize: 12, color: Z.text2, cursor: "pointer", display: "inline-flex", alignItems: "center", justifyContent: "center" }}>
+                    {showHistoryFilterBar ? <ChevronUpIcon size={12} color={Z.text2} /> : <ChevronDownIcon size={12} color={Z.text2} />}
+                  </button>
+                </div>
+              </div>
+              {showHistoryFilterBar && (
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 10, paddingTop: 10, borderTop: `1px solid ${Z.borderLight}` }}>
+                  <Fld label="Period"><input value={periodDraft} onChange={(e) => setPeriodDraft(e.target.value)} placeholder="e.g. May 2026" style={iSt} /></Fld>
+                  <Fld label="Status">
+                    <select value={statusDraft} onChange={(e) => setStatusDraft(e.target.value)} style={iSt}>
+                      <option value="all">All Statuses</option>
+                      <option value="Paid">Paid</option>
+                      <option value="Payment Due">Payment Due</option>
+                      <option value="Draft">Draft</option>
+                    </select>
+                  </Fld>
+                </div>
+              )}
+            </div>
+
+            {/* History Records Table */}
+            <div style={{ background: Z.card, border: `1px solid ${Z.border}`, borderRadius: 8, overflow: "hidden" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+                <thead>
+                  <tr style={{ background: "#FAFBFD", borderBottom: `1px solid ${Z.border}` }}>
+                    <th style={{ padding: "12px 16px", textAlign: "left", fontSize: 11, fontWeight: 700, color: Z.text2 }}>PAY PERIOD</th>
+                    <th style={{ padding: "12px 14px", textAlign: "left", fontSize: 11, fontWeight: 700, color: Z.text2 }}>PAYMENT DATE</th>
+                    <th style={{ padding: "12px 14px", textAlign: "right", fontSize: 11, fontWeight: 700, color: Z.text2 }}>EMPLOYEES</th>
+                    <th style={{ padding: "12px 14px", textAlign: "right", fontSize: 11, fontWeight: 700, color: Z.text2 }}>GROSS PAYROLL</th>
+                    <th style={{ padding: "12px 14px", textAlign: "right", fontSize: 11, fontWeight: 700, color: Z.text2 }}>NET DISBURSED</th>
+                    <th style={{ padding: "12px 14px", textAlign: "center", fontSize: 11, fontWeight: 700, color: Z.text2 }}>STATUS</th>
+                    <th style={{ padding: "12px 16px", textAlign: "right" }} />
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredHistory.map((pr) => {
+                    const payDateStr = `29/${String(pr.month).padStart(2, "0")}/${pr.year}`;
+                    return (
+                      <tr
+                        key={pr.id}
+                        onClick={() => {
+                          setActiveRunId(pr.id);
+                          setViewMode("details");
+                        }}
+                        style={{
+                          borderBottom: `1px solid ${Z.borderLight}`,
+                          cursor: "pointer",
+                          transition: "background 0.12s ease",
+                        }}
+                        onMouseEnter={(e) => (e.currentTarget.style.background = "#F8FAFC")}
+                        onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+                      >
+                        <td style={{ padding: "12px 16px", fontWeight: 600, color: Z.text1 }}>{pr.period}</td>
+                        <td style={{ padding: "12px 14px", color: Z.text2 }}>{payDateStr}</td>
+                        <td style={{ padding: "12px 14px", textAlign: "right", color: Z.text1 }}>{pr.totalEmployees}</td>
+                        <td style={{ padding: "12px 14px", textAlign: "right", color: Z.text1 }}>{inr(pr.grossPayroll)}</td>
+                        <td style={{ padding: "12px 14px", textAlign: "right", fontWeight: 600, color: Z.success }}>{inr(pr.netPayroll)}</td>
+                        <td style={{ padding: "12px 14px", textAlign: "center" }}>{prBadge(pr.status)}</td>
+                        <td style={{ padding: "12px 16px", textAlign: "right" }}>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setActiveRunId(pr.id);
+                              setViewMode("details");
+                            }}
+                            style={{
+                              background: "none",
+                              border: `1px solid ${Z.border}`,
+                              borderRadius: 4,
+                              padding: "4px 10px",
+                              fontSize: 12,
+                              fontWeight: 600,
+                              color: Z.brand,
+                              cursor: "pointer",
+                            }}
+                            onMouseEnter={(e) => (e.currentTarget.style.background = Z.brandBg)}
+                            onMouseLeave={(e) => (e.currentTarget.style.background = "none")}
+                          >
+                            View Details
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* ── 1. CREATE ONE TIME PAYRUN MODAL (Exact Match to Screenshots 2 & 4) ── */}
+      {showOneTimeModal && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.45)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 1000,
+            padding: 16,
+          }}
+          onClick={() => {
+            setIsComponentDropdownOpen(false)
+          }}
+        >
+          <div
+            style={{
+              background: "#FFFFFF",
+              borderRadius: 8,
+              width: "100%",
+              maxWidth: 480,
+              boxShadow: "0 10px 25px rgba(0,0,0,0.15)",
+              overflow: "visible",
+              position: "relative",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div
+              style={{
+                padding: "16px 22px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                borderBottom: "1px solid #E2E8F0",
+                borderTopLeftRadius: 8,
+                borderTopRightRadius: 8,
+              }}
+            >
+              <h2 style={{ margin: 0, fontSize: 18, fontWeight: 600, color: "#1E293B" }}>
+                Create One Time Payrun
+              </h2>
+              {/* Enterprise close button */}
+              <button
+                type="button"
+                onClick={() => {
+                  setShowOneTimeModal(false)
+                  setIsComponentDropdownOpen(false)
+                  setComponentSearch("")
+                }}
+                title="Close"
+                style={{
+                  background: "transparent",
+                  border: "none",
+                  borderRadius: 6,
+                  width: 32,
+                  height: 32,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  color: "#64748B",
+                  cursor: "pointer",
+                  padding: 0,
+                  transition: "all 0.15s ease",
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = "#F1F5F9"
+                  e.currentTarget.style.color = "#0F172A"
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = "transparent"
+                  e.currentTarget.style.color = "#64748B"
+                }}
+              >
+                <CloseIcon size={18} strokeWidth={2} />
+              </button>
+            </div>
+
+            {/* Body */}
+            <div style={{ padding: "24px 26px 36px", display: "flex", flexDirection: "column", gap: 20, minHeight: 260 }}>
+              {/* Field 1: Select One Time Component * */}
+              <div style={{ position: "relative" }}>
+                <label style={{ display: "block", fontSize: 13.5, fontWeight: 500, color: "#1E293B", marginBottom: 8 }}>
+                  Select One Time Component <span style={{ color: "#EF4444" }}>*</span>
+                </label>
+
+                {/* Dropdown Trigger */}
+                <div
+                  onClick={() => setIsComponentDropdownOpen(!isComponentDropdownOpen)}
+                  style={{
+                    border: `1px solid ${isComponentDropdownOpen ? "#2563EB" : "#CBD5E1"}`,
+                    borderRadius: 6,
+                    height: 40,
+                    padding: "0 14px",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    background: "#FFFFFF",
+                    cursor: "pointer",
+                    boxShadow: isComponentDropdownOpen ? "0 0 0 2px rgba(37,99,235,0.15)" : "none",
+                  }}
+                >
+                  <span style={{ fontSize: 14, color: oneTimeComponent ? "#1E293B" : "#94A3B8" }}>
+                    {oneTimeComponent || "Select"}
+                  </span>
+                  <span style={{ display: "inline-flex", alignItems: "center", color: isComponentDropdownOpen ? "#2563EB" : "#64748B" }}>
+                    {isComponentDropdownOpen ? <ChevronUpIcon size={14} strokeWidth={2.2} /> : <ChevronDownIcon size={14} strokeWidth={2.2} />}
+                  </span>
+                </div>
+
+                {/* Dropdown Menu when open (Screenshot 4) */}
+                {isComponentDropdownOpen && (
+                  <div
+                    style={{
+                      position: "absolute",
+                      top: "100%",
+                      left: 0,
+                      right: 0,
+                      marginTop: 4,
+                      background: "#FFFFFF",
+                      borderRadius: 6,
+                      border: "1px solid #CBD5E1",
+                      boxShadow: "0 6px 18px rgba(0,0,0,0.12)",
+                      padding: 8,
+                      zIndex: 1050,
+                    }}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    {/* Search Input with SearchIcon */}
+                    <div style={{ position: "relative", marginBottom: 8 }}>
+                      <span
+                        style={{
+                          position: "absolute",
+                          left: 10,
+                          top: "50%",
+                          transform: "translateY(-50%)",
+                          color: "#94A3B8",
+                          display: "inline-flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                        }}
+                      >
+                        <SearchIcon size={14} color="#94A3B8" strokeWidth={2} />
+                      </span>
+                      <input
+                        type="text"
+                        value={componentSearch}
+                        onChange={(e) => setComponentSearch(e.target.value)}
+                        placeholder="Search"
+                        autoFocus
+                        style={{
+                          width: "100%",
+                          height: 36,
+                          padding: "0 10px 0 32px",
+                          border: "1.5px solid #3B82F6",
+                          borderRadius: 6,
+                          fontSize: 13.5,
+                          outline: "none",
+                          color: "#1E293B",
+                          boxSizing: "border-box",
+                        }}
+                      />
+                    </div>
+
+                    {/* Options list */}
+                    <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                      {filteredComponents.map((comp) => {
+                        const isSelected = oneTimeComponent === comp
+                        return (
+                          <div
+                            key={comp}
+                            onClick={() => {
+                              setOneTimeComponent(comp)
+                              setIsComponentDropdownOpen(false)
+                            }}
+                            style={{
+                              padding: "9px 12px",
+                              borderRadius: 5,
+                              fontSize: 13.5,
+                              cursor: "pointer",
+                              background: isSelected ? "#3B82F6" : "transparent",
+                              color: isSelected ? "#FFFFFF" : "#334155",
+                              fontWeight: isSelected ? 500 : 400,
+                              transition: "background 0.1s ease",
+                            }}
+                            onMouseEnter={(e) => {
+                              if (!isSelected) e.currentTarget.style.background = "#F1F5F9"
+                            }}
+                            onMouseLeave={(e) => {
+                              if (!isSelected) e.currentTarget.style.background = "transparent"
+                            }}
+                          >
+                            {comp}
+                          </div>
+                        )
+                      })}
+                      {filteredComponents.length === 0 && (
+                        <div style={{ padding: "10px", fontSize: 13, color: "#94A3B8", textAlign: "center" }}>
+                          No matching components
                         </div>
                       )}
                     </div>
                   </div>
                 )}
+              </div>
 
-                {runScope === "Department Batch" && (
-                  <Fld label="Department">
-                    <select
-                      value={runSelectedIds[0] ?? ""}
-                      onChange={(e) => setRunSelectedIds(e.target.value ? [e.target.value] : [])}
-                      style={iSt}
-                    >
-                      <option value="">Select department</option>
-                      {Array.from(new Set(payrollEligibleEmployees.map((e) => e.department))).sort().map((dept) => (
-                        <option key={dept}>{dept}</option>
-                      ))}
-                    </select>
-                  </Fld>
-                )}
+              {/* Field 2: When would you like to pay? * */}
+              <div>
+                <label style={{ display: "block", fontSize: 13.5, fontWeight: 500, color: "#1E293B", marginBottom: 8 }}>
+                  When would you like to pay? <span style={{ color: "#EF4444" }}>*</span>
+                </label>
+                <DatePickerInput
+                  value={oneTimePayDate}
+                  onChange={setOneTimePayDate}
+                  placeholder="dd/MM/yyyy"
+                />
+              </div>
+            </div>
 
-                <Fld label="Run Description / Cycle Note">
-                  <input
-                    value={runNote}
-                    onChange={(e) => setRunNote(e.target.value)}
-                    style={iSt}
-                    placeholder="August regular monthly payroll cycle"
-                  />
-                </Fld>
-
-                <div
-                  style={{
-                    border: `1px solid ${F.border}`,
-                    borderRadius: 8,
-                    background: F.pageBg,
-                    overflow: "hidden",
-                  }}
-                >
-                  <div
-                    style={{
-                      padding: "12px 16px",
-                      borderBottom: `1px solid ${F.border}`,
-                      display: "flex",
-                      justifyContent: "space-between",
-                      gap: 12,
-                      alignItems: "center",
-                      flexWrap: "wrap",
-                    }}
-                  >
-                    <div>
-                      <div style={{ fontSize: 13, fontWeight: 900, color: F.text1 }}>
-                        Payroll Run Summary
-                      </div>
-                      <div style={{ marginTop: 2, fontSize: 12, color: F.text2 }}>
-                        {guidedScopeLabel} - {guidedScopeDetail}
-                      </div>
-                    </div>
-                    <Badge
-                      label={`${guidedTargetEmployees.length} employee${guidedTargetEmployees.length !== 1 ? "s" : ""}`}
-                      color={guidedTargetEmployees.length > 0 ? F.success : F.warning}
-                      bg={guidedTargetEmployees.length > 0 ? F.successBg : F.warningBg}
-                    />
-                  </div>
-                  <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))" }}>
-                    {[
-                      ["Scope", guidedScopeLabel],
-                      ["Gross Payroll", inr(guidedPreviewGross)],
-                      ["Deductions", inr(guidedPreviewDeductions)],
-                      ["Net Payable", inr(guidedPreviewNet)],
-                    ].map(([label, value], index) => (
-                      <div
-                        key={label}
-                        style={{
-                          padding: "13px 16px",
-                          borderLeft: index === 0 ? "none" : `1px solid ${F.border}`,
-                          background: F.card,
-                          minWidth: 0,
-                        }}
-                      >
-                        <div style={{ fontSize: 11, fontWeight: 800, color: F.text3, textTransform: "uppercase", letterSpacing: "0.06em" }}>
-                          {label}
-                        </div>
-                        <div style={{ marginTop: 5, fontSize: 14, fontWeight: 900, color: label === "Net Payable" ? F.success : F.text1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                          {value}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 10 }}>
-                  <Btn variant="secondary" onClick={() => setShowNewModal(false)}>
-                    Cancel
-                  </Btn>
-                  <Btn onClick={handleGuidedRunContinue}>Continue</Btn>
-                </div>
-              </>
-            ) : (
-              <>
-                <div style={{ borderBottom: `1px solid ${F.border}`, paddingBottom: 10, fontSize: 12, fontWeight: 900, color: "#304156", textTransform: "uppercase", letterSpacing: "0.06em" }}>
-                  Step 2: Verify statutory and salary inputs
-                </div>
-                <div style={{ background: F.pageBg, border: `1px solid ${F.border}`, borderRadius: 8, padding: 18, display: "flex", flexDirection: "column", gap: 10 }}>
-                  <IR label="Run Target" value={`${guidedScopeLabel} (${guidedTargetEmployees.length} staff)`} />
-                  <IR label="Disbursement Date" value={`${newYear}-${String(newMonth).padStart(2, "0")}-28`} />
-                  <IR label="Net Payable" value={inr(guidedPreviewNet)} />
-                  <IR label="Statutory Deductions Engine" value="EPF, ESI, Professional Tax and TDS active" />
-                  <IR label="Run Note" value={runNote || "No note added"} />
-                </div>
-                <div style={{ display: "flex", justifyContent: "space-between", gap: 10, marginTop: 10 }}>
-                  <Btn variant="secondary" onClick={() => setGuidedRunStep(1)}>
-                    Back
-                  </Btn>
-                  <Btn onClick={handleCreatePayrun}>Execute Payroll Run Now</Btn>
-                </div>
-              </>
-            )}
-          </div>
-        </Modal>
-      )}
-
-      {/* Payrun Details SlidePanel */}
-      {selectedHistoryRun && (
-        <SlidePanel
-          title={`Pay Run Ledger — ${selectedHistoryRun.period}`}
-          sub={`Generated by ${selectedHistoryRun.generatedBy} on ${fmtD(selectedHistoryRun.generatedOn)}`}
-          onClose={() => setSelectedHistoryRun(null)}
-        >
-          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+            {/* Footer */}
             <div
               style={{
-                background: F.pageBg,
-                border: `1px solid ${F.border}`,
-                borderRadius: 8,
-                padding: "16px 20px",
+                padding: "16px 24px",
                 display: "flex",
-                justifyContent: "space-between",
                 alignItems: "center",
+                gap: 12,
+                borderTop: "1px solid #E2E8F0",
+                borderBottomLeftRadius: 8,
+                borderBottomRightRadius: 8,
               }}
             >
-              <div>
-                <div style={{ fontSize: 11, fontWeight: 700, color: F.text2, textTransform: "uppercase" }}>
-                  Net Disbursed Payroll
-                </div>
-                <div style={{ fontSize: 24, fontWeight: 800, color: F.success, marginTop: 2 }}>
-                  {inr(selectedHistoryRun.netPayroll)}
-                </div>
-              </div>
-              {prBadge(selectedHistoryRun.status)}
-            </div>
-
-            <div style={{ display: "flex", flexDirection: "column", gap: 8, fontSize: 13 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", borderBottom: `1px solid ${F.border}60` }}>
-                <span style={{ color: F.text2 }}>Gross Payroll:</span>
-                <strong>{inr(selectedHistoryRun.grossPayroll)}</strong>
-              </div>
-              <div style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", borderBottom: `1px solid ${F.border}60` }}>
-                <span style={{ color: F.text2 }}>Total Deductions:</span>
-                <strong style={{ color: F.warning }}>{inr(selectedHistoryRun.totalDeductions)}</strong>
-              </div>
-              <div style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", borderBottom: `1px solid ${F.border}60` }}>
-                <span style={{ color: F.text2 }}>Total Employees:</span>
-                <strong>{selectedHistoryRun.totalEmployees} Employees</strong>
-              </div>
-            </div>
-
-            <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 14 }}>
-              <Btn variant="secondary" onClick={() => setSelectedHistoryRun(null)}>
-                Close
-              </Btn>
-              {selectedHistoryRun.status !== "Locked" && (
-                <Btn onClick={() => advanceRunStatus(selectedHistoryRun)}>
-                  {selectedHistoryRun.status === "Completed"
-                    ? "Lock Pay Run"
-                    : `Advance Status (${selectedHistoryRun.status}) ->`}
-                </Btn>
-              )}
+              <button
+                onClick={handleSaveOneTimePayrun}
+                style={{
+                  background: "#2563EB",
+                  color: "#FFFFFF",
+                  border: "none",
+                  borderRadius: 6,
+                  padding: "9px 20px",
+                  fontSize: 13.5,
+                  fontWeight: 600,
+                  cursor: "pointer",
+                  transition: "background 0.15s",
+                }}
+                onMouseEnter={(e) => (e.currentTarget.style.background = "#1D4ED8")}
+                onMouseLeave={(e) => (e.currentTarget.style.background = "#2563EB")}
+              >
+                Save and Continue
+              </button>
+              <button
+                onClick={() => {
+                  setShowOneTimeModal(false)
+                  setIsComponentDropdownOpen(false)
+                }}
+                style={{
+                  background: "#FFFFFF",
+                  color: "#334155",
+                  border: "1px solid #CBD5E1",
+                  borderRadius: 6,
+                  padding: "9px 20px",
+                  fontSize: 13.5,
+                  fontWeight: 500,
+                  cursor: "pointer",
+                  transition: "background 0.15s",
+                }}
+                onMouseEnter={(e) => (e.currentTarget.style.background = "#F8FAFC")}
+                onMouseLeave={(e) => (e.currentTarget.style.background = "#FFFFFF")}
+              >
+                Cancel
+              </button>
             </div>
           </div>
-        </SlidePanel>
+        </div>
+      )}
+
+      {/* ── 2. INITIATE OFF CYCLE PAY RUN MODAL (Exact Match to Screenshot 3) ── */}
+      {showOffCycleModal && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.45)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 1000,
+            padding: 16,
+          }}
+          onClick={() => setShowOffCycleModal(false)}
+        >
+          <div
+            style={{
+              background: "#FFFFFF",
+              borderRadius: 8,
+              width: "100%",
+              maxWidth: 480,
+              boxShadow: "0 10px 25px rgba(0,0,0,0.15)",
+              overflow: "visible",
+              position: "relative",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div
+              style={{
+                padding: "16px 22px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                borderBottom: "1px solid #E2E8F0",
+                borderTopLeftRadius: 8,
+                borderTopRightRadius: 8,
+              }}
+            >
+              <h2 style={{ margin: 0, fontSize: 18, fontWeight: 600, color: "#1E293B" }}>
+                Initiate Off Cycle Pay Run
+              </h2>
+              {/* Enterprise close button */}
+              <button
+                type="button"
+                onClick={() => setShowOffCycleModal(false)}
+                title="Close"
+                style={{
+                  background: "transparent",
+                  border: "none",
+                  borderRadius: 6,
+                  width: 32,
+                  height: 32,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  color: "#64748B",
+                  cursor: "pointer",
+                  padding: 0,
+                  transition: "all 0.15s ease",
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = "#F1F5F9"
+                  e.currentTarget.style.color = "#0F172A"
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = "transparent"
+                  e.currentTarget.style.color = "#64748B"
+                }}
+              >
+                <CloseIcon size={18} strokeWidth={2} />
+              </button>
+            </div>
+
+            {/* Body */}
+            <div style={{ padding: "22px 24px 32px", display: "flex", flexDirection: "column", gap: 18, minHeight: 160 }}>
+              {/* Field: When would you like to pay? * */}
+              <div>
+                <label style={{ display: "block", fontSize: 13.5, fontWeight: 500, color: "#1E293B", marginBottom: 8 }}>
+                  When would you like to pay? <span style={{ color: "#EF4444" }}>*</span>
+                </label>
+                <DatePickerInput
+                  value={offCyclePayDate}
+                  onChange={setOffCyclePayDate}
+                  placeholder="dd/MM/yyyy"
+                />
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div
+              style={{
+                padding: "16px 24px",
+                display: "flex",
+                alignItems: "center",
+                gap: 12,
+                borderTop: "1px solid #E2E8F0",
+                borderBottomLeftRadius: 8,
+                borderBottomRightRadius: 8,
+              }}
+            >
+              <button
+                onClick={handleSaveOffCyclePayrun}
+                style={{
+                  background: "#2563EB",
+                  color: "#FFFFFF",
+                  border: "none",
+                  borderRadius: 6,
+                  padding: "9px 20px",
+                  fontSize: 13.5,
+                  fontWeight: 600,
+                  cursor: "pointer",
+                  transition: "background 0.15s",
+                }}
+                onMouseEnter={(e) => (e.currentTarget.style.background = "#1D4ED8")}
+                onMouseLeave={(e) => (e.currentTarget.style.background = "#2563EB")}
+              >
+                Save and Continue
+              </button>
+              <button
+                onClick={() => setShowOffCycleModal(false)}
+                style={{
+                  background: "#FFFFFF",
+                  color: "#334155",
+                  border: "1px solid #CBD5E1",
+                  borderRadius: 6,
+                  padding: "9px 20px",
+                  fontSize: 13.5,
+                  fontWeight: 500,
+                  cursor: "pointer",
+                  transition: "background 0.15s",
+                }}
+                onMouseEnter={(e) => (e.currentTarget.style.background = "#F8FAFC")}
+                onMouseLeave={(e) => (e.currentTarget.style.background = "#FFFFFF")}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── 3. CREATE REGULAR PAY RUN MODAL (Month, Year, Date, Details) ── */}
+      {showNewModal && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.45)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 1000,
+            padding: 16,
+          }}
+          onClick={() => setShowNewModal(false)}
+        >
+          <div
+            style={{
+              background: "#FFFFFF",
+              borderRadius: 8,
+              width: "100%",
+              maxWidth: 520,
+              boxShadow: "0 10px 25px rgba(0,0,0,0.15)",
+              overflow: "visible",
+              position: "relative",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div
+              style={{
+                padding: "16px 22px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                borderBottom: "1px solid #E2E8F0",
+                borderTopLeftRadius: 8,
+                borderTopRightRadius: 8,
+              }}
+            >
+              <h2 style={{ margin: 0, fontSize: 18, fontWeight: 600, color: "#1E293B" }}>
+                Create Pay Run
+              </h2>
+              {/* Enterprise close button */}
+              <button
+                type="button"
+                onClick={() => setShowNewModal(false)}
+                title="Close"
+                style={{
+                  background: "transparent",
+                  border: "none",
+                  borderRadius: 6,
+                  width: 32,
+                  height: 32,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  color: "#64748B",
+                  cursor: "pointer",
+                  padding: 0,
+                  transition: "all 0.15s ease",
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = "#F1F5F9"
+                  e.currentTarget.style.color = "#0F172A"
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = "transparent"
+                  e.currentTarget.style.color = "#64748B"
+                }}
+              >
+                <CloseIcon size={18} strokeWidth={2} />
+              </button>
+            </div>
+
+            {/* Body */}
+            <div style={{ padding: "22px 24px", display: "flex", flexDirection: "column", gap: 18 }}>
+              {/* Row 1: Select Month & Year */}
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+                <div>
+                  <label style={{ display: "block", fontSize: 13.5, fontWeight: 500, color: "#1E293B", marginBottom: 8 }}>
+                    Select Month <span style={{ color: "#EF4444" }}>*</span>
+                  </label>
+                  <select
+                    value={newMonth}
+                    onChange={(e) => {
+                      const m = Number(e.target.value)
+                      setNewMonth(m)
+                      setNewPayDate(getEndOfMonthDate(m, newYear))
+                    }}
+                    style={{
+                      width: "100%",
+                      height: 40,
+                      padding: "0 12px",
+                      border: "1px solid #CBD5E1",
+                      borderRadius: 6,
+                      fontSize: 14,
+                      color: "#1E293B",
+                      outline: "none",
+                      boxSizing: "border-box",
+                      fontFamily: "inherit",
+                      background: "#FFFFFF",
+                      cursor: "pointer",
+                    }}
+                  >
+                    {monthNames.map((m, i) => (
+                      <option key={m} value={i + 1}>
+                        {m}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label style={{ display: "block", fontSize: 13.5, fontWeight: 500, color: "#1E293B", marginBottom: 8 }}>
+                    Select Year <span style={{ color: "#EF4444" }}>*</span>
+                  </label>
+                  <select
+                    value={newYear}
+                    onChange={(e) => {
+                      const y = Number(e.target.value)
+                      setNewYear(y)
+                      setNewPayDate(getEndOfMonthDate(newMonth, y))
+                    }}
+                    style={{
+                      width: "100%",
+                      height: 40,
+                      padding: "0 12px",
+                      border: "1px solid #CBD5E1",
+                      borderRadius: 6,
+                      fontSize: 14,
+                      color: "#1E293B",
+                      outline: "none",
+                      boxSizing: "border-box",
+                      fontFamily: "inherit",
+                      background: "#FFFFFF",
+                      cursor: "pointer",
+                    }}
+                  >
+                    <option value={2024}>2024</option>
+                    <option value={2025}>2025</option>
+                    <option value={2026}>2026</option>
+                    <option value={2027}>2027</option>
+                    <option value={2028}>2028</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Row 2: When would you like to pay? * (Payment Date) */}
+              <div>
+                <label style={{ display: "block", fontSize: 13.5, fontWeight: 500, color: "#1E293B", marginBottom: 8 }}>
+                  When would you like to pay? <span style={{ color: "#EF4444" }}>*</span>
+                </label>
+                <DatePickerInput
+                  value={newPayDate}
+                  onChange={setNewPayDate}
+                  placeholder="dd/MM/yyyy"
+                />
+              </div>
+
+              {/* Row 3: Notes / Description (Optional) */}
+              <div>
+                <label style={{ display: "block", fontSize: 13.5, fontWeight: 500, color: "#1E293B", marginBottom: 8 }}>
+                  Note / Description (Optional)
+                </label>
+                <input
+                  type="text"
+                  value={runNote}
+                  onChange={(e) => setRunNote(e.target.value)}
+                  placeholder={`Regular monthly payroll for ${monthNames[newMonth - 1]} ${newYear}`}
+                  style={{
+                    width: "100%",
+                    height: 40,
+                    padding: "0 14px",
+                    border: "1px solid #CBD5E1",
+                    borderRadius: 6,
+                    fontSize: 14,
+                    color: "#1E293B",
+                    outline: "none",
+                    boxSizing: "border-box",
+                    fontFamily: "inherit",
+                  }}
+                  onFocus={(e) => (e.currentTarget.style.borderColor = "#2563EB")}
+                  onBlur={(e) => (e.currentTarget.style.borderColor = "#CBD5E1")}
+                />
+              </div>
+
+              {/* Information Summary Box */}
+              <div
+                style={{
+                  background: "#F8FAFC",
+                  border: "1px solid #E2E8F0",
+                  borderRadius: 6,
+                  padding: "12px 14px",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 6,
+                  fontSize: 13,
+                }}
+              >
+                <div style={{ display: "flex", justifyContent: "space-between", color: "#64748B" }}>
+                  <span>Payroll Period:</span>
+                  <strong style={{ color: "#1E293B" }}>
+                    {monthNames[newMonth - 1]} {newYear}
+                  </strong>
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between", color: "#64748B" }}>
+                  <span>Eligible Employees:</span>
+                  <strong style={{ color: "#1E293B" }}>
+                    {payrollEligibleEmployees.length} Employees
+                  </strong>
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between", color: "#64748B" }}>
+                  <span>Initial Status:</span>
+                  <span style={{
+                    background: "#E2E8F0",
+                    color: "#475569",
+                    fontWeight: 700,
+                    fontSize: 11,
+                    padding: "1px 6px",
+                    borderRadius: 4,
+                  }}>
+                    DRAFT
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div
+              style={{
+                padding: "16px 24px",
+                display: "flex",
+                alignItems: "center",
+                gap: 12,
+                borderTop: "1px solid #E2E8F0",
+              }}
+            >
+              <button
+                onClick={handleSaveRegularPayrun}
+                style={{
+                  background: "#2563EB",
+                  color: "#FFFFFF",
+                  border: "none",
+                  borderRadius: 6,
+                  padding: "9px 20px",
+                  fontSize: 13.5,
+                  fontWeight: 600,
+                  cursor: "pointer",
+                  transition: "background 0.15s",
+                }}
+                onMouseEnter={(e) => (e.currentTarget.style.background = "#1D4ED8")}
+                onMouseLeave={(e) => (e.currentTarget.style.background = "#2563EB")}
+              >
+                Save and Continue
+              </button>
+              <button
+                onClick={() => setShowNewModal(false)}
+                style={{
+                  background: "#FFFFFF",
+                  color: "#334155",
+                  border: "1px solid #CBD5E1",
+                  borderRadius: 6,
+                  padding: "9px 20px",
+                  fontSize: 13.5,
+                  fontWeight: 500,
+                  cursor: "pointer",
+                  transition: "background 0.15s",
+                }}
+                onMouseEnter={(e) => (e.currentTarget.style.background = "#F8FAFC")}
+                onMouseLeave={(e) => (e.currentTarget.style.background = "#FFFFFF")}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )
@@ -11302,7 +15271,6 @@ function PayslipsView({
   const [sortBy, setSortBy] = useState<"period" | "net" | "gross">("period")
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc")
   const [payslipPage, setPayslipPage] = useState(1)
-  const [hasRunPayslipSearch, setHasRunPayslipSearch] = useState(false)
   const [appliedPayslipListFilters, setAppliedPayslipListFilters] = useState({
     empSearch: myEmp?.name ?? "",
     selPeriod: "All",
@@ -11314,7 +15282,6 @@ function PayslipsView({
     sortDir: "desc" as "asc" | "desc",
   })
   const [showAdv, setShowAdv] = useState(false)
-  const [selectedPayslipKeys, setSelectedPayslipKeys] = useState<string[]>([])
   const [viewSlip, setViewSlip] = useState<{
     row: PayrunInputRow
     run: Payrun
@@ -11324,7 +15291,7 @@ function PayslipsView({
   const depts = ["All", ...Array.from(new Set(emps.map((e) => e.department)))]
   const empNames = emps.map((e) => e.name)
 
-  const allRows: { row: PayrunInputRow run: Payrun emp: Employee }[] = []
+  const allRows: { row: PayrunInputRow; run: Payrun; emp: Employee }[] = []
   completed.forEach((run) =>
     run.rows.forEach((row) => {
       const emp = emps.find((e) => e.id === row.empId)
@@ -11332,7 +15299,7 @@ function PayslipsView({
     }),
   )
 
-  const rows = hasRunPayslipSearch ? allRows
+  const rows = allRows
     .filter(({ row, run, emp: e }) => {
       const nameMatch = myEmp
         ? e.id === myEmp.id
@@ -11345,7 +15312,7 @@ function PayslipsView({
         (!appliedPayslipListFilters.netMin || row.netSalary >= parseInt(appliedPayslipListFilters.netMin) * 1000) &&
         (!appliedPayslipListFilters.netMax || row.netSalary <= parseInt(appliedPayslipListFilters.netMax) * 1000)
       )
-    }) : []
+    })
 
   const paginatedPayslipRows = rows.slice((payslipPage - 1) * 10, payslipPage * 10)
     .sort((a, b) => {
@@ -11355,15 +15322,6 @@ function PayslipsView({
       else d = a.run.year * 100 + a.run.month - (b.run.year * 100 + b.run.month)
       return appliedPayslipListFilters.sortDir === "asc" ? d : -d
     })
-  const payslipKey = (run: Payrun, row: PayrunInputRow) => `${run.id}:${row.empId}`
-  const pagePayslipKeys = paginatedPayslipRows.map(({ run, row }) => payslipKey(run, row))
-  const allPagePayslipsSelected = pagePayslipKeys.length > 0 && pagePayslipKeys.every((key) => selectedPayslipKeys.includes(key))
-  const selectedPayslips = allRows.filter(({ run, row }) => selectedPayslipKeys.includes(payslipKey(run, row)))
-  const togglePagePayslips = () => {
-    setSelectedPayslipKeys((current) => allPagePayslipsSelected
-      ? current.filter((key) => !pagePayslipKeys.includes(key))
-      : Array.from(new Set([...current, ...pagePayslipKeys])))
-  }
 
   const activeFilters =
     [appliedPayslipListFilters.selPeriod, appliedPayslipListFilters.deptF, appliedPayslipListFilters.typeF].filter((v) => v !== "All").length +
@@ -11372,7 +15330,6 @@ function PayslipsView({
     (!myEmp && activeSearch(appliedPayslipListFilters.empSearch) ? 1 : 0) +
     (appliedPayslipListFilters.sortBy !== "period" || appliedPayslipListFilters.sortDir !== "desc" ? 1 : 0)
   const applyPayslipFilters = () => {
-    setHasRunPayslipSearch(true)
     setPayslipPage(1)
     setAppliedPayslipListFilters({
       empSearch,
@@ -11386,7 +15343,6 @@ function PayslipsView({
     })
   }
   const clearAll = () => {
-    setHasRunPayslipSearch(false)
     setPayslipPage(1)
     setEmpSearch(myEmp?.name ?? "")
     setSelPeriod("All")
@@ -11438,7 +15394,7 @@ function PayslipsView({
         userSelect: "none",
       }}
     >
-      {children} {sortBy === col ? (sortDir === "asc" ? "↑" : "↓") : "↕"}
+      <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>{children} {sortBy === col ? (sortDir === "asc" ? <ChevronUpIcon size={12} /> : <ChevronDownIcon size={12} />) : <ArrowUpDownIcon size={12} />}</span>
     </th>
   )
 
@@ -11453,19 +15409,23 @@ function PayslipsView({
           <div style={{ display: "flex", gap: 8 }}>
             <Btn
               variant="secondary"
-              disabled={selectedPayslips.length === 0}
-              onClick={() => downloadPayslipsPdf(selectedPayslips)}
+              onClick={() => toast("All payslips exported as ZIP", "success")}
             >
-              <DownloadIcon />
-              Download Selected ({selectedPayslips.length})
-            </Btn>
-            <Btn
-              variant="secondary"
-              disabled={allRows.length === 0}
-              onClick={() => downloadPayslipsPdf(allRows)}
-            >
-              <DownloadIcon />
-              Download All
+              <svg
+                width="13"
+                height="13"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                <polyline points="7 10 12 15 17 10" />
+                <line x1="12" y1="15" x2="12" y2="3" />
+              </svg>
+              Export All
             </Btn>
           </div>
         }
@@ -11729,15 +15689,6 @@ function PayslipsView({
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>
             <tr>
-              <Th>
-                <input
-                  type="checkbox"
-                  aria-label="Select all payslips on this page"
-                  checked={allPagePayslipsSelected}
-                  onChange={togglePagePayslips}
-                  style={{ width: 16, height: 16, cursor: "pointer" }}
-                />
-              </Th>
               {!myEmp && <Th>Employee</Th>}
               {!myEmp && <Th>Department</Th>}
               <Th>Pay Period</Th>
@@ -11754,7 +15705,7 @@ function PayslipsView({
             {rows.length === 0 && (
               <tr>
                 <td
-                  colSpan={myEmp ? 10 : 11}
+                  colSpan={10}
                   style={{ padding: 48, textAlign: "center", color: F.text3 }}
                 >
                   No payslips match the selected filters.
@@ -11766,21 +15717,6 @@ function PayslipsView({
                 key={`${run.id}-${row.empId}`}
                 onClick={() => setViewSlip({ row, run })}
               >
-                <Td>
-                  <input
-                    type="checkbox"
-                    aria-label={`Select ${e.name} payslip for ${run.period}`}
-                    checked={selectedPayslipKeys.includes(payslipKey(run, row))}
-                    onClick={(event) => event.stopPropagation()}
-                    onChange={() => setSelectedPayslipKeys((current) => {
-                      const key = payslipKey(run, row)
-                      return current.includes(key)
-                        ? current.filter((item) => item !== key)
-                        : [...current, key]
-                    })}
-                    style={{ width: 16, height: 16, cursor: "pointer" }}
-                  />
-                </Td>
                 {!myEmp && (
                   <Td>
                     <div
@@ -11844,7 +15780,7 @@ function PayslipsView({
                 <Td>{prBadge("Completed")}</Td>
                 <Td>
                   <div
-                    style={{ display: "flex", gap: 6, flexWrap: "wrap" }}
+                    style={{ display: "flex", gap: 6 }}
                     onClick={(ev) => ev.stopPropagation()}
                   >
                     <Btn
@@ -11854,14 +15790,6 @@ function PayslipsView({
                       onClick={() => setViewSlip({ row, run })}
                     >
                       View
-                    </Btn>
-                    <Btn
-                      small
-                      title={`Download PDF payslip for ${e.name} - ${run.period}`}
-                      onClick={() => downloadPayslipPdf(row, run, e)}
-                    >
-                      <DownloadIcon />
-                      Download PDF
                     </Btn>
                   </div>
                 </Td>
@@ -11940,81 +15868,148 @@ function ReportsView({
             {REPORT_LIST.map((report) => <option key={report.id} value={report.id}>{report.label}</option>)}
           </select>
         </label>
-        <Btn onClick={() => setActive(reportDraft)}>Go</Btn>
+        <Btn onClick={() => {
+          setActive(reportDraft)
+          toast(`${REPORT_LIST.find((r) => r.id === reportDraft)?.label} loaded`, "info")
+        }}>Go</Btn>
       </div>
-      {active && <div className="report-content">
+      {!active ? (
         <div
           style={{
             background: F.card,
             border: `1px solid ${F.border}`,
-            borderRadius: 4,
-            overflow: "hidden",
+            borderRadius: 8,
+            padding: "54px 24px",
+            textAlign: "center",
+            boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
           }}
         >
+          <div style={{ display: "flex", justifyContent: "center", marginBottom: 12 }}><BarChartIcon size={44} color={F.brand} /></div>
+          <div style={{ fontSize: 16, fontWeight: 700, color: F.text1, marginBottom: 6 }}>
+            Select a Report Type
+          </div>
+          <div style={{ fontSize: 13, color: F.text3, maxWidth: 460, margin: "0 auto" }}>
+            Choose a report type from the dropdown above and click the <strong>Go</strong> button to generate and view the data.
+          </div>
+        </div>
+      ) : (
+        <div className="report-content">
           <div
-            className="report-toolbar"
             style={{
-              padding: "12px 18px",
-              borderBottom: `1px solid ${F.border}`,
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
+              background: F.card,
+              border: `1px solid ${F.border}`,
+              borderRadius: 4,
+              overflow: "hidden",
             }}
           >
-            <span className="report-toolbar-title" style={{ fontSize: 14, fontWeight: 600, color: F.text1 }}>
-              {REPORT_LIST.find((r) => r.id === active)?.label}
-            </span>
-            <div className="report-toolbar-actions" style={{ display: "flex", gap: 8, alignItems: "flex-end", flexWrap: "wrap" }}>
-              <ContextDateRangeFilter />
-              <label className="report-period-field">
-                Pay period
-                <select
-                  value={period}
-                  onChange={(e) => setPeriod(e.target.value)}
-                  style={{ ...iSt, width: 160 }}
-                >
-                  {completedPeriods.map((p) => (
-                    <option key={p}>{p}</option>
-                  ))}
-                </select>
-              </label>
-              <Btn
-                small
-                onClick={() =>
-                  toast(
-                    `${REPORT_LIST.find((r) => r.id === active)?.label} exported`,
-                    "success",
-                  )
-                }
-              >
-                Export CSV
-              </Btn>
-            </div>
-          </div>
-          {!pr && (
             <div
+              className="report-toolbar"
               style={{
-                padding: 32,
-                textAlign: "center",
-                color: F.text3,
-                fontSize: 13,
+                padding: "12px 18px",
+                borderBottom: `1px solid ${F.border}`,
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
               }}
             >
-              No completed pay runs for the selected period.
+              <span className="report-toolbar-title" style={{ fontSize: 14, fontWeight: 600, color: F.text1 }}>
+                {REPORT_LIST.find((r) => r.id === active)?.label}
+              </span>
+              <div className="report-toolbar-actions" style={{ display: "flex", gap: 8, alignItems: "flex-end", flexWrap: "wrap" }}>
+                <ContextDateRangeFilter />
+                <label className="report-period-field">
+                  Pay period
+                  <select
+                    value={period}
+                    onChange={(e) => setPeriod(e.target.value)}
+                    style={{ ...iSt, width: 160 }}
+                  >
+                    {completedPeriods.map((p) => (
+                      <option key={p}>{p}</option>
+                    ))}
+                  </select>
+                </label>
+                <Btn
+                  small
+                  onClick={() =>
+                    toast(
+                      `${REPORT_LIST.find((r) => r.id === active)?.label} exported`,
+                      "success",
+                    )
+                  }
+                >
+                  Export CSV
+                </Btn>
+              </div>
             </div>
-          )}
-          {pr &&
-            (active === "payroll_summary" || active === "employee_payroll") && (
+            {!pr && (
+              <div
+                style={{
+                  padding: 32,
+                  textAlign: "center",
+                  color: F.text3,
+                  fontSize: 13,
+                }}
+              >
+                No completed pay runs for the selected period.
+              </div>
+            )}
+            {pr &&
+              (active === "payroll_summary" || active === "employee_payroll") && (
+                <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                  <thead>
+                    <tr>
+                      <Th>Employee</Th>
+                      <Th>Department</Th>
+                      <Th right>Gross</Th>
+                      <Th right>Bonus</Th>
+                      <Th right>Total Earnings</Th>
+                      <Th right>Total Deductions</Th>
+                      <Th right>Net Salary</Th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {pr.rows.map((r) => (
+                      <TrH key={r.empId}>
+                        <Td>
+                          <div style={{ fontWeight: 600 }}>{r.empName}</div>
+                          <div style={{ fontSize: 11, color: F.text3 }}>
+                            {r.empId}
+                          </div>
+                        </Td>
+                        <Td>{r.department}</Td>
+                        <Td right>{inr(r.grossSalary)}</Td>
+                        <Td
+                          right
+                          style={{ color: r.bonus > 0 ? F.success : F.text3 }}
+                        >
+                          {r.bonus > 0 ? inr(r.bonus) : "--"}
+                        </Td>
+                        <Td right>{inr(r.totalEarnings)}</Td>
+                        <Td right style={{ color: F.error }}>
+                          {inr(r.totalDeductions)}
+                        </Td>
+                        <Td right>
+                          <strong style={{ color: F.success }}>
+                            {inr(r.netSalary)}
+                          </strong>
+                        </Td>
+                      </TrH>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            {pr && active === "deductions" && (
               <table style={{ width: "100%", borderCollapse: "collapse" }}>
                 <thead>
                   <tr>
                     <Th>Employee</Th>
-                    <Th>Department</Th>
-                    <Th right>Gross</Th>
-                    <Th right>Bonus</Th>
-                    <Th right>Total Earnings</Th>
-                    <Th right>Total Deductions</Th>
-                    <Th right>Net Salary</Th>
+                    <Th right>PF</Th>
+                    <Th right>ESI</Th>
+                    <Th right>TDS</Th>
+                    <Th right>Prof. Tax</Th>
+                    <Th right>LOP Ded.</Th>
+                    <Th right>Total</Th>
                   </tr>
                 </thead>
                 <tbody>
@@ -12022,192 +16017,149 @@ function ReportsView({
                     <TrH key={r.empId}>
                       <Td>
                         <div style={{ fontWeight: 600 }}>{r.empName}</div>
-                        <div style={{ fontSize: 11, color: F.text3 }}>
-                          {r.empId}
-                        </div>
                       </Td>
-                      <Td>{r.department}</Td>
-                      <Td right>{inr(r.grossSalary)}</Td>
+                      <Td right>{inr(r.pf)}</Td>
+                      <Td right>{r.esi > 0 ? inr(r.esi) : "--"}</Td>
+                      <Td right>{inr(r.tds)}</Td>
+                      <Td right>{inr(r.profTax)}</Td>
                       <Td
                         right
-                        style={{ color: r.bonus > 0 ? F.success : F.text3 }}
+                        style={{ color: r.lopDeduction > 0 ? F.error : F.text3 }}
                       >
-                        {r.bonus > 0 ? inr(r.bonus) : "--"}
-                      </Td>
-                      <Td right>{inr(r.totalEarnings)}</Td>
-                      <Td right style={{ color: F.error }}>
-                        {inr(r.totalDeductions)}
+                        {r.lopDeduction > 0 ? inr(r.lopDeduction) : "Nil"}
                       </Td>
                       <Td right>
-                        <strong style={{ color: F.success }}>
-                          {inr(r.netSalary)}
-                        </strong>
+                        <strong>{inr(r.totalDeductions)}</strong>
                       </Td>
                     </TrH>
                   ))}
                 </tbody>
               </table>
             )}
-          {pr && active === "deductions" && (
-            <table style={{ width: "100%", borderCollapse: "collapse" }}>
-              <thead>
-                <tr>
-                  <Th>Employee</Th>
-                  <Th right>PF</Th>
-                  <Th right>ESI</Th>
-                  <Th right>TDS</Th>
-                  <Th right>Prof. Tax</Th>
-                  <Th right>LOP Ded.</Th>
-                  <Th right>Total</Th>
-                </tr>
-              </thead>
-              <tbody>
-                {pr.rows.map((r) => (
-                  <TrH key={r.empId}>
-                    <Td>
-                      <div style={{ fontWeight: 600 }}>{r.empName}</div>
-                    </Td>
-                    <Td right>{inr(r.pf)}</Td>
-                    <Td right>{r.esi > 0 ? inr(r.esi) : "--"}</Td>
-                    <Td right>{inr(r.tds)}</Td>
-                    <Td right>{inr(r.profTax)}</Td>
-                    <Td
-                      right
-                      style={{ color: r.lopDeduction > 0 ? F.error : F.text3 }}
-                    >
-                      {r.lopDeduction > 0 ? inr(r.lopDeduction) : "Nil"}
-                    </Td>
-                    <Td right>
-                      <strong>{inr(r.totalDeductions)}</strong>
-                    </Td>
-                  </TrH>
-                ))}
-              </tbody>
-            </table>
-          )}
-          {pr && active === "earnings" && (
-            <table style={{ width: "100%", borderCollapse: "collapse" }}>
-              <thead>
-                <tr>
-                  <Th>Employee</Th>
-                  <Th right>Basic</Th>
-                  <Th right>HRA</Th>
-                  <Th right>Fixed Allow.</Th>
-                  <Th right>Special Allow.</Th>
-                  <Th right>Bonus</Th>
-                  <Th right>Gross</Th>
-                </tr>
-              </thead>
-              <tbody>
-                {pr.rows.map((r) => {
-                  const s = ss.find(
-                    (x) =>
-                      x.name ===
-                      emps.find((e) => e.id === r.empId)?.salaryStructure,
-                  )!
-                  return (
-                    <TrH key={r.empId}>
-                      <Td>
-                        <div style={{ fontWeight: 600 }}>{r.empName}</div>
-                      </Td>
-                      <Td right>{inr(s?.basic ?? 0)}</Td>
-                      <Td right>{inr(s?.hra ?? 0)}</Td>
-                      <Td right>{inr(s?.fixedAllowance ?? 0)}</Td>
-                      <Td right>{inr(s?.specialAllowance ?? 0)}</Td>
-                      <Td
-                        right
-                        style={{ color: r.bonus > 0 ? F.success : F.text3 }}
-                      >
-                        {r.bonus > 0 ? inr(r.bonus) : "--"}
-                      </Td>
-                      <Td right>
-                        <strong>{inr(r.totalEarnings)}</strong>
-                      </Td>
-                    </TrH>
-                  )
-                })}
-              </tbody>
-            </table>
-          )}
-          {pr && active === "lop" && (
-            <table style={{ width: "100%", borderCollapse: "collapse" }}>
-              <thead>
-                <tr>
-                  <Th>Employee</Th>
-                  <Th>Department</Th>
-                  <Th right>LOP Days</Th>
-                  <Th right>Per-Day Salary</Th>
-                  <Th right>LOP Deduction</Th>
-                  <Th right>Net After LOP</Th>
-                </tr>
-              </thead>
-              <tbody>
-                {pr.rows.map((r) => {
-                  const emp = emps.find((e) => e.id === r.empId)!
-                  return (
-                    <TrH key={r.empId}>
-                      <Td>
-                        <div style={{ fontWeight: 600 }}>{r.empName}</div>
-                      </Td>
-                      <Td>{emp?.department}</Td>
-                      <Td
-                        right
-                        style={{ color: r.lopDays > 0 ? F.error : F.text3 }}
-                      >
-                        {r.lopDays > 0 ? r.lopDays : "--"}
-                      </Td>
-                      <Td right>
-                        {inr(Math.round((emp?.grossSalary ?? 0) / 26))}
-                      </Td>
-                      <Td
-                        right
-                        style={{
-                          color: r.lopDeduction > 0 ? F.error : F.text3,
-                        }}
-                      >
-                        {r.lopDeduction > 0 ? inr(r.lopDeduction) : "Nil"}
-                      </Td>
-                      <Td right>
-                        <strong>{inr(r.netSalary)}</strong>
-                      </Td>
-                    </TrH>
-                  )
-                })}
-              </tbody>
-            </table>
-          )}
-          {active === "payslip" && (
-            <div style={{ padding: 24 }}>
-              <p style={{ fontSize: 13, color: F.text2, marginBottom: 16 }}>
-                Generate individual payslips for any employee and period.
-              </p>
-              <div style={{ display: "flex", gap: 8 }}>
-                <select style={{ ...iSt, width: 200 }}>
-                  <option>All Employees</option>
-                  {emps.map((e) => (
-                    <option key={e.id}>{e.name}</option>
-                  ))}
-                </select>
-                <Btn
-                  onClick={() =>
-                    toast("Payslips generated and ready to download", "success")
-                  }
-                >
-                  Generate Payslips
-                </Btn>
-                <Btn
-                  variant="secondary"
-                  onClick={() =>
-                    toast("Payslip report exported as PDF", "success")
-                  }
-                >
-                  Export PDF
-                </Btn>
+            {pr && active === "earnings" && (
+              <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                <thead>
+                  <tr>
+                    <Th>Employee</Th>
+                    <Th right>Basic</Th>
+                    <Th right>HRA</Th>
+                    <Th right>Fixed Allow.</Th>
+                    <Th right>Special Allow.</Th>
+                    <Th right>Bonus</Th>
+                    <Th right>Gross</Th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {pr.rows.map((r) => {
+                    const s = ss.find(
+                      (x) =>
+                        x.name ===
+                        emps.find((e) => e.id === r.empId)?.salaryStructure,
+                    )!
+                    return (
+                      <TrH key={r.empId}>
+                        <Td>
+                          <div style={{ fontWeight: 600 }}>{r.empName}</div>
+                        </Td>
+                        <Td right>{inr(s?.basic ?? 0)}</Td>
+                        <Td right>{inr(s?.hra ?? 0)}</Td>
+                        <Td right>{inr(s?.fixedAllowance ?? 0)}</Td>
+                        <Td right>{inr(s?.specialAllowance ?? 0)}</Td>
+                        <Td
+                          right
+                          style={{ color: r.bonus > 0 ? F.success : F.text3 }}
+                        >
+                          {r.bonus > 0 ? inr(r.bonus) : "--"}
+                        </Td>
+                        <Td right>
+                          <strong>{inr(r.totalEarnings)}</strong>
+                        </Td>
+                      </TrH>
+                    )
+                  })}
+                </tbody>
+              </table>
+            )}
+            {pr && active === "lop" && (
+              <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                <thead>
+                  <tr>
+                    <Th>Employee</Th>
+                    <Th>Department</Th>
+                    <Th right>LOP Days</Th>
+                    <Th right>Per-Day Salary</Th>
+                    <Th right>LOP Deduction</Th>
+                    <Th right>Net After LOP</Th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {pr.rows.map((r) => {
+                    const emp = emps.find((e) => e.id === r.empId)!
+                    return (
+                      <TrH key={r.empId}>
+                        <Td>
+                          <div style={{ fontWeight: 600 }}>{r.empName}</div>
+                        </Td>
+                        <Td>{emp?.department}</Td>
+                        <Td
+                          right
+                          style={{ color: r.lopDays > 0 ? F.error : F.text3 }}
+                        >
+                          {r.lopDays > 0 ? r.lopDays : "--"}
+                        </Td>
+                        <Td right>
+                          {inr(Math.round((emp?.grossSalary ?? 0) / 26))}
+                        </Td>
+                        <Td
+                          right
+                          style={{
+                            color: r.lopDeduction > 0 ? F.error : F.text3,
+                          }}
+                        >
+                          {r.lopDeduction > 0 ? inr(r.lopDeduction) : "Nil"}
+                        </Td>
+                        <Td right>
+                          <strong>{inr(r.netSalary)}</strong>
+                        </Td>
+                      </TrH>
+                    )
+                  })}
+                </tbody>
+              </table>
+            )}
+            {active === "payslip" && (
+              <div style={{ padding: 24 }}>
+                <p style={{ fontSize: 13, color: F.text2, marginBottom: 16 }}>
+                  Generate individual payslips for any employee and period.
+                </p>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <select style={{ ...iSt, width: 200 }}>
+                    <option>All Employees</option>
+                    {emps.map((e) => (
+                      <option key={e.id}>{e.name}</option>
+                    ))}
+                  </select>
+                  <Btn
+                    onClick={() =>
+                      toast("Payslips generated and ready to download", "success")
+                    }
+                  >
+                    Generate Payslips
+                  </Btn>
+                  <Btn
+                    variant="secondary"
+                    onClick={() =>
+                      toast("Payslip report exported as PDF", "success")
+                    }
+                  >
+                    Export PDF
+                  </Btn>
+                </div>
               </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
-      </div>}
+      )}
     </div>
   )
 }
@@ -12257,7 +16209,6 @@ function AccessManagementView({ emps }: { emps: Employee[] }) {
   const [deptDraft, setDeptDraft] = useState("all")
   const [scopeDraft, setScopeDraft] = useState("all")
   const [userPage, setUserPage] = useState(1)
-  const [hasRunUserSearch, setHasRunUserSearch] = useState(false)
 
   const [appliedSearch, setAppliedSearch] = useState("")
   const [appliedRole, setAppliedRole] = useState("all")
@@ -12282,7 +16233,6 @@ function AccessManagementView({ emps }: { emps: Employee[] }) {
 
   // Execute filter search on "Go"
   const handleGo = () => {
-    setHasRunUserSearch(true)
     setUserPage(1)
     setAppliedSearch(searchDraft)
     setAppliedRole(roleDraft)
@@ -12294,7 +16244,6 @@ function AccessManagementView({ emps }: { emps: Employee[] }) {
 
   // Clear all filters
   const handleClear = () => {
-    setHasRunUserSearch(false)
     setUserPage(1)
     setSearchDraft("")
     setRoleDraft("all")
@@ -12312,7 +16261,7 @@ function AccessManagementView({ emps }: { emps: Employee[] }) {
   }
 
   // Filter evaluation logic
-  const filteredUsers = hasRunUserSearch ? users.filter((u) => {
+  const filteredUsers = users.filter((u) => {
     if (!searchMatches(appliedSearch, [u.name, u.role])) {
       return false
     }
@@ -12329,7 +16278,7 @@ function AccessManagementView({ emps }: { emps: Employee[] }) {
       return false
     }
     return true
-  }) : []
+  })
   const paginatedUsers = filteredUsers.slice((userPage - 1) * 10, userPage * 10)
 
   const toggleLock = (u: UserRow) => {
@@ -12868,7 +16817,6 @@ function AuditHistoryView({
   const toast = useToast()
   const [tab, setTab] = useState<"audit" | "errors">("audit")
   const [auditPage, setAuditPage] = useState(1)
-  const [hasRunAuditSearch, setHasRunAuditSearch] = useState(false)
   const [filterDraft, setFilterDraft] = useState({
     search: "",
     module: "All",
@@ -12905,15 +16853,9 @@ function AuditHistoryView({
       withinDate(a.timestamp) &&
       searchMatches(appliedFilters.search, [a.issue, a.user, a.module, a.route, a.status, a.severity]),
   )
-  const activeFilteredRows = hasRunAuditSearch ? (tab === "audit" ? filtered : filteredErrors) : []
-  const visibleAuditRows = hasRunAuditSearch
-    ? filtered.slice((auditPage - 1) * 10, auditPage * 10)
-    : []
-  const visibleErrorRows = hasRunAuditSearch
-    ? filteredErrors.slice((auditPage - 1) * 10, auditPage * 10)
-    : []
+  const activeFilteredRows = tab === "audit" ? filtered : filteredErrors
+  const paginatedAuditRows = activeFilteredRows.slice((auditPage - 1) * 10, auditPage * 10)
   const clearFilters = () => {
-    setHasRunAuditSearch(false)
     const empty = {
       search: "",
       module: "All",
@@ -12928,7 +16870,6 @@ function AuditHistoryView({
     toast("Filters cleared", "info")
   }
   const applyFilters = () => {
-    setHasRunAuditSearch(true)
     setAuditPage(1)
     setAppliedFilters(filterDraft)
     toast("Filters applied", "success")
@@ -13021,18 +16962,18 @@ function AuditHistoryView({
         </select>
         </Fld>
         <Fld label="Record Date From">
-          <StrictDateInput
-            ariaLabel="Record date from"
+          <input
+            type="date"
             value={filterDraft.dateFrom}
-            onChange={(value) => setFilterDraft({ ...filterDraft, dateFrom: value })}
+            onChange={(e) => setFilterDraft({ ...filterDraft, dateFrom: e.target.value })}
             style={iSt}
           />
         </Fld>
         <Fld label="Record Date To">
-          <StrictDateInput
-            ariaLabel="Record date to"
+          <input
+            type="date"
             value={filterDraft.dateTo}
-            onChange={(value) => setFilterDraft({ ...filterDraft, dateTo: value })}
+            onChange={(e) => setFilterDraft({ ...filterDraft, dateTo: e.target.value })}
             style={iSt}
           />
         </Fld>
@@ -13096,7 +17037,7 @@ function AuditHistoryView({
             </tr>
           </thead>
           <tbody>
-            {visibleAuditRows.length === 0 && (
+            {filtered.length === 0 && (
               <tr>
                 <td
                   colSpan={6}
@@ -13107,11 +17048,11 @@ function AuditHistoryView({
                     fontSize: 13,
                   }}
                 >
-                  {hasRunAuditSearch ? "No matching audit events." : "Select filters and click Go to load audit events."}
+                  No matching audit events.
                 </td>
               </tr>
             )}
-            {visibleAuditRows.map((a) => (
+            {filtered.slice((auditPage - 1) * 10, auditPage * 10).map((a) => (
               <TrH key={a.id}>
                 <Td mono>
                   <span style={{ fontSize: 11, color: F.text2 }}>
@@ -13177,7 +17118,7 @@ function AuditHistoryView({
               </tr>
             </thead>
             <tbody>
-              {visibleErrorRows.length === 0 && (
+              {filteredErrors.length === 0 && (
                 <tr>
                   <td
                     colSpan={6}
@@ -13188,11 +17129,11 @@ function AuditHistoryView({
                       fontSize: 13,
                     }}
                   >
-                    {hasRunAuditSearch ? "No matching error events." : "Select filters and click Go to load error events."}
+                    No matching error events.
                   </td>
                 </tr>
               )}
-              {visibleErrorRows.map((a) => (
+              {filteredErrors.slice((auditPage - 1) * 10, auditPage * 10).map((a) => (
                 <TrH key={a.id}>
                   <Td mono>
                     <span style={{ fontSize: 11, color: F.text2 }}>
@@ -13915,7 +17856,6 @@ function PlatformAccessManagementView({
     fy: "All",
     sort: "name-asc",
   })
-  const [hasRunPlatformOrgSearch, setHasRunPlatformOrgSearch] = useState(false)
   const [searchDraft, setSearchDraft] = useState("")
   const [roleDraft, setRoleDraft] = useState("All")
   const [statusDraft, setStatusDraft] = useState("All")
@@ -13926,7 +17866,6 @@ function PlatformAccessManagementView({
     status: "All",
     sort: "name-asc",
   })
-  const [hasRunPlatformAdminSearch, setHasRunPlatformAdminSearch] = useState(false)
   const [showInvite, setShowInvite] = useState(false)
   const [inviteDraft, setInviteDraft] = useState({
     name: "",
@@ -14023,7 +17962,7 @@ function PlatformAccessManagementView({
   ]
   const orgFyOptions = ["All", ...Array.from(new Set(orgs.map((org) => org.financialYear)))]
 
-  const filteredOrgs = (hasRunPlatformOrgSearch ? orgs : [])
+  const filteredOrgs = orgs
     .filter((org) => {
       if (!searchMatches(orgFilters.search, [org.name, org.legalName, org.code, org.id, org.admin])) {
         return false
@@ -14042,7 +17981,7 @@ function PlatformAccessManagementView({
       return a.name.localeCompare(b.name) * dir
     })
 
-  const filteredAdmins = (hasRunPlatformAdminSearch ? admins : [])
+  const filteredAdmins = admins
     .filter((admin) => {
       if (!searchMatches(filters.search, [admin.name, admin.email, admin.role])) {
         return false
@@ -14354,8 +18293,7 @@ function PlatformAccessManagementView({
               </Fld>
               <Btn
                 style={{ alignSelf: "end", justifyContent: "center" }}
-                onClick={() => {
-                  setHasRunPlatformOrgSearch(true)
+                onClick={() =>
                   setOrgFilters({
                     search: orgSearchDraft,
                     status: orgStatusDraft,
@@ -14363,7 +18301,7 @@ function PlatformAccessManagementView({
                     fy: orgFyDraft,
                     sort: orgSortDraft,
                   })
-                }}
+                }
               >
                 Go
               </Btn>
@@ -14377,7 +18315,6 @@ function PlatformAccessManagementView({
                   setOrgFyDraft("All")
                   setOrgSortDraft("name-asc")
                   setOrgFilters({ search: "", status: "All", admin: "All", fy: "All", sort: "name-asc" })
-                  setHasRunPlatformOrgSearch(false)
                 }}
               >
                 Clear Filters
@@ -14732,7 +18669,7 @@ function PlatformAccessManagementView({
                   <option value="orgs-desc">Most Organizations</option>
                 </select>
               </Fld>
-              <Btn onClick={() => { setFilters({ search: searchDraft, role: roleDraft, status: statusDraft, sort: sortDraft }); setHasRunPlatformAdminSearch(true) }}>
+              <Btn onClick={() => setFilters({ search: searchDraft, role: roleDraft, status: statusDraft, sort: sortDraft })}>
                 Go
               </Btn>
               <Btn
@@ -14743,7 +18680,6 @@ function PlatformAccessManagementView({
                   setStatusDraft("All")
                   setSortDraft("name-asc")
                   setFilters({ search: "", role: "All", status: "All", sort: "name-asc" })
-                  setHasRunPlatformAdminSearch(false)
                 }}
               >
                 Clear Filters
@@ -14987,7 +18923,6 @@ function OrganizationsView({
   })
   const [selected, setSelected] = useState<string[]>([])
   const [filtersOpen, setFiltersOpen] = useState(true)
-  const [hasRunOrgSearch, setHasRunOrgSearch] = useState(false)
 
   const [page, setPage] = useState(1)
   const rowsPerPage = 15
@@ -15035,6 +18970,7 @@ function OrganizationsView({
       msg: `Set "${org.name}" to ${next}?`,
       onOk: () => {
         setOrgs(orgs.map((o) => (o.id === org.id ? { ...o, status: next } : o)))
+        apiClient.organizations.update(org.id, { status: next }).catch((err) => console.warn("Failed to toggle org status on backend:", err))
         toast(`Organization status updated to ${next}`, "success")
         setConfirm(null)
       },
@@ -15044,11 +18980,12 @@ function OrganizationsView({
   const saveEdit = () => {
     if (!editOrg) return
     setOrgs(orgs.map((o) => (o.id === editOrg.id ? editOrg : o)))
+    apiClient.organizations.update(editOrg.id, editOrg).catch((err) => console.warn("Failed to update org on backend:", err))
     setEditOrg(null)
     toast("Organization updated", "success")
   }
 
-  const filtered = hasRunOrgSearch ? orgs.filter((o) => {
+  const filtered = orgs.filter((o) => {
     return (
       searchMatches(appliedOrgFilters.search, [o.name, o.code, o.id, o.legalName, o.admin]) &&
       (!appliedOrgFilters.status || o.status === appliedOrgFilters.status) &&
@@ -15068,7 +19005,7 @@ function OrganizationsView({
       return a.country.localeCompare(b.country) * dir
     }
     return a.name.localeCompare(b.name) * dir
-  }) : []
+  })
 
   const totalPages = Math.ceil(filtered.length / rowsPerPage) || 1
   const paginated = filtered.slice((page - 1) * rowsPerPage, page * rowsPerPage)
@@ -15078,7 +19015,6 @@ function OrganizationsView({
       v.includes(id) ? v.filter((x) => x !== id) : [...v, id],
     )
   const resetFilters = () => {
-    setHasRunOrgSearch(false)
     setSearch("")
     setStatus("")
     setCountry("")
@@ -15095,7 +19031,6 @@ function OrganizationsView({
     })
   }
   const applyOrgFilters = () => {
-    setHasRunOrgSearch(true)
     setAppliedOrgFilters({ search, status, country, currency, fy, orgSort })
   }
   const orgActiveFilters =
@@ -16175,11 +20110,19 @@ function UnifiedProfileView({
                 border: `1px solid ${roleBadgeBorder}`,
               }}
             >
-              {persona === "product_admin"
-                ? "👑 Superuser Account"
-                : persona === "org_admin"
-                  ? "🏢 Org Administrator"
-                  : "👤 Employee Self-Service"}
+              {persona === "product_admin" ? (
+                <span style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
+                  <CrownIcon size={12} /> Superuser Account
+                </span>
+              ) : persona === "org_admin" ? (
+                <span style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
+                  <BuildingIcon size={12} /> Org Administrator
+                </span>
+              ) : (
+                <span style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
+                  <UserIcon size={12} /> Employee Self-Service
+                </span>
+              )}
             </span>
           </div>
           {roleSubtitle && (
@@ -16471,8 +20414,7 @@ function UnifiedProfileView({
       </div>
 
       {/* 4. Role-Specific KPI Metric Summary Strip */}
-      {persona !== "org_admin" && (
-        <div
+      <div
           style={{
             display: "grid",
             gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))",
@@ -16732,7 +20674,6 @@ function UnifiedProfileView({
           </>
         )}
         </div>
-      )}
 
       {/* 5. Tab Navigation Bar */}
       <TabBar
@@ -17353,8 +21294,8 @@ function UnifiedProfileView({
                     Google Authenticator / Okta Verify
                   </div>
                 </div>
-                <span style={{ fontSize: 11, fontWeight: 700, color: F.success }}>
-                  Configured ✓
+                <span style={{ fontSize: 11, fontWeight: 700, color: F.success, display: "inline-flex", alignItems: "center", gap: 4 }}>
+                  Configured <CheckIcon size={12} strokeWidth={2.5} />
                 </span>
               </div>
 
@@ -17377,8 +21318,8 @@ function UnifiedProfileView({
                     Verified on {profilePhone}
                   </div>
                 </div>
-                <span style={{ fontSize: 11, fontWeight: 700, color: F.brand }}>
-                  Active ✓
+                <span style={{ fontSize: 11, fontWeight: 700, color: F.brand, display: "inline-flex", alignItems: "center", gap: 4 }}>
+                  Active <CheckIcon size={12} strokeWidth={2.5} />
                 </span>
               </div>
             </div>
@@ -18522,7 +22463,7 @@ function NotificationBell({
                         e.currentTarget.style.color = F.text3
                       }}
                     >
-                      ×
+                      <CloseIcon size={14} />
                     </button>
                   </div>
                 )
@@ -18947,11 +22888,14 @@ const EMP_NAV = [
 ]
 const MY_EMP_ID = "EMP-001"
 function navLabelForView(id: string) {
+  if (id === "history") return "Payroll History"
   return (
     [...ORG_NAV, ...PROD_NAV, ...EMP_NAV].find((item) => item.id === id)?.label ??
-    id
+    (id ? id.charAt(0).toUpperCase() + id.slice(1) : "Dashboard")
   )
 }
+
+
 
 // Employee data access boundary. Every employee view derives its data from this
 // identity; a route/query parameter can never select a different employee.
@@ -18967,7 +22911,7 @@ function employeeRows(emp: Employee, payruns: Payrun[]) {
       run,
       row: run.rows.find((item) => item.empId === emp.id),
     }))
-    .filter((item): item is { run: Payrun row: PayrunInputRow } =>
+    .filter((item): item is { run: Payrun; row: PayrunInputRow } =>
       Boolean(item.row),
     )
     .sort((a, b) =>
@@ -20267,18 +24211,18 @@ function EmployeeDashboardView({
             </div>
           </div>
           {latestCompleted && (
-            <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-              <Btn variant="secondary" onClick={() => onNav("payslips")}>
-                View Latest Payslip
-              </Btn>
-              <Btn
-                title={`Download PDF payslip for ${latestCompleted.run.period}`}
-                onClick={() => downloadPayslipPdf(latestCompleted.row, latestCompleted.run, emp)}
-              >
-                <DownloadIcon />
-                Download PDF
-              </Btn>
-            </div>
+            <Btn
+              onClick={() => onNav("payslips")}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
+                fontWeight: 700,
+              }}
+            >
+              <span>View Latest Payslip</span>
+              <span style={{ fontSize: 14 }}>&rarr;</span>
+            </Btn>
           )}
         </div>
       </div>
@@ -20639,24 +24583,19 @@ function EmployeeDashboardView({
                           }}
                         >
                           <button
-                            onClick={() => downloadPayslipPdf(row, run, emp)}
-                            title={`Download PDF payslip for ${run.period}`}
+                            onClick={() => onNav("payslips")}
                             style={{
-                              background: F.infoBg,
-                              border: `1px solid ${F.brand}30`,
+                              background: "transparent",
+                              border: "none",
                               color: F.brand,
                               fontWeight: 700,
                               cursor: "pointer",
                               fontSize: 12,
-                              padding: "6px 9px",
+                              padding: "4px 8px",
                               borderRadius: 4,
-                              display: "inline-flex",
-                              alignItems: "center",
-                              gap: 5,
                             }}
                           >
-                            <DownloadIcon />
-                            PDF
+                            Open &rarr;
                           </button>
                         </td>
                       </tr>
@@ -20839,7 +24778,6 @@ function MySalaryView({
   const [componentSearch, setComponentSearch] = useState("")
   const [categoryFilter, setCategoryFilter] = useState<"all" | "earnings" | "deductions">("all")
   const [componentSort, setComponentSort] = useState("name-asc")
-  const [hasRunSalarySearch, setHasRunSalarySearch] = useState(false)
   const [appliedSalaryFilters, setAppliedSalaryFilters] = useState({
     componentSearch: "",
     categoryFilter: "all" as "all" | "earnings" | "deductions",
@@ -20937,7 +24875,7 @@ function MySalaryView({
   ]
 
   // Filtered earnings
-  const filteredEarnings = hasRunSalarySearch ? earningsComponents.filter((c) => {
+  const filteredEarnings = earningsComponents.filter((c) => {
     if (appliedSalaryFilters.categoryFilter === "deductions") return false
     return searchMatches(appliedSalaryFilters.componentSearch, [c.name, c.category])
   }).sort((a, b) => {
@@ -20946,10 +24884,10 @@ function MySalaryView({
       return (a.monthly - b.monthly) * dir
     }
     return a.name.localeCompare(b.name) * dir
-  }) : []
+  })
 
   // Filtered deductions
-  const filteredDeductions = hasRunSalarySearch ? deductionComponents.filter((d) => {
+  const filteredDeductions = deductionComponents.filter((d) => {
     if (appliedSalaryFilters.categoryFilter === "earnings") return false
     return searchMatches(appliedSalaryFilters.componentSearch, [d.name, d.type])
   }).sort((a, b) => {
@@ -20958,7 +24896,7 @@ function MySalaryView({
       return (a.monthly - b.monthly) * dir
     }
     return a.name.localeCompare(b.name) * dir
-  }) : []
+  })
 
   const hasFilter = Boolean(
     activeSearch(appliedSalaryFilters.componentSearch) ||
@@ -20966,11 +24904,9 @@ function MySalaryView({
       appliedSalaryFilters.componentSort !== "name-asc",
   )
   const applySalaryFilters = () => {
-    setHasRunSalarySearch(true)
     setAppliedSalaryFilters({ componentSearch, categoryFilter, componentSort })
   }
   const clearSalaryFilters = () => {
-    setHasRunSalarySearch(false)
     setComponentSearch("")
     setCategoryFilter("all")
     setComponentSort("name-asc")
@@ -21633,10 +25569,9 @@ function PayrollHistoryView({
     lopFilter: "all",
   })
   const [sortOrder, setSortOrder] = useState<"desc" | "asc">("desc")
-  const [hasRunPayrollHistorySearch, setHasRunPayrollHistorySearch] = useState(false)
   const [selectedRun, setSelectedRun] = useState<{
-    run: Payrun
-    row: PayrunInputRow
+    run: Payrun;
+    row: PayrunInputRow;
   } | null>(null)
 
   // Extract all completed and historical runs for this employee
@@ -21645,7 +25580,7 @@ function PayrollHistoryView({
       run,
       row: run.rows.find((item) => item.empId === emp.id)!,
     }))
-    .filter((item) => Boolean(item.row))
+    .filter((item): item is { run: Payrun; row: PayrunInputRow } => Boolean(item.row))
 
   // F4 Value Help list for periods
   const f4Periods = Array.from(new Set(runs.map((r) => r.run.period)))
@@ -21654,7 +25589,7 @@ function PayrollHistoryView({
   // Apply filters
   const minNet = Number(appliedHistoryFilters.minNetFilter) || 0
   const maxNet = Number(appliedHistoryFilters.maxNetFilter) || Number.POSITIVE_INFINITY
-  const filteredRuns = (hasRunPayrollHistorySearch ? runs : [])
+  const filteredRuns = runs
     .filter(({ run, row }) => {
       // F4 Period filter / search
       if (!searchMatches(appliedHistoryFilters.periodSearch, [run.period])) {
@@ -21665,8 +25600,13 @@ function PayrollHistoryView({
         return false
       }
       // Status filter
-      if (appliedHistoryFilters.statusFilter !== "all" && run.status !== appliedHistoryFilters.statusFilter) {
-        return false
+      if (appliedHistoryFilters.statusFilter !== "all") {
+        const sf = appliedHistoryFilters.statusFilter
+        const isMatch =
+          (sf === "Paid" && (run.status === "Paid" || run.status === "PAID" || run.status === "Completed")) ||
+          (sf === "Payment Due" && (run.status === "Payment Due" || run.status === "PAYMENT DUE" || run.status === "Locked" || run.status === "Approved" || run.status === "Under Review")) ||
+          (run.status === sf)
+        if (!isMatch) return false
       }
       if (row.netSalary < minNet || row.netSalary > maxNet) {
         return false
@@ -21746,12 +25686,8 @@ function PayrollHistoryView({
             </p>
           </div>
           <div style={{ display: "flex", gap: 8 }}>
-            <Btn onClick={() => downloadPayslipPdf(selectedRun.row, selectedRun.run, emp)}>
-              <DownloadIcon />
-              Download PDF
-            </Btn>
             {onNav && (
-              <Btn variant="secondary" onClick={() => onNav("payslips")}>Open Full Payslip</Btn>
+              <Btn onClick={() => onNav("payslips")}>Open Full Payslip</Btn>
             )}
             <Btn variant="secondary" onClick={() => setSelectedRun(null)}>
               Close
@@ -21996,11 +25932,11 @@ function PayrollHistoryView({
             style={{ ...iSt, cursor: "pointer" }}
           >
             <option value="all">All Statuses</option>
-            <option value="Completed">Completed</option>
+            <option value="Paid">Paid</option>
+            <option value="Payment Due">Payment Due</option>
             <option value="Approved">Approved</option>
             <option value="Under Review">Under Review</option>
             <option value="Draft">Draft</option>
-            <option value="Locked">Locked</option>
           </select>
         </div>
 
@@ -22089,14 +26025,13 @@ function PayrollHistoryView({
             }}
             title="Toggle Sort Order"
           >
-            <span>{sortOrder === "desc" ? "Newest First ↓" : "Oldest First ↑"}</span>
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>{sortOrder === "desc" ? <>Newest First <ChevronDownIcon size={12} /></> : <>Oldest First <ChevronUpIcon size={12} /></>}</span>
           </button>
         </div>
 
         {/* Reset Filters */}
         <Btn
-          onClick={() => {
-            setHasRunPayrollHistorySearch(true)
+          onClick={() =>
             setAppliedHistoryFilters({
               periodSearch,
               yearFilter,
@@ -22106,7 +26041,7 @@ function PayrollHistoryView({
               deductionFilter,
               lopFilter,
             })
-          }}
+          }
           style={{ height: 34 }}
         >
           Go
@@ -22138,7 +26073,6 @@ function PayrollHistoryView({
                 deductionFilter: "all",
                 lopFilter: "all",
               })
-              setHasRunPayrollHistorySearch(false)
             }}
             style={{
               background: F.pageBg,
@@ -22286,29 +26220,24 @@ function PayrollHistoryView({
                       {prBadge(run.status)}
                     </td>
                     <td style={{ padding: "14px 18px", textAlign: "right" }}>
-                      <div style={{ display: "flex", justifyContent: "flex-end", gap: 6, flexWrap: "wrap" }}>
-                        <Btn
-                          small
-                          variant="secondary"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            setSelectedRun({ run, row })
-                          }}
-                        >
-                          Details
-                        </Btn>
-                        <Btn
-                          small
-                          title={`Download PDF payslip for ${run.period}`}
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            downloadPayslipPdf(row, run, emp)
-                          }}
-                        >
-                          <DownloadIcon />
-                          Download PDF
-                        </Btn>
-                      </div>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setSelectedRun({ run, row })
+                        }}
+                        style={{
+                          background: "transparent",
+                          border: "none",
+                          color: F.brand,
+                          fontWeight: 700,
+                          cursor: "pointer",
+                          fontSize: 12,
+                          padding: "4px 8px",
+                          borderRadius: 4,
+                        }}
+                      >
+                        Details &rarr;
+                      </button>
                     </td>
                   </tr>
                 ))
@@ -22318,176 +26247,7 @@ function PayrollHistoryView({
         </div>
       </div>
 
-      {/* ── SlidePanel / Drawer for Itemized Payrun Details ── */}
-      {selectedRun && (
-        <SlidePanel
-          title={`Disbursement Details - ${selectedRun.run.period}`}
-          sub={`Status: ${selectedRun.run.status} - Processed on ${fmtD(selectedRun.run.generatedOn)}`}
-          onClose={() => setSelectedRun(null)}
-        >
-          <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
-            {/* Net Amount Banner */}
-            <div
-              style={{
-                background: `linear-gradient(135deg, ${F.successBg}, #E8F5E9)`,
-                border: `1px solid ${F.success}30`,
-                borderRadius: 8,
-                padding: "18px 20px",
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-              }}
-            >
-              <div>
-                <div style={{ fontSize: 11, fontWeight: 700, color: F.text2, textTransform: "uppercase" }}>
-                  Net Take-Home Disbursed
-                </div>
-                <div style={{ fontSize: 26, fontWeight: 800, color: F.success, marginTop: 4 }}>
-                  {inr(selectedRun.row.netSalary)}
-                </div>
-              </div>
-              <div style={{ textAlign: "right" }}>
-                {prBadge(selectedRun.run.status)}
-                <div style={{ fontSize: 11, color: F.text3, marginTop: 4 }}>
-                  Ref: PR-{selectedRun.run.id}
-                </div>
-              </div>
-            </div>
-
-            {/* Earnings Breakdown */}
-            <div
-              style={{
-                background: F.pageBg,
-                borderRadius: 8,
-                padding: "16px 18px",
-                border: `1px solid ${F.border}`,
-              }}
-            >
-              <div
-                style={{
-                  fontSize: 12,
-                  fontWeight: 700,
-                  textTransform: "uppercase",
-                  letterSpacing: "0.06em",
-                  color: F.text2,
-                  marginBottom: 10,
-                }}
-              >
-                Earnings Breakdown
-              </div>
-              <div style={{ display: "flex", flexDirection: "column", gap: 8, fontSize: 13 }}>
-                <div style={{ display: "flex", justifyContent: "space-between" }}>
-                  <span style={{ color: F.text2 }}>Gross Base Salary:</span>
-                  <strong>{inr(selectedRun.row.grossSalary)}</strong>
-                </div>
-                {selectedRun.row.bonus > 0 && (
-                  <div style={{ display: "flex", justifyContent: "space-between" }}>
-                    <span style={{ color: F.text2 }}>Bonus:</span>
-                    <strong style={{ color: F.brand }}>+{inr(selectedRun.row.bonus)}</strong>
-                  </div>
-                )}
-                {selectedRun.row.incentive > 0 && (
-                  <div style={{ display: "flex", justifyContent: "space-between" }}>
-                    <span style={{ color: F.text2 }}>Incentive:</span>
-                    <strong style={{ color: F.brand }}>+{inr(selectedRun.row.incentive)}</strong>
-                  </div>
-                )}
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    borderTop: `1px solid ${F.border}`,
-                    paddingTop: 8,
-                    fontWeight: 700,
-                  }}
-                >
-                  <span>Total Earnings:</span>
-                  <span style={{ color: F.brand }}>{inr(selectedRun.row.totalEarnings)}</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Deductions Breakdown */}
-            <div
-              style={{
-                background: F.pageBg,
-                borderRadius: 8,
-                padding: "16px 18px",
-                border: `1px solid ${F.border}`,
-              }}
-            >
-              <div
-                style={{
-                  fontSize: 12,
-                  fontWeight: 700,
-                  textTransform: "uppercase",
-                  letterSpacing: "0.06em",
-                  color: F.text2,
-                  marginBottom: 10,
-                }}
-              >
-                Statutory & Other Deductions
-              </div>
-              <div style={{ display: "flex", flexDirection: "column", gap: 8, fontSize: 13 }}>
-                <div style={{ display: "flex", justifyContent: "space-between" }}>
-                  <span style={{ color: F.text2 }}>Provident Fund (EPF):</span>
-                  <strong>{inr(selectedRun.row.pf)}</strong>
-                </div>
-                <div style={{ display: "flex", justifyContent: "space-between" }}>
-                  <span style={{ color: F.text2 }}>TDS (Income Tax):</span>
-                  <strong>{inr(selectedRun.row.tds)}</strong>
-                </div>
-                <div style={{ display: "flex", justifyContent: "space-between" }}>
-                  <span style={{ color: F.text2 }}>Professional Tax:</span>
-                  <strong>{inr(selectedRun.row.profTax)}</strong>
-                </div>
-                {selectedRun.row.esi > 0 && (
-                  <div style={{ display: "flex", justifyContent: "space-between" }}>
-                    <span style={{ color: F.text2 }}>ESI Contribution:</span>
-                    <strong>{inr(selectedRun.row.esi)}</strong>
-                  </div>
-                )}
-                {selectedRun.row.lopDeduction > 0 && (
-                  <div style={{ display: "flex", justifyContent: "space-between" }}>
-                    <span style={{ color: F.error }}>Loss of Pay ({selectedRun.row.lopDays} days):</span>
-                    <strong style={{ color: F.error }}>-{inr(selectedRun.row.lopDeduction)}</strong>
-                  </div>
-                )}
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    borderTop: `1px solid ${F.border}`,
-                    paddingTop: 8,
-                    fontWeight: 700,
-                  }}
-                >
-                  <span>Total Deductions:</span>
-                  <span style={{ color: F.warning }}>{inr(selectedRun.row.totalDeductions)}</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Quick Actions */}
-            <div style={{ display: "flex", gap: 10, marginTop: 10 }}>
-              {onNav && (
-                <Btn
-                  onClick={() => {
-                    setSelectedRun(null)
-                    onNav("payslips")
-                  }}
-                  style={{ flex: 1 }}
-                >
-                  Open Full Payslip
-                </Btn>
-              )}
-              <Btn variant="secondary" onClick={() => setSelectedRun(null)}>
-                Close
-              </Btn>
-            </div>
-          </div>
-        </SlidePanel>
-      )}
+      
     </div>
   )
 }
@@ -22509,8 +26269,6 @@ function EmployeePayslipsView({
   const [maxNetFilter, setMaxNetFilter] = useState("")
   const [deductionFilter, setDeductionFilter] = useState("all")
   const [sortOrder, setSortOrder] = useState<"desc" | "asc">("desc")
-  const [selectedRunIds, setSelectedRunIds] = useState<string[]>([])
-  const [hasRunEmployeePayslipSearch, setHasRunEmployeePayslipSearch] = useState(false)
   const [appliedPayslipFilters, setAppliedPayslipFilters] = useState({
     periodSearch: "",
     selectedYear: "all",
@@ -22530,7 +26288,7 @@ function EmployeePayslipsView({
 
   const minNet = Number(appliedPayslipFilters.minNetFilter) || 0
   const maxNet = Number(appliedPayslipFilters.maxNetFilter) || Number.POSITIVE_INFINITY
-  const filteredRuns = (hasRunEmployeePayslipSearch ? runs : []).filter((run) => {
+  const filteredRuns = runs.filter((run) => {
     const row = run.rows.find((r) => r.empId === emp.id)
     if (!row) return false
     if (!searchMatches(appliedPayslipFilters.periodSearch, [run.period])) {
@@ -22554,19 +26312,6 @@ function EmployeePayslipsView({
     const bVal = b.year * 100 + b.month
     return sortOrder === "desc" ? bVal - aVal : aVal - bVal
   })
-  const allFilteredRunsSelected = filteredRuns.length > 0 && filteredRuns.every((run) => selectedRunIds.includes(run.id))
-  const selectedEmployeePayslips: PayslipPdfEntry[] = runs
-    .filter((run) => selectedRunIds.includes(run.id))
-    .flatMap((run) => {
-      const row = run.rows.find((item) => item.empId === emp.id)
-      return row ? [{ row, run, emp }] : []
-    })
-  const toggleFilteredRuns = () => {
-    const visibleIds = filteredRuns.map((run) => run.id)
-    setSelectedRunIds((current) => allFilteredRunsSelected
-      ? current.filter((id) => !visibleIds.includes(id))
-      : Array.from(new Set([...current, ...visibleIds])))
-  }
 
   const hasPayslipFilters = Boolean(
     activeSearch(appliedPayslipFilters.periodSearch) ||
@@ -22604,17 +26349,8 @@ function EmployeePayslipsView({
             Secure digital payslip archive & salary statements
           </p>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", justifyContent: "flex-end" }}>
-          <div style={{ fontSize: 12, color: F.text3, fontWeight: 600 }}>
-            {filteredRuns.length} Payslip{filteredRuns.length !== 1 ? "s" : ""} Available
-          </div>
-          <Btn
-            disabled={selectedEmployeePayslips.length === 0}
-            onClick={() => downloadPayslipsPdf(selectedEmployeePayslips)}
-          >
-            <DownloadIcon />
-            Download Selected ({selectedEmployeePayslips.length})
-          </Btn>
+        <div style={{ fontSize: 12, color: F.text3, fontWeight: 600 }}>
+          {filteredRuns.length} Payslip{filteredRuns.length !== 1 ? "s" : ""} Available
         </div>
       </div>
 
@@ -22715,8 +26451,7 @@ function EmployeePayslipsView({
         <ContextDateRangeFilter />
 
         <Btn
-          onClick={() => {
-            setHasRunEmployeePayslipSearch(true)
+          onClick={() =>
             setAppliedPayslipFilters({
               periodSearch,
               selectedYear,
@@ -22724,7 +26459,7 @@ function EmployeePayslipsView({
               maxNetFilter,
               deductionFilter,
             })
-          }}
+          }
           style={{ height: 34 }}
         >
           Go
@@ -22750,7 +26485,6 @@ function EmployeePayslipsView({
                 maxNetFilter: "",
                 deductionFilter: "all",
               })
-              setHasRunEmployeePayslipSearch(false)
             }}
             style={{
               background: F.pageBg,
@@ -22792,15 +26526,6 @@ function EmployeePayslipsView({
                 letterSpacing: "0.04em",
               }}
             >
-              <th style={{ padding: "12px 10px", textAlign: "center" }}>
-                <input
-                  type="checkbox"
-                  aria-label="Select all filtered payslips"
-                  checked={allFilteredRunsSelected}
-                  onChange={toggleFilteredRuns}
-                  style={{ width: 16, height: 16, cursor: "pointer" }}
-                />
-              </th>
               <th style={{ padding: "12px 18px", textAlign: "left" }}>Pay Period</th>
                 <th style={{ padding: "12px 14px", textAlign: "left" }}>Generated On</th>
                 <th style={{ padding: "12px 14px", textAlign: "right" }}>Gross Earnings</th>
@@ -22813,7 +26538,7 @@ function EmployeePayslipsView({
           <tbody>
             {filteredRuns.length === 0 ? (
               <tr>
-                <td colSpan={8} style={{ padding: 40, textAlign: "center", color: F.text3 }}>
+                <td colSpan={7} style={{ padding: 40, textAlign: "center", color: F.text3 }}>
                   No payslips match your search criteria.
                 </td>
               </tr>
@@ -22832,18 +26557,6 @@ function EmployeePayslipsView({
                     onMouseEnter={(e) => (e.currentTarget.style.background = F.pageBg)}
                     onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
                   >
-                    <td style={{ padding: "14px 10px", textAlign: "center" }}>
-                      <input
-                        type="checkbox"
-                        aria-label={`Select payslip for ${run.period}`}
-                        checked={selectedRunIds.includes(run.id)}
-                        onClick={(event) => event.stopPropagation()}
-                        onChange={() => setSelectedRunIds((current) => current.includes(run.id)
-                          ? current.filter((id) => id !== run.id)
-                          : [...current, run.id])}
-                        style={{ width: 16, height: 16, cursor: "pointer" }}
-                      />
-                    </td>
                     <td style={{ padding: "14px 18px" }}>
                       <div style={{ fontWeight: 800, color: F.text1 }}>{run.period}</div>
                       <div style={{ fontSize: 11, color: F.text3, marginTop: 2 }}>
@@ -22868,29 +26581,15 @@ function EmployeePayslipsView({
                       <Badge label="Completed" color={F.success} bg={F.successBg} />
                     </td>
                     <td style={{ padding: "14px 18px", textAlign: "right" }}>
-                      <div style={{ display: "flex", justifyContent: "flex-end", gap: 6, flexWrap: "wrap" }}>
-                        <Btn
-                          small
-                          variant="secondary"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            setSelected({ run, row })
-                          }}
-                        >
-                          View
-                        </Btn>
-                        <Btn
-                          small
-                          title={`Download PDF payslip for ${run.period}`}
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            downloadPayslipPdf(row, run, emp)
-                          }}
-                        >
-                          <DownloadIcon />
-                          Download PDF
-                        </Btn>
-                      </div>
+                      <Btn
+                        small
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setSelected({ run, row })
+                        }}
+                      >
+                        View Payslip &rarr;
+                      </Btn>
                     </td>
                   </tr>
                 )
@@ -22932,7 +26631,6 @@ function OrgDocumentsView({
   const [category, setCategory] = useState("All")
   const [status, setStatus] = useState("All")
   const [docSort, setDocSort] = useState("created-desc")
-  const [hasRunOrgDocumentSearch, setHasRunOrgDocumentSearch] = useState(false)
   const [appliedOrgDocFilters, setAppliedOrgDocFilters] = useState({
     search: "",
     category: "All",
@@ -22962,7 +26660,7 @@ function OrgDocumentsView({
     "HR Letter",
     "Tax",
   ]
-  const filteredDocs = (hasRunOrgDocumentSearch ? docs : []).filter(
+  const filteredDocs = docs.filter(
     (doc) =>
       searchMatches(appliedOrgDocFilters.search, [doc.title, doc.description, doc.assignedTo]) &&
       (appliedOrgDocFilters.category === "All" || doc.category === appliedOrgDocFilters.category) &&
@@ -22981,7 +26679,6 @@ function OrgDocumentsView({
     return (new Date(a.createdOn).getTime() - new Date(b.createdOn).getTime()) * dir
   })
   const clearOrgDocFilters = () => {
-    setHasRunOrgDocumentSearch(false)
     setSearch("")
     setCategory("All")
     setStatus("All")
@@ -22989,7 +26686,6 @@ function OrgDocumentsView({
     setAppliedOrgDocFilters({ search: "", category: "All", status: "All", docSort: "created-desc" })
   }
   const applyOrgDocFilters = () => {
-    setHasRunOrgDocumentSearch(true)
     setAppliedOrgDocFilters({ search, category, status, docSort })
   }
   const orgDocActiveFilters =
@@ -23013,21 +26709,20 @@ function OrgDocumentsView({
     if (!draft.title.trim()) return toast("Document title is required", "error")
     if (draft.assignmentMode !== "All Employees" && !draft.assignmentValue)
       return toast("Select an assignment target", "error")
-    setDocs((prev) => [
-      {
-        id: `DOC-${String(prev.length + 1).padStart(3, "0")}`,
-        title: draft.title.trim(),
-        category: draft.category,
-        assignedTo: assignmentLabel(),
-        assignedCount: assignmentCount(),
-        owner: "Meena Iyer",
-        createdOn: new Date().toISOString().slice(0, 10),
-        status: draft.status,
-        description: draft.description.trim() || "Uploaded HR document for employee access.",
-        fileName: draft.fileName,
-      },
-      ...prev,
-    ])
+    const newDocItem = {
+      id: `DOC-${String(docs.length + 1).padStart(3, "0")}`,
+      title: draft.title.trim(),
+      category: draft.category,
+      assignedTo: assignmentLabel(),
+      assignedCount: assignmentCount(),
+      owner: "Meena Iyer",
+      createdOn: new Date().toISOString().slice(0, 10),
+      status: draft.status,
+      description: draft.description.trim() || "Uploaded HR document for employee access.",
+      fileName: draft.fileName,
+    }
+    setDocs((prev) => [newDocItem, ...prev])
+    apiClient.documents.create(newDocItem).catch((err) => console.warn("Failed to save document on backend:", err))
     setShowAdd(false)
     setDraft({
       title: "",
@@ -23313,7 +27008,6 @@ function DocumentsView({
   const [sourceFilter, setSourceFilter] = useState("all")
   const [statusFilter, setStatusFilter] = useState("all")
   const [docSort, setDocSort] = useState("name-asc")
-  const [hasRunDocumentSearch, setHasRunDocumentSearch] = useState(false)
   const [appliedDocumentFilters, setAppliedDocumentFilters] = useState({
     docSearch: "",
     categoryFilter: "all",
@@ -23393,7 +27087,7 @@ function DocumentsView({
   const categories = Array.from(new Set(docs.map((d) => d.type)))
   const f4DocNames = docs.map((d) => d.name)
 
-  const filteredDocs = (hasRunDocumentSearch ? docs : []).filter((doc) => {
+  const filteredDocs = docs.filter((doc) => {
     if (!searchMatches(appliedDocumentFilters.docSearch, [doc.name])) {
       return false
     }
@@ -23464,7 +27158,6 @@ function DocumentsView({
       appliedDocumentFilters.docSort !== "name-asc",
   )
   const applyDocumentFilters = () => {
-    setHasRunDocumentSearch(true)
     setAppliedDocumentFilters({
       docSearch,
       categoryFilter,
@@ -23474,7 +27167,6 @@ function DocumentsView({
     })
   }
   const clearDocumentFilters = () => {
-    setHasRunDocumentSearch(false)
     setDocSearch("")
     setCategoryFilter("all")
     setSourceFilter("all")
@@ -24285,7 +27977,7 @@ function LoginPage({ onLogin }: { onLogin: (persona: Persona) => void }) {
     setPassword("Password@2026")
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!email.trim()) {
       toast("Please enter your email or username", "warning")
@@ -24297,10 +27989,36 @@ function LoginPage({ onLogin }: { onLogin: (persona: Persona) => void }) {
     }
 
     setIsLoading(true)
-    setTimeout(() => {
+    try {
+      const res = await fetch("http://localhost:8000/api/v1/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: email.trim(),
+          password: password.trim(),
+          persona: activeTab,
+          remember_me: rememberMe,
+        }),
+      })
+
+      const data = await res.json()
+      if (!res.ok) {
+        setIsLoading(false)
+        toast(data.detail || "Invalid email or password", "error")
+        return
+      }
+
+      if (data.access_token) {
+        localStorage.setItem("naxpayroll_token", data.access_token)
+        localStorage.setItem("naxpayroll_user", JSON.stringify(data.user))
+      }
+
       setIsLoading(false)
       onLogin(activeTab)
-    }, 300)
+    } catch (err) {
+      setIsLoading(false)
+      toast("Cannot connect to FastAPI backend on http://localhost:8000. Please ensure the backend server is running.", "error")
+    }
   }
 
   return (
@@ -24470,10 +28188,13 @@ function LoginPage({ onLogin }: { onLogin: (persona: Persona) => void }) {
                     color: F.text3,
                     fontSize: 15,
                     padding: "0 2px",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
                   }}
                   title="Clear"
                 >
-                  ×
+                  <CloseIcon size={14} />
                 </button>
               )}
             </div>
@@ -24749,34 +28470,6 @@ export default function App() {
     Record<"product_admin" | "org_admin", AdminProfileData>
   >(DEFAULT_ADMIN_PROFILES)
   const [toasts, setToasts] = useState<ToastItem[]>([])
-  // Numeric fields are non-negative throughout the application.  Enforce this
-  // centrally so newly added forms inherit the same rule as existing payroll,
-  // salary, tax, and employee inputs.
-  useEffect(() => {
-    const normalizeNumericInputs = () => {
-      document.querySelectorAll<HTMLInputElement>('input[type="number"]').forEach((input) => {
-        if (!input.hasAttribute("min")) input.min = "0"
-        if (input.value !== "" && Number(input.value) < 0) input.value = "0"
-      })
-    }
-    const enforceNonNegative = (event: Event) => {
-      const input = event.target as HTMLInputElement | null
-      if (!input || input.tagName !== "INPUT" || input.type !== "number") return
-      if (input.value !== "" && (!Number.isFinite(Number(input.value)) || Number(input.value) < 0)) {
-        input.value = Number.isFinite(Number(input.value)) ? "0" : ""
-      }
-    }
-    normalizeNumericInputs()
-    document.addEventListener("input", enforceNonNegative, true)
-    document.addEventListener("change", enforceNonNegative, true)
-    const observer = new MutationObserver(normalizeNumericInputs)
-    observer.observe(document.body, { childList: true, subtree: true })
-    return () => {
-      document.removeEventListener("input", enforceNonNegative, true)
-      document.removeEventListener("change", enforceNonNegative, true)
-      observer.disconnect()
-    }
-  }, [])
   const showToast = useCallback((msg: string, type: ToastType = "info") => {
     const id = Date.now()
     setToasts((t) => [...t, { id, msg, type }])
@@ -24800,7 +28493,7 @@ export default function App() {
   }, [adminProfiles, persona, view])
 
   const [sidebarOpen, setSidebarOpen] = useState(true)
-  const myEmp = emps.find((e) => e.id === MY_EMP_ID)!
+  const myEmp = emps.find((e) => e.id === MY_EMP_ID) || emps[0] || INIT_EMPS[0]
   const nav =
     persona === "product_admin"
       ? PROD_NAV
@@ -24844,6 +28537,45 @@ export default function App() {
     setPersona(p)
     setView("dashboard")
   }
+
+  // Load normalized data from FastAPI backend
+  useEffect(() => {
+    if (!isLoggedIn) return
+    let isMounted = true
+
+    const loadData = async () => {
+      try {
+        const [backendEmps, backendSS, backendPayruns, backendOrgs, backendDocs] = await Promise.all([
+          apiClient.employees.getAll().catch(() => null),
+          apiClient.salary.getStructures().catch(() => null),
+          apiClient.payruns.getAll().catch(() => null),
+          apiClient.organizations.getAll().catch(() => null),
+          apiClient.documents.getAll().catch(() => null),
+        ])
+
+        if (!isMounted) return
+        if (backendEmps && backendEmps.length > 0) setEmps(backendEmps)
+        if (backendSS && backendSS.length > 0) setSS(backendSS)
+        if (backendPayruns && backendPayruns.length > 0) {
+          const normalizedPayruns = backendPayruns.map((pr: any) => ({
+            ...pr,
+            status: pr.status === "Completed" ? "Paid" : pr.status === "Locked" ? "Payment Due" : pr.status,
+          }))
+          setPayruns(normalizedPayruns)
+        }
+        if (backendOrgs && backendOrgs.length > 0) setOrgs(backendOrgs)
+        if (backendDocs && backendDocs.length > 0) setOrgDocs(backendDocs)
+      } catch {
+        // Safe fallback to initial state
+      }
+    }
+
+    loadData()
+    return () => {
+      isMounted = false
+    }
+  }, [isLoggedIn])
+
   if (!isLoggedIn) {
     return (
       <ToastCtx.Provider value={showToast}>
@@ -25024,7 +28756,7 @@ export default function App() {
             }}
           >
             {nav.map((item) => {
-              const active = view === item.id
+              const active = view === item.id || (item.id === "payruns" && view === "history")
               return (
                 <div
                   key={item.id}
@@ -25102,7 +28834,7 @@ export default function App() {
               <span className="sap-context-spacer" />
               <span className="sap-context-role">{personaRole[persona]}</span>
             </div>
-            <DateFilterCtx.Provider value={{ active: ["payruns", "payslips", "documents", "reports", "audit"].includes(view), from: rangeFrom, to: rangeTo, onFromChange: setRangeFrom, onToChange: setRangeTo, onApply: () => showToast(rangeFrom || rangeTo ? `Showing records from ${rangeFrom || "the beginning"} to ${rangeTo || "today"}` : "Showing all available records", "info") }}>
+            <DateFilterCtx.Provider value={{ active: ["payruns", "history", "payslips", "documents", "reports", "audit"].includes(view), from: rangeFrom, to: rangeTo, onFromChange: setRangeFrom, onToChange: setRangeTo, onApply: () => showToast(rangeFrom || rangeTo ? `Showing records from ${rangeFrom || "the beginning"} to ${rangeTo || "today"}` : "Showing all available records", "info") }}>
             {view === "profile" ? (
               <UnifiedProfileView
                 persona={persona}
@@ -25123,7 +28855,7 @@ export default function App() {
               <>
                 {persona === "org_admin" && (
                   <>
-                    {view === "dashboard" && (
+                    {(view === "dashboard" || !["employees", "salary", "payruns", "history", "payslips", "documents", "reports", "access", "audit"].includes(view)) && (
                       <DashboardView
                         emps={emps}
                         payruns={payruns}
@@ -25142,9 +28874,10 @@ export default function App() {
                         setEmps={setEmps}
                       />
                     )}
-                    {view === "payruns" && (
+                    {(view === "payruns" || view === "history") && (
                       <PayRunsView
                         emps={emps}
+                        setEmps={setEmps}
                         ss={ss}
                         payruns={payruns}
                         setPayruns={setPayruns}
@@ -25174,7 +28907,7 @@ export default function App() {
                 )}
                 {persona === "product_admin" && (
                   <>
-                    {view === "dashboard" && (
+                    {(view === "dashboard" || !["orgs", "access", "audit"].includes(view)) && (
                       <PlatformDashboard
                         orgs={orgs}
                         logs={auditLogs}
@@ -25204,7 +28937,7 @@ export default function App() {
                 )}
                 {persona === "employee" && (
                   <>
-                    {view === "dashboard" && (
+                    {(view === "dashboard" || !["salary", "payruns", "history", "payslips", "documents", "financial"].includes(view)) && (
                       <EmployeeDashboardView
                         emp={myEmp}
                         payruns={payruns}
@@ -25215,7 +28948,7 @@ export default function App() {
                     {view === "salary" && (
                       <MySalaryView emp={myEmp} structures={ss} onNav={setView} />
                     )}
-                    {view === "payruns" && (
+                    {(view === "payruns" || view === "history") && (
                       <PayrollHistoryView emp={myEmp} payruns={payruns} onNav={setView} />
                     )}
                     {view === "payslips" && (
