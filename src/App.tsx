@@ -22922,12 +22922,21 @@ function OrgDocumentsView({
   docs,
   setDocs,
   emps,
+  activeDocumentsTab,
+  setActiveDocumentsTab,
+  employeeDocumentSearch,
+  setEmployeeDocumentSearch,
 }: {
   docs: OrgDocument[]
   setDocs: React.Dispatch<React.SetStateAction<OrgDocument[]>>
   emps: Employee[]
+  activeDocumentsTab: "organization" | "employee"
+  setActiveDocumentsTab: React.Dispatch<React.SetStateAction<"organization" | "employee">>
+  employeeDocumentSearch: string
+  setEmployeeDocumentSearch: (value: string) => void
 }) {
   const toast = useToast()
+  const dateFilter = useContext(DateFilterCtx)
   const [search, setSearch] = useState("")
   const [category, setCategory] = useState("All")
   const [status, setStatus] = useState("All")
@@ -22938,23 +22947,67 @@ function OrgDocumentsView({
     category: "All",
     status: "All",
     docSort: "created-desc",
+    dateFrom: "",
+    dateTo: "",
   })
+  const [showOrgDocFilterPanel, setShowOrgDocFilterPanel] = useState(false)
   const [showAdd, setShowAdd] = useState(false)
-  const [draft, setDraft] = useState({
-    title: "",
-    category: "Policy" as OrgDocument["category"],
-    assignmentMode: "All Employees",
-    assignmentValue: "",
-    status: "Published" as OrgDocument["status"],
-    description: "",
-    fileName: "",
-  })
-  const departments = Array.from(
-    new Set(emps.map((e) => e.department.trim()).filter(Boolean)),
-  ).sort()
-  const designations = Array.from(
-    new Set(emps.map((e) => e.designation.trim()).filter(Boolean)),
-  ).sort()
+  const [addDocumentFolderId, setAddDocumentFolderId] = useState<number | null>(null)
+  const [showDocumentInPortal, setShowDocumentInPortal] = useState(false)
+  const [addDocumentFileError, setAddDocumentFileError] = useState("")
+  const [addDocumentFolderError, setAddDocumentFolderError] = useState("")
+  const [isAddDocumentDropActive, setIsAddDocumentDropActive] = useState(false)
+  const addDocumentFileInputRef = useRef<HTMLInputElement>(null)
+  const [showNewFolder, setShowNewFolder] = useState(false)
+  const [folderName, setFolderName] = useState("")
+  const [folderDescription, setFolderDescription] = useState("")
+  const [orgFolderFieldErrors, setOrgFolderFieldErrors] = useState<{ name?: string; description?: string }>({})
+  const [orgFolders, setOrgFolders] = useState<Array<{ id: number; name: string; description: string }>>([])
+  const [editingFolderId, setEditingFolderId] = useState<number | null>(null)
+  const [openFolderMenuId, setOpenFolderMenuId] = useState<number | null>(null)
+  const [deletingFolder, setDeletingFolder] = useState<{ id: number; name: string } | null>(null)
+  const [selectedFolderId, setSelectedFolderId] = useState<number | null>(null)
+  const selectedFolder = orgFolders.find((folder) => folder.id === selectedFolderId) ?? null
+  const [selectedUploadFile, setSelectedUploadFile] = useState<File | null>(null)
+  const [showOrgFolderUploadModal, setShowOrgFolderUploadModal] = useState(false)
+  const [folderUploadError, setFolderUploadError] = useState("")
+  const [folderDocuments, setFolderDocuments] = useState<Array<{ id: number; folderId: number; fileName: string; fileSize: number; file: File; showInPortal: boolean; uploadedOn: string }>>([])
+  const [trashedDocuments, setTrashedDocuments] = useState<Array<(typeof folderDocuments)[number] & { originalFolderName: string }>>([])
+  const [selectedTrashDocumentIds, setSelectedTrashDocumentIds] = useState<number[]>([])
+  const [isTrashPermanentDeleteConfirmOpen, setIsTrashPermanentDeleteConfirmOpen] = useState(false)
+  const [previewingDocument, setPreviewingDocument] = useState<(typeof folderDocuments)[number] | null>(null)
+  const [documentToDelete, setDocumentToDelete] = useState<{ id: number; folderId: number } | null>(null)
+  const [openDocumentMenuId, setOpenDocumentMenuId] = useState<number | null>(null)
+  const [openMoveMenuId, setOpenMoveMenuId] = useState<number | null>(null)
+  const [openDocumentMenuPosition, setOpenDocumentMenuPosition] = useState<{ top: number; left: number } | null>(null)
+  const [editingDocument, setEditingDocument] = useState<(typeof folderDocuments)[number] | null>(null)
+  const [editingDocumentPortalValue, setEditingDocumentPortalValue] = useState(false)
+  const [editingDocumentFolderId, setEditingDocumentFolderId] = useState<number | null>(null)
+  const [editingDocumentFolderError, setEditingDocumentFolderError] = useState("")
+  const [selectedFolderDocumentIds, setSelectedFolderDocumentIds] = useState<number[]>([])
+  const [isBulkDeleteConfirmOpen, setIsBulkDeleteConfirmOpen] = useState(false)
+  const [isBulkMoveMenuOpen, setIsBulkMoveMenuOpen] = useState(false)
+  const [folderUploadFolderId, setFolderUploadFolderId] = useState<number | null>(null)
+  const [isTrashOpen, setIsTrashOpen] = useState(false)
+  const [documentPreviewUrl, setDocumentPreviewUrl] = useState<string | null>(null)
+  const [isFolderDropActive, setIsFolderDropActive] = useState(false)
+  const folderFileInputRef = useRef<HTMLInputElement>(null)
+  const getPreviewKind = useCallback((file: File) => {
+    const name = file.name.toLowerCase()
+    if (file.type === "application/pdf" || name.endsWith(".pdf")) return "pdf"
+    if (file.type.startsWith("image/") || /\.(png|jpe?g|gif|webp|bmp|svg)$/i.test(name)) return "image"
+    return "unsupported"
+  }, [])
+  useEffect(() => {
+    const file = previewingDocument?.file
+    if (!file || getPreviewKind(file) === "unsupported") {
+      setDocumentPreviewUrl(null)
+      return
+    }
+    const previewUrl = URL.createObjectURL(file)
+    setDocumentPreviewUrl(previewUrl)
+    return () => URL.revokeObjectURL(previewUrl)
+  }, [previewingDocument, getPreviewKind])
   const categories: OrgDocument["category"][] = [
     "Policy",
     "Payroll",
@@ -22966,7 +23019,9 @@ function OrgDocumentsView({
     (doc) =>
       searchMatches(appliedOrgDocFilters.search, [doc.title, doc.description, doc.assignedTo]) &&
       (appliedOrgDocFilters.category === "All" || doc.category === appliedOrgDocFilters.category) &&
-      (appliedOrgDocFilters.status === "All" || doc.status === appliedOrgDocFilters.status),
+      (appliedOrgDocFilters.status === "All" || doc.status === appliedOrgDocFilters.status) &&
+      (!appliedOrgDocFilters.dateFrom || doc.createdOn >= appliedOrgDocFilters.dateFrom) &&
+      (!appliedOrgDocFilters.dateTo || doc.createdOn <= appliedOrgDocFilters.dateTo),
   ).sort((a, b) => {
     const dir = appliedOrgDocFilters.docSort.endsWith("-desc") ? -1 : 1
     if (appliedOrgDocFilters.docSort.startsWith("title")) {
@@ -22980,135 +23035,655 @@ function OrgDocumentsView({
     }
     return (new Date(a.createdOn).getTime() - new Date(b.createdOn).getTime()) * dir
   })
-  const clearOrgDocFilters = () => {
-    setHasRunOrgDocumentSearch(false)
-    setSearch("")
-    setCategory("All")
-    setStatus("All")
-    setDocSort("created-desc")
-    setAppliedOrgDocFilters({ search: "", category: "All", status: "All", docSort: "created-desc" })
-  }
   const applyOrgDocFilters = () => {
     setHasRunOrgDocumentSearch(true)
-    setAppliedOrgDocFilters({ search, category, status, docSort })
+    setAppliedOrgDocFilters({ search, category, status, docSort, dateFrom: dateFilter?.from ?? "", dateTo: dateFilter?.to ?? "" })
+    dateFilter?.onApply()
+    setShowOrgDocFilterPanel(false)
   }
   const orgDocActiveFilters =
     (activeSearch(appliedOrgDocFilters.search) ? 1 : 0) +
     (appliedOrgDocFilters.category !== "All" ? 1 : 0) +
     (appliedOrgDocFilters.status !== "All" ? 1 : 0) +
-    (appliedOrgDocFilters.docSort !== "created-desc" ? 1 : 0)
-  const assignmentCount = () => {
-    if (draft.assignmentMode === "All Employees") return emps.length
-    if (draft.assignmentMode === "Department")
-      return emps.filter((e) => e.department === draft.assignmentValue).length
-    if (draft.assignmentMode === "Designation")
-      return emps.filter((e) => e.designation === draft.assignmentValue).length
-    return 0
+    (appliedOrgDocFilters.docSort !== "created-desc" ? 1 : 0) +
+    (appliedOrgDocFilters.dateFrom ? 1 : 0) +
+    (appliedOrgDocFilters.dateTo ? 1 : 0)
+  const saveFolder = () => {
+    const name = folderName.trim()
+    const description = folderDescription.trim()
+    const duplicateName = name && orgFolders.some(
+      (folder) => folder.id !== editingFolderId && folder.name.toLocaleLowerCase() === name.toLocaleLowerCase(),
+    )
+    const errors = {
+      ...(!name
+        ? { name: "Folder name is required." }
+        : duplicateName
+          ? { name: "Folder already exists." }
+          : {}),
+      ...(!description ? { description: "Description is required." } : {}),
+    }
+    setOrgFolderFieldErrors(errors)
+    if (Object.keys(errors).length) return
+    if (editingFolderId !== null) {
+      setOrgFolders((folders) => folders.map((folder) =>
+        folder.id === editingFolderId
+          ? { ...folder, name, description }
+          : folder,
+      ))
+      toast("Folder updated successfully", "success")
+    } else {
+      setOrgFolders((folders) => [
+        ...folders,
+        { id: Date.now(), name, description },
+      ])
+      toast("Folder created successfully", "success")
+    }
+    setFolderName("")
+    setFolderDescription("")
+    setEditingFolderId(null)
+    setOrgFolderFieldErrors({})
+    setShowNewFolder(false)
   }
-  const assignmentLabel = () => {
-    if (draft.assignmentMode === "All Employees") return "All Employees"
-    return draft.assignmentValue || draft.assignmentMode
+  const closeNewFolder = () => {
+    setShowNewFolder(false)
+    setFolderName("")
+    setFolderDescription("")
+    setEditingFolderId(null)
+    setOrgFolderFieldErrors({})
   }
-  const addDocument = () => {
-    if (!draft.title.trim()) return toast("Document title is required", "error")
-    if (draft.assignmentMode !== "All Employees" && !draft.assignmentValue)
-      return toast("Select an assignment target", "error")
-    setDocs((prev) => [
-      {
-        id: `DOC-${String(prev.length + 1).padStart(3, "0")}`,
-        title: draft.title.trim(),
-        category: draft.category,
-        assignedTo: assignmentLabel(),
-        assignedCount: assignmentCount(),
-        owner: "Meena Iyer",
-        createdOn: new Date().toISOString().slice(0, 10),
-        status: draft.status,
-        description: draft.description.trim() || "Uploaded HR document for employee access.",
-        fileName: draft.fileName,
-      },
-      ...prev,
+  const openCreateFolder = () => {
+    setEditingFolderId(null)
+    setFolderName("")
+    setFolderDescription("")
+    setOrgFolderFieldErrors({})
+    setShowNewFolder(true)
+  }
+  const editFolder = (folder: (typeof orgFolders)[number]) => {
+    setEditingFolderId(folder.id)
+    setFolderName(folder.name)
+    setFolderDescription(folder.description)
+    setOrgFolderFieldErrors({})
+    setOpenFolderMenuId(null)
+    setShowNewFolder(true)
+  }
+  const confirmDeleteFolder = () => {
+    if (!deletingFolder) return
+    setOrgFolders((folders) => folders.filter((folder) => folder.id !== deletingFolder.id))
+    setDeletingFolder(null)
+    toast("Folder deleted", "success")
+  }
+  const validateFolderDocumentFile = (file: File) => {
+    const acceptedFileType = /\.(pdf|doc|docx|xls|xlsx|jpe?g|png)$/i.test(file.name)
+    if (!acceptedFileType) return "Unsupported file type. Choose a PDF, DOC, DOCX, XLS, XLSX, JPG, or PNG file."
+    if (file.size > 10 * 1024 * 1024) return "File size must be 10 MB or less."
+    return ""
+  }
+  const setFolderUploadFile = (file?: File) => {
+    if (!file) return
+    const error = validateFolderDocumentFile(file)
+    if (error) {
+      setSelectedUploadFile(null)
+      setFolderUploadError(error)
+      return
+    }
+    setFolderUploadError("")
+    setSelectedUploadFile(file)
+    setFolderUploadFolderId(selectedFolderId)
+    setShowOrgFolderUploadModal(true)
+  }
+  const closeOrgFolderUploadModal = () => {
+    setShowOrgFolderUploadModal(false)
+    setSelectedUploadFile(null)
+    setFolderUploadError("")
+    setFolderUploadFolderId(null)
+  }
+  const saveFolderDocument = () => {
+    const folderId = folderUploadFolderId
+    const file = selectedUploadFile
+    if (!file) return
+    if (folderId === null || !orgFolders.some((folder) => folder.id === folderId)) {
+      setFolderUploadError("Please select a folder.")
+      return
+    }
+    setFolderDocuments((documents) => [
+      ...documents,
+      { id: Date.now() + Math.random(), folderId, fileName: file.name, fileSize: file.size, file, showInPortal: false, uploadedOn: new Date().toISOString().slice(0, 10) },
     ])
-    setShowAdd(false)
-    setDraft({
-      title: "",
-      category: "Policy",
-      assignmentMode: "All Employees",
-      assignmentValue: "",
-      status: "Published",
-      description: "",
-      fileName: "",
-    })
-    toast("Document added and assigned successfully", "success")
+    closeOrgFolderUploadModal()
   }
+  const openAddDocumentModal = () => {
+    setSelectedUploadFile(null)
+    setAddDocumentFolderId(selectedFolder?.id ?? null)
+    setShowDocumentInPortal(false)
+    setAddDocumentFileError("")
+    setAddDocumentFolderError("")
+    setFolderUploadError("")
+    setShowAdd(true)
+  }
+  const closeAddDocumentModal = () => {
+    setShowAdd(false)
+    setSelectedUploadFile(null)
+    setAddDocumentFolderId(null)
+    setShowDocumentInPortal(false)
+    setAddDocumentFileError("")
+    setAddDocumentFolderError("")
+    setIsAddDocumentDropActive(false)
+  }
+  const chooseAddDocumentFile = (file?: File) => {
+    if (!file) return
+    const error = validateFolderDocumentFile(file)
+    if (error) {
+      setSelectedUploadFile(null)
+      setAddDocumentFileError(error)
+      return
+    }
+    setSelectedUploadFile(file)
+    setAddDocumentFileError("")
+  }
+  const saveAddDocumentToFolder = () => {
+    if (!selectedUploadFile) {
+      setAddDocumentFileError("Please select a file.")
+      return
+    }
+    if (addDocumentFolderId === null || !orgFolders.some((folder) => folder.id === addDocumentFolderId)) {
+      setAddDocumentFolderError("Please select a folder.")
+      return
+    }
+    setFolderDocuments((documents) => [
+      ...documents,
+      {
+        id: Date.now() + Math.random(),
+        folderId: addDocumentFolderId,
+        fileName: selectedUploadFile.name,
+        fileSize: selectedUploadFile.size,
+        file: selectedUploadFile,
+        showInPortal: showDocumentInPortal,
+        uploadedOn: new Date().toISOString().slice(0, 10),
+      },
+    ])
+    closeAddDocumentModal()
+    toast("Document added to folder", "success")
+  }
+  const downloadFolderDocument = (document: (typeof folderDocuments)[number]) => {
+    const downloadUrl = URL.createObjectURL(document.file)
+    const anchor = window.document.createElement("a")
+    anchor.href = downloadUrl
+    anchor.download = document.fileName
+    anchor.style.display = "none"
+    window.document.body.appendChild(anchor)
+    anchor.click()
+    anchor.remove()
+    window.setTimeout(() => URL.revokeObjectURL(downloadUrl), 1000)
+  }
+  const deleteFolderDocument = () => {
+    if (!documentToDelete) return
+    const deletedDocument = folderDocuments.find(
+      (document) => document.id === documentToDelete.id && document.folderId === documentToDelete.folderId,
+    )
+    if (!deletedDocument) {
+      setDocumentToDelete(null)
+      return
+    }
+    const originalFolderName = orgFolders.find((folder) => folder.id === deletedDocument.folderId)?.name ?? "Unknown folder"
+    setTrashedDocuments((documents) => [...documents, { ...deletedDocument, originalFolderName }])
+    setFolderDocuments((documents) => documents.filter(
+      (document) => document.id !== documentToDelete.id || document.folderId !== documentToDelete.folderId,
+    ))
+    setDocumentToDelete(null)
+  }
+  const saveEditedFolderDocument = () => {
+    if (!editingDocument) return
+    if (editingDocumentFolderId === null || !orgFolders.some((folder) => folder.id === editingDocumentFolderId)) {
+      setEditingDocumentFolderError("Please select a folder.")
+      return
+    }
+    setFolderDocuments((documents) => documents.map((document) =>
+      document.id === editingDocument.id
+        ? { ...document, folderId: editingDocumentFolderId, showInPortal: editingDocumentPortalValue }
+        : document,
+    ))
+    setEditingDocument(null)
+    setEditingDocumentFolderId(null)
+    setEditingDocumentFolderError("")
+    toast("Document details updated", "success")
+  }
+  const moveFolderDocument = (documentId: number, folderId: number) => {
+    setFolderDocuments((documents) => documents.map((document) =>
+      document.id === documentId ? { ...document, folderId } : document,
+    ))
+    setOpenDocumentMenuId(null)
+    setOpenMoveMenuId(null)
+    setOpenDocumentMenuPosition(null)
+  }
+  const deleteSelectedFolderDocuments = () => {
+    const selectedDocuments = folderDocuments.filter((document) => selectedFolderDocumentIds.includes(document.id))
+    setTrashedDocuments((documents) => [
+      ...documents,
+      ...selectedDocuments.map((document) => ({
+        ...document,
+        originalFolderName: orgFolders.find((folder) => folder.id === document.folderId)?.name ?? "Unknown folder",
+      })),
+    ])
+    setFolderDocuments((documents) => documents.filter((document) => !selectedFolderDocumentIds.includes(document.id)))
+    setSelectedFolderDocumentIds([])
+    setIsBulkDeleteConfirmOpen(false)
+  }
+  const restoreSelectedOrganizationTrash = () => {
+    const selectedDocuments = trashedDocuments.filter((document) => selectedTrashDocumentIds.includes(document.id))
+    const restorableDocuments = selectedDocuments.filter((document) => orgFolders.some((folder) => folder.id === document.folderId))
+    const unavailableDocuments = selectedDocuments.filter((document) => !orgFolders.some((folder) => folder.id === document.folderId))
+    if (restorableDocuments.length) {
+      setFolderDocuments((documents) => [...documents, ...restorableDocuments.map(({ originalFolderName: _originalFolderName, ...document }) => document)])
+      const restoredIds = new Set(restorableDocuments.map((document) => document.id))
+      setTrashedDocuments((documents) => documents.filter((document) => !restoredIds.has(document.id)))
+      toast(`${restorableDocuments.length} document(s) restored successfully.`, "success")
+    }
+    if (unavailableDocuments.length) {
+      toast(`Could not restore ${unavailableDocuments.length} document(s): the original folder no longer exists. These documents remain in Trash.`, "warning")
+    }
+    setSelectedTrashDocumentIds([])
+  }
+  const permanentlyDeleteSelectedOrganizationTrash = () => {
+    const selectedIds = new Set(selectedTrashDocumentIds)
+    setTrashedDocuments((documents) => documents.filter((document) => !selectedIds.has(document.id)))
+    setSelectedTrashDocumentIds([])
+    setIsTrashPermanentDeleteConfirmOpen(false)
+    toast("Document(s) permanently deleted successfully.", "success")
+  }
+  const setSelectedFolderDocumentsPortal = (visible: boolean) => {
+    setFolderDocuments((documents) => documents.map((document) =>
+      selectedFolderDocumentIds.includes(document.id) ? { ...document, showInPortal: visible } : document,
+    ))
+  }
+  const moveSelectedFolderDocuments = (folderId: number) => {
+    setFolderDocuments((documents) => documents.map((document) =>
+      selectedFolderDocumentIds.includes(document.id) ? { ...document, folderId } : document,
+    ))
+  }
+  const renderFolderDocumentMenu = (document: (typeof folderDocuments)[number]) => (
+    <div style={{ position: "relative", flex: "0 0 auto" }}>
+      <button
+        type="button"
+        aria-label={`Actions for ${document.fileName}`}
+        title="Document actions"
+        onClick={(event) => {
+          if (openDocumentMenuId === document.id) {
+            setOpenDocumentMenuId(null)
+            setOpenMoveMenuId(null)
+            setOpenDocumentMenuPosition(null)
+            return
+          }
+          const rect = event.currentTarget.getBoundingClientRect()
+          const menuWidth = 168
+          const menuHeight = Math.min(260, window.innerHeight - 16)
+          const left = Math.max(8, Math.min(rect.right - menuWidth, window.innerWidth - menuWidth - 8))
+          const top = rect.bottom + menuHeight > window.innerHeight ? Math.max(8, rect.top - menuHeight - 4) : rect.bottom + 4
+          setOpenDocumentMenuPosition({ top, left })
+          setOpenDocumentMenuId(document.id)
+          setOpenMoveMenuId(null)
+        }}
+        style={{ display: "inline-flex", width: 30, height: 30, alignItems: "center", justifyContent: "center", border: `1px solid ${F.border}`, borderRadius: 5, background: F.card, color: F.text2, cursor: "pointer" }}
+      >
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><circle cx="3" cy="8" r="1.3" /><circle cx="8" cy="8" r="1.3" /><circle cx="13" cy="8" r="1.3" /></svg>
+      </button>
+      {openDocumentMenuId === document.id && (
+        <div style={{ position: "fixed", top: openDocumentMenuPosition?.top ?? 0, left: openDocumentMenuPosition?.left ?? 0, zIndex: 1000, width: 168, maxHeight: "calc(100vh - 16px)", overflowY: "auto", padding: 4, background: F.card, border: `1px solid ${F.border}`, borderRadius: 6, boxShadow: "0 6px 18px rgba(15,23,42,0.16)" }}>
+          <button type="button" onClick={() => { setEditingDocument(document); setEditingDocumentPortalValue(document.showInPortal); setEditingDocumentFolderId(document.folderId); setEditingDocumentFolderError(""); setOpenDocumentMenuId(null); setOpenDocumentMenuPosition(null) }} style={{ display: "block", width: "100%", padding: "8px 10px", border: 0, borderRadius: 4, background: "transparent", color: F.text1, textAlign: "left", cursor: "pointer", font: "inherit", fontSize: 13 }}>Edit</button>
+          <button type="button" onClick={() => setOpenMoveMenuId(openMoveMenuId === document.id ? null : document.id)} style={{ display: "block", width: "100%", padding: "8px 10px", border: 0, borderRadius: 4, background: "transparent", color: F.text1, textAlign: "left", cursor: "pointer", font: "inherit", fontSize: 13 }}>Move To</button>
+          {openMoveMenuId === document.id && (
+            <div style={{ maxHeight: 180, overflowY: "auto", borderTop: `1px solid ${F.border}`, paddingTop: 4 }}>
+              {orgFolders.map((folder) => (
+                <button key={folder.id} type="button" disabled={folder.id === document.folderId} onClick={() => moveFolderDocument(document.id, folder.id)} style={{ display: "block", width: "100%", padding: "7px 10px", border: 0, borderRadius: 4, background: folder.id === document.folderId ? F.infoBg : "transparent", color: F.text1, textAlign: "left", cursor: folder.id === document.folderId ? "default" : "pointer", font: "inherit", fontSize: 12 }}>{folder.name}</button>
+              ))}
+              {orgFolders.length === 0 && <div style={{ padding: "7px 10px", color: F.text3, fontSize: 12 }}>No folders available</div>}
+            </div>
+          )}
+          <button type="button" onClick={() => { setDocumentToDelete({ id: document.id, folderId: document.folderId }); setOpenDocumentMenuId(null); setOpenMoveMenuId(null); setOpenDocumentMenuPosition(null) }} style={{ display: "block", width: "100%", padding: "8px 10px", border: 0, borderRadius: 4, background: "transparent", color: F.error, textAlign: "left", cursor: "pointer", font: "inherit", fontSize: 13 }}>Delete</button>
+        </div>
+      )}
+    </div>
+  )
+  const allOrganizationFolderDocuments = folderDocuments
+    .filter((document) => {
+      const folderName = orgFolders.find((folder) => folder.id === document.folderId)?.name ?? ""
+      return searchMatches(search, [document.fileName, folderName])
+    })
+    .sort((a, b) => b.uploadedOn.localeCompare(a.uploadedOn))
+  const formatFileSize = (bytes: number) => {
+    if (bytes < 1024) return `${bytes} B`
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+    return `${(bytes / (1024 * 1024)).toFixed(2)} MB`
+  }
+  const orgFolderOptions = orgFolders.map((folder) => ({ value: String(folder.id), label: folder.name }))
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
-      <PH
-        title="Documents"
-        sub="Upload, publish, and assign organization documents to employees"
-        action={<Btn onClick={() => setShowAdd(true)}>+ Add Document</Btn>}
-      />
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12 }}>
-        <Tile label="Total Documents" value={String(docs.length)} sub="HR, payroll, and compliance files" accent={F.brand} />
-        <Tile label="Published" value={String(docs.filter((d) => d.status === "Published").length)} sub="Visible to assigned employees" accent={F.success} />
-        <Tile label="Drafts" value={String(docs.filter((d) => d.status === "Draft").length)} sub="Pending final release" accent={F.warning} />
-        <Tile label="Assignments" value={String(docs.reduce((s, d) => s + d.assignedCount, 0))} sub="Employee-document links" accent="#00A389" />
-      </div>
+    <div style={{ display: "flex", flexDirection: "column", gap: 18, minHeight: "calc(100vh - 120px)" }}>
       <div
         style={{
-          background: F.card,
-          border: `1px solid ${F.border}`,
-          borderRadius: 8,
-          padding: 14,
-          display: "flex",
-          gap: 10,
-          alignItems: "flex-end",
-          flexWrap: "wrap",
+          order: 0,
+          display: selectedFolder || isTrashOpen ? "none" : "block",
         }}
       >
-        <div style={{ flex: "1 1 260px" }}>
+        <div style={{ width: 346, maxWidth: "100%" }}>
+          <div style={{ marginBottom: 3, fontSize: 11, fontWeight: 600, color: F.text2, textTransform: "uppercase", letterSpacing: "0.06em" }}>Search Documents</div>
+          <div style={{ display: "flex", alignItems: "stretch", gap: 8 }}>
           <ValueHelp
-            label="Search Documents"
             value={search}
             onChange={setSearch}
             placeholder="Search title, assignment, or notes..."
             values={docs.map((d) => d.title)}
+            inputStyle={{ height: 38 }}
+            showInnerSearch={false}
           />
+            <Btn
+              small
+              variant="secondary"
+              title="Open document filters"
+              onClick={() => setShowOrgDocFilterPanel((open) => !open)}
+              style={{ position: "relative", flex: "0 0 38px", width: 38, height: 38, alignSelf: "flex-start", justifyContent: "center", padding: 0 }}
+            >
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="M4 6h16M7 12h10m-7 6h4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+              </svg>
+              {orgDocActiveFilters > 0 && <span style={{ position: "absolute", top: -5, right: -5, minWidth: 16, height: 16, padding: "0 3px", borderRadius: 8, background: F.brand, color: "#fff", fontSize: 10, lineHeight: "16px", fontWeight: 800 }}>{orgDocActiveFilters}</span>}
+            </Btn>
+          </div>
         </div>
-        <Fld label="Category">
-          <select value={category} onChange={(e) => setCategory(e.target.value)} style={{ ...iSt, width: 160 }}>
-            <option>All</option>
-            {categories.map((c) => <option key={c}>{c}</option>)}
-          </select>
-        </Fld>
-        <Fld label="Status">
-          <select value={status} onChange={(e) => setStatus(e.target.value)} style={{ ...iSt, width: 140 }}>
-            <option>All</option>
-            <option>Published</option>
-            <option>Draft</option>
-          </select>
-        </Fld>
-        <Fld label="Sort By">
-          <select value={docSort} onChange={(e) => setDocSort(e.target.value)} style={{ ...iSt, width: 170 }}>
-            <option value="created-desc">Newest First</option>
-            <option value="created-asc">Oldest First</option>
-            <option value="title-asc">Title A-Z</option>
-            <option value="title-desc">Title Z-A</option>
-            <option value="assigned-desc">Assignments High-Low</option>
-            <option value="status-asc">Status A-Z</option>
-          </select>
-        </Fld>
-        <ContextDateRangeFilter />
-        <Btn onClick={applyOrgDocFilters}>Go</Btn>
-        <Btn variant="secondary" onClick={clearOrgDocFilters}>
-          Clear Filters
-        </Btn>
-        {orgDocActiveFilters > 0 && (
-          <span style={{ fontSize: 12, color: F.text3, fontWeight: 700 }}>
-            {orgDocActiveFilters} active
-          </span>
-        )}
       </div>
-      <div style={{ background: F.card, border: `1px solid ${F.border}`, borderRadius: 8, overflow: "hidden" }}>
+      {showOrgDocFilterPanel && !selectedFolder && !isTrashOpen && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 14, padding: 14, background: F.card, border: `1px solid ${F.border}`, borderRadius: 8 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 180px), 1fr))", gap: 12, alignItems: "end" }}>
+            <Fld label="Category">
+              <select value={category} onChange={(event) => setCategory(event.target.value)} style={iSt}>
+                <option>All</option>
+                {categories.map((item) => <option key={item}>{item}</option>)}
+              </select>
+            </Fld>
+            <Fld label="Status">
+              <select value={status} onChange={(event) => setStatus(event.target.value)} style={iSt}>
+                <option>All</option>
+                <option>Published</option>
+                <option>Draft</option>
+              </select>
+            </Fld>
+            <Fld label="Sort By">
+              <select value={docSort} onChange={(event) => setDocSort(event.target.value)} style={iSt}>
+                <option value="created-desc">Newest First</option>
+                <option value="created-asc">Oldest First</option>
+                <option value="title-asc">Title A-Z</option>
+                <option value="title-desc">Title Z-A</option>
+                <option value="assigned-desc">Assignments High-Low</option>
+                <option value="status-asc">Status A-Z</option>
+              </select>
+            </Fld>
+            <Fld label="Record Date From">
+              <StrictDateInput ariaLabel="Record date from" value={dateFilter?.from ?? ""} onChange={(value) => dateFilter?.onFromChange(value)} style={iSt} />
+            </Fld>
+            <Fld label="Record Date To">
+              <StrictDateInput ariaLabel="Record date to" value={dateFilter?.to ?? ""} onChange={(value) => dateFilter?.onToChange(value)} style={iSt} />
+            </Fld>
+          </div>
+          <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, flexWrap: "wrap" }}>
+            <Btn variant="secondary" onClick={() => setShowOrgDocFilterPanel(false)}>Cancel</Btn>
+            <Btn onClick={applyOrgDocFilters}>Search</Btn>
+          </div>
+        </div>
+      )}
+      <div style={{ order: 1, display: "flex", alignItems: "center", gap: 8, borderBottom: activeDocumentsTab === "organization" ? "none" : `1px solid ${F.border}` }}>
+        <Btn variant={activeDocumentsTab === "organization" ? "primary" : "secondary"} onClick={() => setActiveDocumentsTab("organization")}>Organization Documents</Btn>
+        <Btn variant={activeDocumentsTab === "employee" ? "primary" : "secondary"} onClick={() => setActiveDocumentsTab("employee")}>Employee Documents</Btn>
+        <div style={{ flex: 1 }} />
+        {activeDocumentsTab === "organization" && !isTrashOpen && <Btn onClick={openAddDocumentModal}>+ Add Document</Btn>}
+      </div>
+      <div style={{ order: 3, display: activeDocumentsTab === "organization" ? "flex" : "none", flex: "1 1 auto", flexDirection: "column", minHeight: 0 }}>
+      <section style={{ display: "flex", flex: "1 1 auto", minHeight: 0, gap: 16, background: F.card, border: `1px solid ${F.border}`, borderRadius: 8, padding: 16 }}>
+        <aside style={{ display: "flex", flexDirection: "column", minHeight: 0, width: 220, flex: "0 0 220px", paddingRight: 14, borderRight: `1px solid ${F.border}` }}>
+          <button
+            type="button"
+            onClick={() => { setSelectedFolderId(null); setIsTrashOpen(false); setSelectedUploadFile(null); setOpenFolderMenuId(null) }}
+            style={{ display: "block", width: "100%", padding: "9px 10px", border: 0, borderRadius: 5, background: !selectedFolder && !isTrashOpen ? F.infoBg : "transparent", color: !selectedFolder && !isTrashOpen ? F.brand : F.text1, textAlign: "left", font: "inherit", fontSize: 13, fontWeight: 700, cursor: "pointer" }}
+          >
+            All Organization Documents
+          </button>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, margin: "18px 6px 8px 10px" }}>
+            <div style={{ color: F.text3, fontSize: 10, fontWeight: 800, letterSpacing: "0.08em" }}>ORG FOLDER</div>
+            <button type="button" aria-label="New organization folder" title="New Folder" onClick={openCreateFolder} style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 22, height: 22, padding: 0, border: 0, borderRadius: 4, background: "transparent", color: F.brand, fontSize: 18, fontWeight: 500, lineHeight: 1, cursor: "pointer" }}>+</button>
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 3, flex: 1, minHeight: 0, overflowY: "auto" }}>
+            {orgFolders.map((folder) => (
+              <div key={folder.id} style={{ position: "relative", display: "flex", alignItems: "center", gap: 4, padding: "3px 4px 3px 8px", borderRadius: 5, background: selectedFolderId === folder.id ? F.infoBg : "transparent" }}>
+                <button
+                  type="button"
+                  title={folder.name}
+                  onClick={() => { setSelectedFolderId(folder.id); setIsTrashOpen(false); setSelectedUploadFile(null); setOpenFolderMenuId(null) }}
+                  style={{ display: "flex", flex: 1, minWidth: 0, alignItems: "center", gap: 8, padding: "6px 2px", border: 0, background: "transparent", color: selectedFolderId === folder.id ? F.brand : F.text1, textAlign: "left", font: "inherit", fontSize: 12, fontWeight: selectedFolderId === folder.id ? 700 : 500, cursor: "pointer" }}
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true" style={{ flex: "0 0 auto" }}>
+                    <path d="M3.5 6.5A1.5 1.5 0 0 1 5 5h5l2 2h7A1.5 1.5 0 0 1 20.5 8.5v9A1.5 1.5 0 0 1 19 19H5a1.5 1.5 0 0 1-1.5-1.5z" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" />
+                  </svg>
+                  <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{folder.name}</span>
+                </button>
+                <button
+                  type="button"
+                  aria-label={`Actions for ${folder.name}`}
+                  title="Folder actions"
+                  onClick={() => setOpenFolderMenuId(openFolderMenuId === folder.id ? null : folder.id)}
+                  style={{ flex: "0 0 26px", width: 26, height: 26, border: 0, borderRadius: 4, background: "transparent", color: F.text2, fontSize: 19, lineHeight: 1, cursor: "pointer" }}
+                >
+                  ⋯
+                </button>
+                {openFolderMenuId === folder.id && (
+                  <div style={{ position: "absolute", top: 32, right: 2, zIndex: 5, minWidth: 112, padding: 4, background: F.card, border: `1px solid ${F.border}`, borderRadius: 6, boxShadow: "0 6px 18px rgba(15,23,42,0.16)" }}>
+                    <button type="button" onClick={() => editFolder(folder)} style={{ display: "block", width: "100%", padding: "8px 10px", border: 0, borderRadius: 4, background: "transparent", color: F.text1, textAlign: "left", cursor: "pointer", font: "inherit", fontSize: 13 }}>Edit</button>
+                    <button type="button" onClick={() => { setOpenFolderMenuId(null); setDeletingFolder({ id: folder.id, name: folder.name }) }} style={{ display: "block", width: "100%", padding: "8px 10px", border: 0, borderRadius: 4, background: "transparent", color: F.error, textAlign: "left", cursor: "pointer", font: "inherit", fontSize: 13 }}>Delete</button>
+                  </div>
+                )}
+              </div>
+            ))}
+            {orgFolders.length === 0 && <div style={{ padding: "6px 10px", color: F.text3, fontSize: 12 }}>No folders yet</div>}
+          </div>
+          <div style={{ marginTop: "auto", padding: "12px 10px 10px", borderTop: `1px solid ${F.border}` }}>
+            <div style={{ color: F.text2, fontSize: 12, fontWeight: 700 }}>Storage Limit</div>
+            <div style={{ marginTop: 4, color: F.text3, fontSize: 11 }}>1 GB / 100 employees</div>
+          </div>
+          <button
+            type="button"
+          onClick={() => { setSelectedFolderId(null); setIsTrashOpen(true); setSelectedUploadFile(null); setOpenFolderMenuId(null); setSelectedTrashDocumentIds([]) }}
+            style={{ display: "block", width: "100%", padding: "10px 10px 9px", border: 0, borderTop: `1px solid ${F.border}`, borderRadius: 0, background: isTrashOpen ? F.infoBg : "transparent", color: isTrashOpen ? F.brand : F.text1, textAlign: "left", font: "inherit", fontSize: 13, fontWeight: isTrashOpen ? 700 : 500, cursor: "pointer" }}
+          >
+            Trash
+          </button>
+        </aside>
+        <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 0 }}>
+          {isTrashOpen ? (
+            <>
+              <span style={{ fontSize: 16, fontWeight: 800, color: F.text1 }}>Trash</span>
+              <Btn small variant="secondary" onClick={() => setIsTrashOpen(false)}>← Back to Organization Documents</Btn>
+            </>
+          ) : selectedFolder ? (
+            <>
+              <Btn small variant="secondary" onClick={() => { setSelectedFolderId(null); setSelectedUploadFile(null) }}>← All Organization Documents</Btn>
+              <span style={{ fontSize: 16, fontWeight: 800, color: F.text1 }}>Folder Details</span>
+            </>
+          ) : (
+            <>
+              <div style={{ fontSize: 16, fontWeight: 800, color: F.text1 }}>Organization Documents</div>
+            </>
+          )}
+        </div>
+        {isTrashOpen ? (
+          trashedDocuments.length === 0 ? (
+            <div style={{ padding: "32px 16px", border: `1px dashed ${F.border}`, borderRadius: 6, color: F.text3, textAlign: "center", fontSize: 14 }}>
+              No documents in Trash
+            </div>
+          ) : (
+            <div style={{ border: `1px solid ${F.border}`, borderRadius: 8, overflow: "hidden" }}>
+              {selectedTrashDocumentIds.length > 0 && (
+                <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", padding: "10px 14px", borderBottom: `1px solid ${F.border}`, background: F.pageBg }}>
+                  <strong style={{ fontSize: 12, color: F.text1 }}>{selectedTrashDocumentIds.length} selected</strong>
+                  <Btn small variant="secondary" onClick={restoreSelectedOrganizationTrash}>Restore</Btn>
+                  <Btn small variant="danger" onClick={() => setIsTrashPermanentDeleteConfirmOpen(true)}>Delete Permanently</Btn>
+                </div>
+              )}
+              <div style={{ overflowX: "auto" }}>
+                <table style={{ width: "100%", minWidth: 560, borderCollapse: "collapse", tableLayout: "fixed" }}>
+                  <colgroup><col style={{ width: 42 }} /><col style={{ width: "45%" }} /><col style={{ width: "35%" }} /><col style={{ width: "20%" }} /></colgroup>
+                  <thead><tr>
+                    <th style={{ padding: "10px 8px", borderBottom: `1px solid ${F.border}` }}><input type="checkbox" aria-label="Select all trashed organization documents" checked={trashedDocuments.length > 0 && trashedDocuments.every((document) => selectedTrashDocumentIds.includes(document.id))} onChange={(event) => setSelectedTrashDocumentIds(event.target.checked ? trashedDocuments.map((document) => document.id) : [])} /></th>
+                    <Th>File Name</Th><Th>Original Folder</Th><Th right>Size</Th>
+                  </tr></thead>
+                  <tbody>{trashedDocuments.map((document) => (
+                    <TrH key={document.id}>
+                      <Td><input type="checkbox" aria-label={`Select ${document.fileName}`} checked={selectedTrashDocumentIds.includes(document.id)} onChange={(event) => setSelectedTrashDocumentIds((ids) => event.target.checked ? [...ids, document.id] : ids.filter((id) => id !== document.id))} /></Td>
+                      <Td><div style={{ fontWeight: 700 }}>{document.fileName}</div></Td><Td>{document.originalFolderName}</Td><Td right>{formatFileSize(document.fileSize)}</Td>
+                    </TrH>
+                  ))}</tbody>
+                </table>
+              </div>
+            </div>
+          )
+        ) : selectedFolder ? (
+          <div>
+            <div style={{ fontSize: 22, fontWeight: 800, color: F.text1 }}>{selectedFolder.name}</div>
+            {selectedFolder.description && <div style={{ marginTop: 6, color: F.text2, fontSize: 13 }}>{selectedFolder.description}</div>}
+            <div
+              onDragEnter={(event) => { event.preventDefault(); setIsFolderDropActive(true) }}
+              onDragOver={(event) => { event.preventDefault(); event.dataTransfer.dropEffect = "copy"; setIsFolderDropActive(true) }}
+              onDragLeave={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setIsFolderDropActive(false) }}
+              onDrop={(event) => { event.preventDefault(); setIsFolderDropActive(false); setFolderUploadFile(event.dataTransfer.files[0]) }}
+              style={{ marginTop: 20, padding: "36px 16px", border: `2px dashed ${isFolderDropActive ? F.brand : F.border}`, borderRadius: 8, background: isFolderDropActive ? F.infoBg : F.pageBg, color: F.text3, textAlign: "center", transition: "border-color 0.15s, background 0.15s" }}
+            >
+              <input
+                ref={folderFileInputRef}
+                type="file"
+                aria-label="Choose a document file"
+                accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png"
+                onChange={(event) => { setFolderUploadFile(event.target.files?.[0]); event.target.value = "" }}
+                style={{ display: "none" }}
+              />
+              <div style={{ display: "flex", justifyContent: "center", marginBottom: 12, color: F.brand }}>
+                <svg width="38" height="38" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                  <path d="M12 16V4m0 0L7.5 8.5M12 4l4.5 4.5M5 14.5v4A1.5 1.5 0 0 0 6.5 20h11a1.5 1.5 0 0 0 1.5-1.5v-4" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </div>
+                <>
+                  <div style={{ fontSize: 16, fontWeight: 800, color: F.text1 }}>Drag &amp; Drop File Here</div>
+                  <div style={{ marginTop: 6, fontSize: 13, color: F.text2 }}>Drag and drop a file into this area, or choose a file from your device.</div>
+                  <Btn onClick={() => folderFileInputRef.current?.click()} style={{ marginTop: 16 }}>Choose File to Upload</Btn>
+                  <div style={{ marginTop: 12, fontSize: 11, color: F.text3 }}>PDF, DOC, DOCX, XLS, XLSX, JPG, or PNG · Maximum file size: 10 MB</div>
+                </>
+
+            </div>
+            {folderUploadError && <div role="alert" style={{ marginTop: 8, color: F.error, fontSize: 12, fontWeight: 600 }}>{folderUploadError}</div>}
+          </div>
+        ) : null}
+        {!selectedFolder && !isTrashOpen && allOrganizationFolderDocuments.length > 0 && (
+          <div style={{ background: F.card, border: `1px solid ${F.border}`, borderRadius: 8, overflow: "hidden" }}>
+            <div style={{ padding: "14px 16px", fontSize: 15, fontWeight: 800, color: F.text1 }}>All Organization Documents</div>
+            {selectedFolderDocumentIds.length > 0 && (
+              <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", padding: "10px 14px", borderBottom: `1px solid ${F.border}`, background: F.pageBg }}>
+                <strong style={{ marginRight: 4, fontSize: 12, color: F.text1 }}>{selectedFolderDocumentIds.length} Documents selected</strong>
+                <div style={{ position: "relative" }}>
+                  <Btn small variant="secondary" onClick={() => setIsBulkMoveMenuOpen((open) => !open)}>Move To ▾</Btn>
+                  {isBulkMoveMenuOpen && <div style={{ position: "absolute", top: 34, left: 0, zIndex: 10, width: 190, maxHeight: 220, overflowY: "auto", padding: 4, background: F.card, border: `1px solid ${F.border}`, borderRadius: 6, boxShadow: "0 6px 18px rgba(15,23,42,0.16)" }}>{orgFolders.map((folder) => <button key={folder.id} type="button" onClick={() => { moveSelectedFolderDocuments(folder.id); setIsBulkMoveMenuOpen(false) }} style={{ display: "block", width: "100%", padding: "8px 10px", border: 0, borderRadius: 4, background: "transparent", color: F.text1, textAlign: "left", cursor: "pointer", font: "inherit", fontSize: 12 }}>{folder.name}</button>)}</div>}
+                </div>
+                <Btn small variant="secondary" onClick={() => setSelectedFolderDocumentsPortal(true)}>Show in Portal</Btn>
+                <Btn small variant="secondary" onClick={() => setSelectedFolderDocumentsPortal(false)}>Hide in Portal</Btn>
+                <Btn small variant="secondary" onClick={() => { setIsBulkMoveMenuOpen(false); toast("Share via Mail is available in a future update.", "info") }}>Share via Mail</Btn>
+                <Btn small variant="danger" onClick={() => setIsBulkDeleteConfirmOpen(true)}>Delete</Btn>
+                <div style={{ flex: 1 }} />
+                <button type="button" aria-label="Clear document selection" title="Clear selection" onClick={() => { setSelectedFolderDocumentIds([]); setIsBulkMoveMenuOpen(false) }} style={{ width: 28, height: 28, border: 0, borderRadius: 4, background: "transparent", color: F.text2, fontSize: 19, cursor: "pointer" }}>×</button>
+              </div>
+            )}
+            <div style={{ overflowX: "auto" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", tableLayout: "fixed", minWidth: 933 }}>
+                <colgroup>
+                  <col style={{ width: 38 }} />
+                  <col style={{ width: 270 }} />
+                  <col style={{ width: 165 }} />
+                  <col style={{ width: 120 }} />
+                  <col style={{ width: 135 }} />
+                  <col style={{ width: 205 }} />
+                </colgroup>
+                <thead><tr>
+                  <th style={{ width: 38, padding: "10px 8px", borderBottom: `1px solid ${F.border}` }}><input type="checkbox" aria-label="Select all visible documents" checked={allOrganizationFolderDocuments.length > 0 && allOrganizationFolderDocuments.every((document) => selectedFolderDocumentIds.includes(document.id))} onChange={(event) => setSelectedFolderDocumentIds(event.target.checked ? allOrganizationFolderDocuments.map((document) => document.id) : [])} /></th>
+                  <Th>File Name</Th><Th>Folder Name</Th><Th>Name</Th><Th>Uploaded On</Th><Th right>Actions</Th>
+                </tr></thead>
+                <tbody>
+                  {allOrganizationFolderDocuments.map((document) => {
+                    const folderName = orgFolders.find((folder) => folder.id === document.folderId)?.name ?? "Folder unavailable"
+                    return (
+                      <TrH key={document.id}>
+                        <Td><input type="checkbox" aria-label={`Select ${document.fileName}`} checked={selectedFolderDocumentIds.includes(document.id)} onChange={(event) => setSelectedFolderDocumentIds((ids) => event.target.checked ? [...ids, document.id] : ids.filter((id) => id !== document.id))} /></Td>
+                        <Td><div style={{ fontWeight: 700 }}>{document.fileName}</div><div style={{ marginTop: 3, color: F.text3, fontSize: 11 }}>{formatFileSize(document.fileSize)}</div></Td>
+                        <Td>{folderName}</Td>
+                        <Td>Organization</Td>
+                        <Td>{fmtD(document.uploadedOn)}</Td>
+                        <Td right>
+                          <div style={{ display: "flex", width: "100%", alignItems: "center", justifyContent: "flex-end", gap: 6, whiteSpace: "nowrap" }}>
+                            <Btn small variant="secondary" onClick={() => setPreviewingDocument(document)}>Preview</Btn>
+                            <Btn small variant="secondary" onClick={() => downloadFolderDocument(document)}>Download</Btn>
+                            {renderFolderDocumentMenu(document)}
+                          </div>
+                        </Td>
+                      </TrH>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+        </div>
+      </section>
+      {showOrgFolderUploadModal && selectedUploadFile && selectedFolder && (
+        <Modal title={`New ${selectedFolder.name} Document`} onClose={closeOrgFolderUploadModal}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+            <div>
+              <div style={{ marginBottom: 8, color: F.text3, fontSize: 11, fontWeight: 800, letterSpacing: "0.07em" }}>SELECTED DOCUMENT</div>
+              <div style={{ display: "flex", alignItems: "center", gap: 12, padding: 12, border: `1px solid ${F.border}`, borderRadius: 7, background: F.card }}>
+                <div aria-hidden="true" style={{ width: 42, height: 48, flex: "0 0 auto", display: "flex", alignItems: "center", justifyContent: "center", border: `1px solid ${F.border}`, borderRadius: 5, background: F.pageBg, color: F.brand, fontSize: 10, fontWeight: 800 }}>
+                  {(selectedUploadFile.name.split(".").pop() ?? "FILE").toUpperCase().slice(0, 5)}
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ color: F.text1, fontSize: 13, fontWeight: 700, overflowWrap: "anywhere" }}>{selectedUploadFile.name}</div>
+                  <div style={{ marginTop: 4, color: F.text3, fontSize: 12 }}>{formatFileSize(selectedUploadFile.size)}</div>
+                </div>
+                <button
+                  type="button"
+                  aria-label="Remove selected file"
+                  title="Remove selected file"
+                  onClick={closeOrgFolderUploadModal}
+                  style={{ width: 32, height: 32, flex: "0 0 auto", display: "flex", alignItems: "center", justifyContent: "center", border: 0, borderRadius: 5, background: "transparent", color: F.text2, cursor: "pointer" }}
+                >
+                  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                    <path d="M4 7h16M10 11v6m4-6v6M6 7l1 13h10l1-13M9 7V4h6v3" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+            <Fld label="Folder Name *">
+              <EmployeeDocumentDropdown
+                options={orgFolderOptions}
+                value={folderUploadFolderId === null ? "" : String(folderUploadFolderId)}
+                onChange={(value) => { setFolderUploadFolderId(Number(value)); setFolderUploadError("") }}
+                placeholder="Select Folder Name"
+                searchPlaceholder="Search available folders..."
+                emptyMessage="No folders found."
+              />
+            </Fld>
+            {folderUploadError && <div role="alert" style={{ marginTop: -10, color: F.error, fontSize: 12, fontWeight: 600 }}>{folderUploadError}</div>}
+            <div style={{ marginTop: -10, color: F.text3, fontSize: 12 }}>
+              Ensure you've uploaded only the appropriate document to this folder.
+            </div>
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, paddingTop: 4, borderTop: `1px solid ${F.border}` }}>
+              <Btn onClick={saveFolderDocument}>Save File</Btn>
+              <Btn variant="secondary" onClick={closeOrgFolderUploadModal}>Cancel</Btn>
+            </div>
+          </div>
+        </Modal>
+      )}
+      {!selectedFolder && !isTrashOpen && filteredDocs.length > 0 && <div style={{ order: 5, background: F.card, border: `1px solid ${F.border}`, borderRadius: 8, overflow: "hidden" }}>
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>
             <tr>
@@ -23122,9 +23697,7 @@ function OrgDocumentsView({
             </tr>
           </thead>
           <tbody>
-            {filteredDocs.length === 0 ? (
-              <tr><td colSpan={7} style={{ padding: 40, textAlign: "center", color: F.text3 }}>No documents match the selected filters.</td></tr>
-            ) : filteredDocs.map((doc) => (
+            {filteredDocs.map((doc) => (
               <TrH key={doc.id}>
                 <Td>
                   <div style={{ fontWeight: 800 }}>{doc.title}</div>
