@@ -7,6 +7,7 @@ import React, {
   useRef,
   Fragment,
 } from "react"
+import { flushSync } from "react-dom"
 
 const F = {
   shell: "#FFFFFF",
@@ -1645,12 +1646,16 @@ function ValueHelp({
   placeholder,
   values,
   label,
+  inputStyle,
+  showInnerSearch = true,
 }: {
   value: string
   onChange: (v: string) => void
   placeholder?: string
   values: string[]
   label?: string
+  inputStyle?: React.CSSProperties
+  showInnerSearch?: boolean
 }) {
   const [open, setOpen] = useState(false)
   const [inner, setInner] = useState("")
@@ -1703,6 +1708,7 @@ function ValueHelp({
           placeholder={placeholder ?? "Search…"}
           style={{
             ...iSt,
+            ...inputStyle,
             paddingLeft: 10,
             paddingRight: value ? 28 : 10,
             border: `1px solid ${open ? F.brand : F.border}`,
@@ -1755,6 +1761,8 @@ function ValueHelp({
           }}
         >
           {/* Inner search — no autoFocus; stays open because dropHover is true */}
+          {showInnerSearch && (
+            <>
           <div
             style={{
               padding: "8px 10px",
@@ -1774,6 +1782,8 @@ function ValueHelp({
               />
             </div>
           </div>
+            </>
+          )}
 
           <div style={{ maxHeight: 240, overflowY: "auto" }}>
             {filtered.length === 0 && (
@@ -2358,16 +2368,20 @@ function PayslipSheet({
 }
 
 function Confirm({
+  title,
   msg,
   onOk,
   onCancel,
   okLabel = "Confirm",
+  cancelLabel = "Cancel",
   danger,
 }: {
+  title?: string
   msg: string
   onOk: () => void
   onCancel: () => void
   okLabel?: string
+  cancelLabel?: string
   danger?: boolean
 }) {
   return (
@@ -2393,6 +2407,7 @@ function Confirm({
           boxShadow: "0 8px 32px rgba(0,0,0,0.2)",
         }}
       >
+        {title && <h2 style={{ margin: "0 0 12px", fontSize: 16, fontWeight: 700, color: F.text1 }}>{title}</h2>}
         <p
           style={{
             margin: "0 0 20px",
@@ -2405,7 +2420,7 @@ function Confirm({
         </p>
         <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
           <Btn variant="secondary" onClick={onCancel}>
-            Cancel
+            {cancelLabel}
           </Btn>
           <Btn variant={danger ? "danger" : "primary"} onClick={onOk}>
             {okLabel}
@@ -23753,118 +23768,982 @@ function OrgDocumentsView({
             ))}
           </tbody>
         </table>
-      </div>
+      </div>}
 
+      {documentToDelete && (
+        <Confirm
+          msg="Are you sure you want to delete the document?"
+          okLabel="Yes"
+          cancelLabel="No"
+          danger
+          onCancel={() => setDocumentToDelete(null)}
+          onOk={deleteFolderDocument}
+        />
+      )}
+      {isBulkDeleteConfirmOpen && (
+        <Confirm
+          msg="Are you sure you want to delete the selected document(s)?"
+          okLabel="Yes"
+          cancelLabel="No"
+          danger
+          onCancel={() => setIsBulkDeleteConfirmOpen(false)}
+          onOk={deleteSelectedFolderDocuments}
+        />
+      )}
+      {(editingDocument || previewingDocument) && (() => {
+        const document = editingDocument ?? previewingDocument
+        if (!document) return null
+        const documentFolderName = orgFolders.find((folder) => folder.id === document.folderId)?.name ?? "Folder unavailable"
+        const isPreviewDrawer = previewingDocument !== null
+        const previewKind = getPreviewKind(document.file)
+        return (
+          <div onClick={() => { setEditingDocument(null); setPreviewingDocument(null) }} style={{ position: "fixed", inset: 0, zIndex: 400, background: "rgba(15,23,42,0.38)" }}>
+            <aside onClick={(event) => event.stopPropagation()} aria-label={isPreviewDrawer ? "Document preview" : "Edit document details"} style={{ position: "absolute", top: 0, right: 0, bottom: 0, display: "flex", flexDirection: "column", width: 560, maxWidth: "100vw", background: F.card, boxShadow: "-12px 0 32px rgba(15,23,42,0.18)" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "18px 22px", borderBottom: `1px solid ${F.border}`, background: F.pageBg }}>
+                <button type="button" aria-label="Close panel" onClick={() => { setEditingDocument(null); setPreviewingDocument(null) }} style={{ border: 0, background: "transparent", color: F.text2, fontSize: 21, cursor: "pointer" }}>←</button>
+                <div style={{ minWidth: 0, flex: 1, fontSize: 16, fontWeight: 800, color: F.text1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{isPreviewDrawer ? document.fileName : "Edit Document Details"}</div>
+                <button type="button" aria-label="Close panel" onClick={() => { setEditingDocument(null); setPreviewingDocument(null) }} style={{ border: 0, background: "transparent", color: F.text2, fontSize: 22, cursor: "pointer" }}>×</button>
+              </div>
+              <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: 22 }}>
+                {isPreviewDrawer ? (
+                  <>
+                    <div style={{ minHeight: 300, display: "flex", alignItems: "center", justifyContent: "center", padding: 12, border: `1px solid ${F.border}`, borderRadius: 6, background: F.pageBg }}>
+                      {previewKind === "unsupported" ? (
+                        <div style={{ textAlign: "center", color: F.text2 }}><div style={{ marginBottom: 12 }}>This file cannot be previewed</div><Btn small variant="secondary" onClick={() => downloadFolderDocument(document)}>Download</Btn></div>
+                      ) : documentPreviewUrl ? (
+                        previewKind === "pdf"
+                          ? <iframe title={`Preview of ${document.fileName}`} src={documentPreviewUrl} style={{ width: "100%", height: 460, border: 0 }} />
+                          : <img src={documentPreviewUrl} alt={document.fileName} style={{ maxWidth: "100%", maxHeight: 460, objectFit: "contain" }} />
+                      ) : <div style={{ color: F.text2 }}>Preparing preview...</div>}
+                    </div>
+                    <div style={{ marginTop: 22, fontSize: 14, fontWeight: 800, color: F.text1 }}>Document Information</div>
+                    <div style={{ display: "grid", gridTemplateColumns: "130px minmax(0, 1fr)", gap: "12px 10px", marginTop: 14, fontSize: 13 }}>
+                      <span style={{ color: F.text3 }}>File Name</span><span style={{ color: F.text1, overflowWrap: "anywhere" }}>{document.fileName}</span>
+                      <span style={{ color: F.text3 }}>File Size / Type</span><span style={{ color: F.text1 }}>{formatFileSize(document.fileSize)} · {document.file.type || document.fileName.split(".").pop()?.toUpperCase() || "File"}</span>
+                      <span style={{ color: F.text3 }}>Folder</span><span style={{ color: F.text1 }}>{documentFolderName}</span>
+                      <span style={{ color: F.text3 }}>Show in Portal</span><span style={{ color: F.text1 }}>{document.showInPortal ? "Yes" : "No"}</span>
+                    </div>
+                  </>
+                ) : (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+                    <div style={{ padding: 14, border: `1px solid ${F.border}`, borderRadius: 6, background: F.pageBg }}>
+                      <div style={{ color: F.text1, fontSize: 14, fontWeight: 700, overflowWrap: "anywhere" }}>{document.fileName}</div>
+                      <div style={{ marginTop: 6, color: F.text3, fontSize: 12 }}>{formatFileSize(document.fileSize)} · {document.file.type || document.fileName.split(".").pop()?.toUpperCase() || "File"}</div>
+                    </div>
+                    <div style={{ display: "grid", gridTemplateColumns: "110px minmax(0, 1fr)", gap: "12px 10px", fontSize: 13 }}>
+                      <span style={{ color: F.text3 }}>Uploaded On</span><span style={{ color: F.text1 }}>{fmtD(document.uploadedOn)}</span>
+                    </div>
+                    <Fld label="Folder Name *">
+                      <EmployeeDocumentDropdown
+                        options={orgFolderOptions}
+                        value={editingDocumentFolderId === null ? "" : String(editingDocumentFolderId)}
+                        onChange={(value) => { setEditingDocumentFolderId(Number(value)); setEditingDocumentFolderError("") }}
+                        placeholder="Select Folder Name"
+                        searchPlaceholder="Search available folders..."
+                        emptyMessage="No folders found."
+                      />
+                    </Fld>
+                    {editingDocumentFolderError && <div style={{ marginTop: -12, color: F.error, fontSize: 12, fontWeight: 600 }}>{editingDocumentFolderError}</div>}
+                    <label style={{ display: "flex", alignItems: "center", gap: 9, color: F.text1, fontSize: 13, cursor: "pointer" }}>
+                      <input type="checkbox" checked={editingDocumentPortalValue} onChange={(event) => setEditingDocumentPortalValue(event.target.checked)} />
+                      Show document in portal
+                    </label>
+                  </div>
+                )}
+              </div>
+              {!isPreviewDrawer && <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, padding: 16, borderTop: `1px solid ${F.border}` }}><Btn onClick={saveEditedFolderDocument}>Save</Btn><Btn variant="secondary" onClick={() => { setEditingDocument(null); setEditingDocumentFolderId(null); setEditingDocumentFolderError("") }}>Cancel</Btn></div>}
+            </aside>
+          </div>
+        )
+      })()}
       {showAdd && (
-        <Modal title="Add Organization Document" onClose={() => setShowAdd(false)}>
-          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-            <Fld label="Document Title">
-              <input value={draft.title} onChange={(e) => setDraft({ ...draft, title: e.target.value })} style={iSt} placeholder="e.g. Leave Policy FY 2026" />
-            </Fld>
-            <Fld label="Upload Document">
-              <label
-                style={{
-                  border: `1px dashed ${draft.fileName ? F.brand : F.border}`,
-                  borderRadius: 8,
-                  background: draft.fileName ? F.infoBg : F.pageBg,
-                  padding: "16px 18px",
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  gap: 14,
-                  cursor: "pointer",
-                }}
-              >
-                <span style={{ minWidth: 0 }}>
-                  <span style={{ display: "block", fontSize: 13, fontWeight: 900, color: F.text1 }}>
-                    {draft.fileName || "Choose a file to upload"}
-                  </span>
-                  <span style={{ display: "block", marginTop: 3, fontSize: 12, color: F.text2 }}>
-                    PDF, DOC, DOCX, XLSX, PNG, or JPG document
-                  </span>
-                </span>
-                <span
-                  style={{
-                    border: `1px solid ${F.border}`,
-                    borderRadius: 4,
-                    background: F.card,
-                    color: F.text1,
-                    fontSize: 12,
-                    fontWeight: 800,
-                    padding: "7px 12px",
-                    whiteSpace: "nowrap",
-                  }}
+        <Modal title="New Document" onClose={closeAddDocumentModal}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+            <div>
+              <div style={{ marginBottom: 8, color: F.text3, fontSize: 11, fontWeight: 800, letterSpacing: "0.07em" }}>SELECTED DOCUMENT</div>
+              {selectedUploadFile ? (
+                <div style={{ display: "flex", alignItems: "center", gap: 12, padding: 12, border: `1px solid ${F.border}`, borderRadius: 7, background: F.card }}>
+                  <div aria-hidden="true" style={{ width: 42, height: 48, flex: "0 0 auto", display: "flex", alignItems: "center", justifyContent: "center", border: `1px solid ${F.border}`, borderRadius: 5, background: F.pageBg, color: F.brand, fontSize: 10, fontWeight: 800 }}>
+                    {(selectedUploadFile.name.split(".").pop() ?? "FILE").toUpperCase().slice(0, 5)}
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ color: F.text1, fontSize: 13, fontWeight: 700, overflowWrap: "anywhere" }}>{selectedUploadFile.name}</div>
+                    <div style={{ marginTop: 4, color: F.text3, fontSize: 12 }}>{formatFileSize(selectedUploadFile.size)}</div>
+                  </div>
+                  <button type="button" aria-label="Remove selected file" title="Remove selected file" onClick={() => { setSelectedUploadFile(null); setAddDocumentFileError("") }} style={{ width: 32, height: 32, flex: "0 0 auto", display: "flex", alignItems: "center", justifyContent: "center", border: 0, borderRadius: 5, background: "transparent", color: F.text2, cursor: "pointer" }}>
+                    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 7h16M10 11v6m4-6v6M6 7l1 13h10l1-13M9 7V4h6v3" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                  </button>
+                </div>
+              ) : (
+                <div
+                  onDragEnter={(event) => { event.preventDefault(); setIsAddDocumentDropActive(true) }}
+                  onDragOver={(event) => { event.preventDefault(); event.dataTransfer.dropEffect = "copy"; setIsAddDocumentDropActive(true) }}
+                  onDragLeave={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setIsAddDocumentDropActive(false) }}
+                  onDrop={(event) => { event.preventDefault(); setIsAddDocumentDropActive(false); chooseAddDocumentFile(event.dataTransfer.files[0]) }}
+                  style={{ padding: "24px 16px", border: `2px dashed ${isAddDocumentDropActive ? F.brand : F.border}`, borderRadius: 8, background: isAddDocumentDropActive ? F.infoBg : F.pageBg, color: F.text3, textAlign: "center", transition: "border-color 0.15s, background 0.15s" }}
                 >
-                  Browse
-                </span>
-                <input
-                  type="file"
-                  accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg"
-                  onChange={(e) => {
-                    const file = e.target.files?.[0]
-                    if (!file) return
-                    const inferredTitle = file.name.replace(/\.[^/.]+$/, "").replace(/[_-]+/g, " ")
-                    setDraft({
-                      ...draft,
-                      fileName: file.name,
-                      title: draft.title.trim() ? draft.title : inferredTitle,
-                    })
-                  }}
-                  style={{ display: "none" }}
-                />
-              </label>
-            </Fld>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-              <Fld label="Category">
-                <select value={draft.category} onChange={(e) => setDraft({ ...draft, category: e.target.value as OrgDocument["category"] })} style={iSt}>
-                  {categories.map((c) => <option key={c}>{c}</option>)}
-                </select>
-              </Fld>
-              <Fld label="Status">
-                <select value={draft.status} onChange={(e) => setDraft({ ...draft, status: e.target.value as OrgDocument["status"] })} style={iSt}>
-                  <option>Published</option>
-                  <option>Draft</option>
-                </select>
-              </Fld>
-              <Fld label="Assign By">
-                <select
-                  value={draft.assignmentMode}
-                  onChange={(e) => setDraft({ ...draft, assignmentMode: e.target.value, assignmentValue: "" })}
-                  style={iSt}
-                >
-                  <option>All Employees</option>
-                  <option>Department</option>
-                  <option>Designation</option>
-                </select>
-              </Fld>
-              <Fld label="Assignment Target">
-                <select
-                  value={draft.assignmentValue}
-                  onChange={(e) => setDraft({ ...draft, assignmentValue: e.target.value })}
-                  disabled={draft.assignmentMode === "All Employees"}
-                  style={iSt}
-                >
-                  <option value="">Select target</option>
-                  {(draft.assignmentMode === "Department" ? departments : designations).map((item) => (
-                    <option key={item} value={item}>{item}</option>
-                  ))}
-                </select>
-              </Fld>
+                  <input ref={addDocumentFileInputRef} type="file" aria-label="Choose an organization document file" accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png" onChange={(event) => { chooseAddDocumentFile(event.target.files?.[0]); event.target.value = "" }} style={{ display: "none" }} />
+                  <div style={{ display: "flex", justifyContent: "center", marginBottom: 10, color: F.brand }}>
+                    <svg width="36" height="36" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 16V4m0 0L7.5 8.5M12 4l4.5 4.5M5 14.5v4A1.5 1.5 0 0 0 6.5 20h11a1.5 1.5 0 0 0 1.5-1.5v-4" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                  </div>
+                  <div style={{ fontSize: 16, fontWeight: 800, color: F.text1 }}>Drag &amp; Drop File Here</div>
+                  <div style={{ margin: "8px 0", color: F.text3, fontSize: 12 }}>- or -</div>
+                  <Btn variant="secondary" onClick={() => addDocumentFileInputRef.current?.click()}>Choose file to upload</Btn>
+                  <div style={{ marginTop: 10, fontSize: 11, color: F.text3 }}>PDF, DOC, DOCX, XLS, XLSX, JPG, or PNG · Maximum file size: 10 MB</div>
+                </div>
+              )}
+              {addDocumentFileError && <div role="alert" style={{ marginTop: 8, color: F.error, fontSize: 12, fontWeight: 600 }}>{addDocumentFileError}</div>}
             </div>
-            <Fld label="Description">
-              <textarea
-                value={draft.description}
-                onChange={(e) => setDraft({ ...draft, description: e.target.value })}
-                style={{ ...iSt, minHeight: 76, resize: "vertical" }}
-                placeholder="Short note visible to admins..."
+            {selectedUploadFile && (
+              <>
+                <Fld label="Folder Name *">
+                  <EmployeeDocumentDropdown
+                    options={orgFolderOptions}
+                    value={addDocumentFolderId === null ? "" : String(addDocumentFolderId)}
+                    onChange={(value) => { setAddDocumentFolderId(Number(value)); setAddDocumentFolderError("") }}
+                    placeholder="Select Folder Name"
+                    searchPlaceholder="Search available folders..."
+                    emptyMessage="No folders found."
+                  />
+                </Fld>
+                {addDocumentFolderError && <div role="alert" style={{ marginTop: -10, color: F.error, fontSize: 12, fontWeight: 600 }}>{addDocumentFolderError}</div>}
+                <div style={{ padding: 10, borderRadius: 6, background: F.infoBg, color: F.text2, fontSize: 12 }}>
+                  Ensure you've uploaded only the appropriate document to this folder.
+                </div>
+                <label style={{ display: "flex", alignItems: "center", gap: 8, color: F.text1, fontSize: 13, cursor: "pointer" }}>
+                  <input type="checkbox" checked={showDocumentInPortal} onChange={(event) => setShowDocumentInPortal(event.target.checked)} />
+                  Show document in portal
+                </label>
+              </>
+            )}
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, paddingTop: 12, borderTop: `1px solid ${F.border}` }}>
+              <Btn onClick={saveAddDocumentToFolder}>Save File</Btn>
+              <Btn variant="secondary" onClick={closeAddDocumentModal}>Cancel</Btn>
+            </div>
+          </div>
+        </Modal>
+      )}
+      {showNewFolder && (
+        <Modal title={editingFolderId !== null ? "Edit Folder" : "New Folder"} onClose={closeNewFolder}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+            <Fld label="Folder Name *">
+              <input
+                autoFocus
+                required
+                value={folderName}
+                onChange={(event) => { setFolderName(event.target.value); setOrgFolderFieldErrors((current) => ({ ...current, name: undefined })) }}
+                onKeyDown={(event) => { if (event.key === "Enter") saveFolder() }}
+                style={iSt}
+                placeholder="Enter folder name"
               />
             </Fld>
-            <div style={{ padding: 12, borderRadius: 6, background: F.successBg, color: F.success, fontSize: 13, fontWeight: 700 }}>
-              This document will be assigned to {assignmentCount()} employee{assignmentCount() !== 1 ? "s" : ""}.
-            </div>
+            {orgFolderFieldErrors.name && <div style={{ marginTop: -10, color: F.error, fontSize: 12 }}>{orgFolderFieldErrors.name}</div>}
+            <Fld label="Description *">
+              <textarea
+                required
+                value={folderDescription}
+                onChange={(event) => { setFolderDescription(event.target.value); setOrgFolderFieldErrors((current) => ({ ...current, description: undefined })) }}
+                style={{ ...iSt, minHeight: 76, resize: "vertical" }}
+                placeholder="Enter folder description"
+              />
+            </Fld>
+            {orgFolderFieldErrors.description && <div style={{ marginTop: -10, color: F.error, fontSize: 12 }}>{orgFolderFieldErrors.description}</div>}
             <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
-              <Btn variant="secondary" onClick={() => setShowAdd(false)}>Cancel</Btn>
-              <Btn onClick={addDocument}>Add & Assign</Btn>
+              <Btn variant="secondary" onClick={closeNewFolder}>Cancel</Btn>
+              <Btn onClick={saveFolder}>Save</Btn>
+            </div>
+          </div>
+        </Modal>
+      )}
+      {deletingFolder && (
+        <Confirm
+          msg="Are you sure you want to delete this folder?"
+          okLabel="Delete"
+          danger
+          onCancel={() => setDeletingFolder(null)}
+          onOk={confirmDeleteFolder}
+        />
+      )}
+      {isTrashPermanentDeleteConfirmOpen && (
+        <Confirm
+          title="Delete Permanently?"
+          msg="Are you sure you want to permanently delete the selected document(s)? This action cannot be undone."
+          okLabel="Delete Permanently"
+          cancelLabel="Cancel"
+          danger
+          onCancel={() => setIsTrashPermanentDeleteConfirmOpen(false)}
+          onOk={permanentlyDeleteSelectedOrganizationTrash}
+        />
+      )}
+      </div>
+      <EmployeeDocumentsView
+        active={activeDocumentsTab === "employee"}
+        employees={emps}
+        employeeDocumentSearch={employeeDocumentSearch}
+        setEmployeeDocumentSearch={setEmployeeDocumentSearch}
+      />
+    </div>
+  )
+}
+
+function EmployeeDocumentDropdown({ options, value, onChange, placeholder, searchPlaceholder, emptyMessage }: {
+  options: Array<{ value: string; label: string }>
+  value: string
+  onChange: (value: string) => void
+  placeholder: string
+  searchPlaceholder?: string
+  emptyMessage?: string
+}) {
+  const [isOpen, setIsOpen] = useState(false)
+  const [query, setQuery] = useState("")
+  const pickerRef = useRef<HTMLDivElement>(null)
+  const selectedOption = options.find((option) => option.value === value)
+  const matchingOptions = options.filter((option) =>
+    `${option.label} ${option.value}`.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()),
+  )
+
+  useEffect(() => {
+    if (!isOpen) return
+    const closeOnOutsideClick = (event: PointerEvent) => {
+      if (event.target instanceof Node && !pickerRef.current?.contains(event.target)) {
+        setIsOpen(false)
+        setQuery("")
+      }
+    }
+    document.addEventListener("pointerdown", closeOnOutsideClick)
+    return () => document.removeEventListener("pointerdown", closeOnOutsideClick)
+  }, [isOpen])
+
+  const togglePicker = () => {
+    if (isOpen) {
+      setIsOpen(false)
+      setQuery("")
+    } else {
+      setIsOpen(true)
+    }
+  }
+
+  return (
+    <div ref={pickerRef} style={{ position: "relative", width: "100%" }}>
+      <button
+        type="button"
+        aria-label={placeholder}
+        aria-haspopup="listbox"
+        aria-expanded={isOpen}
+        onClick={togglePicker}
+        style={{ ...iSt, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, textAlign: "left", cursor: "pointer" }}
+      >
+        <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          {selectedOption?.label ?? placeholder}
+        </span>
+        <span aria-hidden="true" style={{ flex: "0 0 auto", color: F.text3, fontSize: 11 }}>{isOpen ? "▲" : "▼"}</span>
+      </button>
+      {isOpen && (
+        <div role="listbox" aria-label={placeholder} style={{ position: "absolute", top: "calc(100% + 4px)", left: 0, right: 0, zIndex: 20, overflow: "hidden", background: F.card, border: `1px solid ${F.border}`, borderRadius: 6, boxShadow: "0 8px 24px rgba(15,23,42,0.14)" }}>
+          <div style={{ padding: 8, borderBottom: `1px solid ${F.border}` }}>
+            <div style={{ position: "relative" }}>
+              <span aria-hidden="true" style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: F.text3 }}>⌕</span>
+              <input
+                autoFocus
+                type="search"
+                aria-label={searchPlaceholder ?? "Search available values"}
+                placeholder={searchPlaceholder ?? "Search available values..."}
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                style={{ ...iSt, paddingLeft: 30 }}
+              />
+            </div>
+          </div>
+          <div style={{ maxHeight: 240, overflowY: "auto" }}>
+            {matchingOptions.length ? matchingOptions.map((option) => (
+              <button
+                key={option.value}
+                type="button"
+                role="option"
+                aria-selected={option.value === value}
+                onClick={() => { onChange(option.value); setIsOpen(false); setQuery("") }}
+                style={{ display: "block", width: "100%", padding: "9px 12px", border: 0, borderBottom: `1px solid ${F.border}`, background: option.value === value ? F.infoBg : "transparent", color: option.value === value ? F.brand : F.text1, textAlign: "left", font: "inherit", fontSize: 13, cursor: "pointer" }}
+              >
+                {option.label}
+              </button>
+            )) : (
+              <div style={{ padding: "14px 12px", color: F.text3, textAlign: "center", fontSize: 12 }}>{emptyMessage ?? "No employees found."}</div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function EmployeeDocumentsView({ active, employees, employeeDocumentSearch, setEmployeeDocumentSearch }: {
+  active: boolean
+  employees: Employee[]
+  employeeDocumentSearch: string
+  setEmployeeDocumentSearch: (value: string) => void
+}) {
+  const toast = useToast()
+  type EmployeeFolderDocument = {
+    id: number
+    folderId: number
+    employeeId: string
+    employeeName: string
+    fileName: string
+    fileSize: number
+    file: File
+    uploadedOn: string
+    showInPortal: boolean
+  }
+  const [folders, setFolders] = useState<Array<{ id: number; name: string; description: string }>>([])
+  const [selectedFolderId, setSelectedFolderId] = useState<number | null>(null)
+  const selectedFolder = folders.find((folder) => folder.id === selectedFolderId) ?? null
+  const [folderMenuId, setFolderMenuId] = useState<number | null>(null)
+  const [showFolderForm, setShowFolderForm] = useState(false)
+  const [editingFolderId, setEditingFolderId] = useState<number | null>(null)
+  const [folderName, setFolderName] = useState("")
+  const [folderDescription, setFolderDescription] = useState("")
+  const [fieldErrors, setFieldErrors] = useState<{ name?: string; description?: string }>({})
+  const [folderToDelete, setFolderToDelete] = useState<{ id: number; name: string } | null>(null)
+  const [employeeFolderDocuments, setEmployeeFolderDocuments] = useState<EmployeeFolderDocument[]>([])
+  const [trashedEmployeeDocuments, setTrashedEmployeeDocuments] = useState<Array<EmployeeFolderDocument & { originalFolderName: string }>>([])
+  const [isEmployeeTrashOpen, setIsEmployeeTrashOpen] = useState(false)
+  const [selectedEmployeeTrashDocumentIds, setSelectedEmployeeTrashDocumentIds] = useState<number[]>([])
+  const [isEmployeeTrashPermanentDeleteConfirmOpen, setIsEmployeeTrashPermanentDeleteConfirmOpen] = useState(false)
+  const [selectedEmployeeId, setSelectedEmployeeId] = useState("")
+  const [employeeSelectionError, setEmployeeSelectionError] = useState("")
+  const [employeeDocumentStatusFilter, setEmployeeDocumentStatusFilter] = useState<"all" | "active" | "exited">("all")
+  const [employeeDocumentEmployeeFilter, setEmployeeDocumentEmployeeFilter] = useState("")
+  const [selectedEmployeeFile, setSelectedEmployeeFile] = useState<File | null>(null)
+  const [showEmployeeUploadModal, setShowEmployeeUploadModal] = useState(false)
+  const [isSavingEmployeeDocument, setIsSavingEmployeeDocument] = useState(false)
+  const [employeeFileError, setEmployeeFileError] = useState("")
+  const [isEmployeeDropActive, setIsEmployeeDropActive] = useState(false)
+  const [previewingEmployeeDocument, setPreviewingEmployeeDocument] = useState<EmployeeFolderDocument | null>(null)
+  const [employeePreviewUrl, setEmployeePreviewUrl] = useState<string | null>(null)
+  const [employeeDocumentToDelete, setEmployeeDocumentToDelete] = useState<{ id: number; folderId: number } | null>(null)
+  const [selectedEmployeeDocumentIds, setSelectedEmployeeDocumentIds] = useState<number[]>([])
+  const [isEmployeeBulkMoveMenuOpen, setIsEmployeeBulkMoveMenuOpen] = useState(false)
+  const [isEmployeeBulkDeleteConfirmOpen, setIsEmployeeBulkDeleteConfirmOpen] = useState(false)
+  const [openEmployeeDocumentMenuId, setOpenEmployeeDocumentMenuId] = useState<number | null>(null)
+  const [employeeDocumentMenuPosition, setEmployeeDocumentMenuPosition] = useState<{ top: number; left: number } | null>(null)
+  const employeeTableHeaderCheckboxRef = useRef<HTMLInputElement>(null)
+  const employeeFileInputRef = useRef<HTMLInputElement>(null)
+  const getEmployeePreviewKind = useCallback((file: File) => {
+    const name = file.name.toLowerCase()
+    if (file.type === "application/pdf" || name.endsWith(".pdf")) return "pdf"
+    if (file.type.startsWith("image/") || /\.(png|jpe?g|gif|webp|bmp|svg)$/i.test(name)) return "image"
+    return "unsupported"
+  }, [])
+  useEffect(() => {
+    const file = previewingEmployeeDocument?.file
+    if (!file || getEmployeePreviewKind(file) === "unsupported") {
+      setEmployeePreviewUrl(null)
+      return
+    }
+    const previewUrl = URL.createObjectURL(file)
+    setEmployeePreviewUrl(previewUrl)
+    return () => URL.revokeObjectURL(previewUrl)
+  }, [previewingEmployeeDocument, getEmployeePreviewKind])
+
+  const formatEmployeeFileSize = (bytes: number) => {
+    if (bytes < 1024) return `${bytes} B`
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+    return `${(bytes / (1024 * 1024)).toFixed(2)} MB`
+  }
+  const chooseEmployeeFile = (file?: File) => {
+    if (!file) return
+    const acceptedFileType = /\.(pdf|doc|docx|xls|xlsx|jpe?g|png)$/i.test(file.name)
+    if (!acceptedFileType) {
+      setSelectedEmployeeFile(null)
+      setEmployeeFileError("Unsupported file type. Choose a PDF, DOC, DOCX, XLS, XLSX, JPG, or PNG file.")
+      return
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      setSelectedEmployeeFile(null)
+      setEmployeeFileError("File size must be 10 MB or less.")
+      return
+    }
+    setEmployeeFileError("")
+    setSelectedEmployeeFile(file)
+    setSelectedEmployeeId("")
+    setEmployeeSelectionError("")
+    setShowEmployeeUploadModal(true)
+  }
+  const closeEmployeeUploadModal = () => {
+    if (isSavingEmployeeDocument) return
+    setShowEmployeeUploadModal(false)
+    setSelectedEmployeeFile(null)
+    setSelectedEmployeeId("")
+    setEmployeeSelectionError("")
+  }
+  const addEmployeeFolderDocument = async () => {
+    const folderId = selectedFolderId
+    const file = selectedEmployeeFile
+    const folder = folders.find((item) => item.id === folderId)
+    const employee = employees.find((item) => item.id === selectedEmployeeId)
+    if (isSavingEmployeeDocument) return
+    if (!file || !/\.(pdf|doc|docx|xls|xlsx|jpe?g|png)$/i.test(file.name) || file.size > 10 * 1024 * 1024) {
+      const message = !file ? "Please select a document file." : "Choose a supported file that is 10 MB or less."
+      setEmployeeFileError(message)
+      toast(message, "error", "top")
+      return
+    }
+    if (!folder || !folder.name.trim()) {
+      const message = "Please select a valid employee folder."
+      setEmployeeSelectionError(message)
+      toast(message, "error", "top")
+      return
+    }
+    if (!employee) {
+      const message = "Please select an employee."
+      setEmployeeSelectionError(message)
+      toast(message, "error", "top")
+      return
+    }
+    setIsSavingEmployeeDocument(true)
+    try {
+      await new Promise<void>((resolve) => window.requestAnimationFrame(() => resolve()))
+      const newDocument: EmployeeFolderDocument = {
+        id: Date.now() + Math.random(),
+        folderId: folder.id,
+        employeeId: employee.id,
+        employeeName: employee.name,
+        fileName: file.name,
+        fileSize: file.size,
+        file,
+        uploadedOn: new Date().toISOString().slice(0, 10),
+        showInPortal: false,
+      }
+      flushSync(() => {
+        setEmployeeFolderDocuments((documents) => [...documents, newDocument])
+        setSelectedEmployeeFile(null)
+        setEmployeeFileError("")
+        setEmployeeSelectionError("")
+        setShowEmployeeUploadModal(false)
+      })
+      toast("Document added successfully.", "success", "top")
+    } catch {
+      toast("Failed to add document. Please try again.", "error", "top")
+    } finally {
+      setIsSavingEmployeeDocument(false)
+    }
+  }
+  const downloadEmployeeDocument = (document: EmployeeFolderDocument) => {
+    const downloadUrl = URL.createObjectURL(document.file)
+    const anchor = window.document.createElement("a")
+    anchor.href = downloadUrl
+    anchor.download = document.fileName
+    anchor.style.display = "none"
+    window.document.body.appendChild(anchor)
+    anchor.click()
+    anchor.remove()
+    window.setTimeout(() => URL.revokeObjectURL(downloadUrl), 1000)
+  }
+  const deleteEmployeeFolderDocument = () => {
+    if (!employeeDocumentToDelete) return
+    const documentToTrash = employeeFolderDocuments.find(
+      (document) => document.id === employeeDocumentToDelete.id && document.folderId === employeeDocumentToDelete.folderId,
+    )
+    if (documentToTrash) {
+      setTrashedEmployeeDocuments((documents) => [...documents, {
+        ...documentToTrash,
+        originalFolderName: folders.find((folder) => folder.id === documentToTrash.folderId)?.name ?? "Unknown folder",
+      }])
+    }
+    setEmployeeFolderDocuments((documents) => documents.filter(
+      (document) => document.id !== employeeDocumentToDelete.id || document.folderId !== employeeDocumentToDelete.folderId,
+    ))
+    setSelectedEmployeeDocumentIds((ids) => ids.filter((id) => id !== employeeDocumentToDelete.id))
+    setEmployeeDocumentToDelete(null)
+  }
+  const deleteSelectedEmployeeDocuments = () => {
+    const selectedDocuments = employeeFolderDocuments.filter((document) => selectedEmployeeDocumentIds.includes(document.id))
+    setTrashedEmployeeDocuments((documents) => [...documents, ...selectedDocuments.map((document) => ({
+      ...document,
+      originalFolderName: folders.find((folder) => folder.id === document.folderId)?.name ?? "Unknown folder",
+    }))])
+    setEmployeeFolderDocuments((documents) => documents.filter((document) => !selectedEmployeeDocumentIds.includes(document.id)))
+    setSelectedEmployeeDocumentIds([])
+    setIsEmployeeBulkDeleteConfirmOpen(false)
+  }
+  const restoreSelectedEmployeeTrash = () => {
+    const selectedDocuments = trashedEmployeeDocuments.filter((document) => selectedEmployeeTrashDocumentIds.includes(document.id))
+    const restorableDocuments = selectedDocuments.filter((document) => folders.some((folder) => folder.id === document.folderId))
+    const unavailableDocuments = selectedDocuments.filter((document) => !folders.some((folder) => folder.id === document.folderId))
+    if (restorableDocuments.length) {
+      setEmployeeFolderDocuments((documents) => [...documents, ...restorableDocuments.map(({ originalFolderName: _originalFolderName, ...document }) => document)])
+      const restoredIds = new Set(restorableDocuments.map((document) => document.id))
+      setTrashedEmployeeDocuments((documents) => documents.filter((document) => !restoredIds.has(document.id)))
+      toast(`${restorableDocuments.length} employee document(s) restored successfully.`, "success")
+    }
+    if (unavailableDocuments.length) {
+      toast(`Could not restore ${unavailableDocuments.length} employee document(s): the original folder no longer exists. These documents remain in Trash.`, "warning")
+    }
+    setSelectedEmployeeTrashDocumentIds([])
+  }
+  const permanentlyDeleteSelectedEmployeeTrash = () => {
+    const selectedIds = new Set(selectedEmployeeTrashDocumentIds)
+    setTrashedEmployeeDocuments((documents) => documents.filter((document) => !selectedIds.has(document.id)))
+    setSelectedEmployeeTrashDocumentIds([])
+    setIsEmployeeTrashPermanentDeleteConfirmOpen(false)
+    toast("Document(s) permanently deleted successfully.", "success")
+  }
+  const moveSelectedEmployeeDocuments = (folderId: number) => {
+    setEmployeeFolderDocuments((documents) => documents.map((document) =>
+      selectedEmployeeDocumentIds.includes(document.id) ? { ...document, folderId } : document,
+    ))
+    setIsEmployeeBulkMoveMenuOpen(false)
+  }
+  const updateSelectedEmployeeDocumentsPortal = (showInPortal: boolean) => {
+    setEmployeeFolderDocuments((documents) => documents.map((document) =>
+      selectedEmployeeDocumentIds.includes(document.id) ? { ...document, showInPortal } : document,
+    ))
+  }
+
+  const closeFolderForm = () => {
+    setShowFolderForm(false)
+    setEditingFolderId(null)
+    setFolderName("")
+    setFolderDescription("")
+    setFieldErrors({})
+  }
+  const openNewFolderForm = () => {
+    setEditingFolderId(null)
+    setFolderName("")
+    setFolderDescription("")
+    setFieldErrors({})
+    setShowFolderForm(true)
+  }
+  const openEditFolderForm = (folder: (typeof folders)[number]) => {
+    setEditingFolderId(folder.id)
+    setFolderName(folder.name)
+    setFolderDescription(folder.description)
+    setFieldErrors({})
+    setFolderMenuId(null)
+    setShowFolderForm(true)
+  }
+  const saveEmployeeFolder = () => {
+    const name = folderName.trim()
+    const description = folderDescription.trim()
+    const duplicateName = name && folders.some(
+      (folder) => folder.id !== editingFolderId && folder.name.toLocaleLowerCase() === name.toLocaleLowerCase(),
+    )
+    const errors = {
+      ...(!name
+        ? { name: "Folder name is required." }
+        : duplicateName
+          ? { name: "Folder already exists." }
+          : {}),
+      ...(!description ? { description: "Description is required." } : {}),
+    }
+    setFieldErrors(errors)
+    if (Object.keys(errors).length) return
+    if (editingFolderId !== null) {
+      setFolders((current) => current.map((folder) =>
+        folder.id === editingFolderId ? { ...folder, name, description } : folder,
+      ))
+    } else {
+      setFolders((current) => [...current, { id: Date.now(), name, description }])
+    }
+    closeFolderForm()
+  }
+  const confirmDeleteEmployeeFolder = () => {
+    if (!folderToDelete) return
+    setFolders((current) => current.filter((folder) => folder.id !== folderToDelete.id))
+    if (selectedFolderId === folderToDelete.id) setSelectedFolderId(null)
+    setFolderToDelete(null)
+  }
+  const filteredEmployeeDocuments = employeeFolderDocuments.filter((document) => {
+    const employee = employees.find((item) => item.id === document.employeeId)
+    const query = employeeDocumentSearch.trim().toLocaleLowerCase()
+    const searchableEmployeeData = `${employee?.name ?? document.employeeName} ${employee?.id ?? document.employeeId} ${document.fileName}`
+    const matchesSearch = !query || searchableEmployeeData.toLocaleLowerCase().includes(query)
+    const matchesStatus = employeeDocumentStatusFilter === "all" ||
+      (employeeDocumentStatusFilter === "active" ? employee?.status === "Active" : employee?.status === "Inactive")
+    const matchesEmployee = !employeeDocumentEmployeeFilter || document.employeeId === employeeDocumentEmployeeFilter
+    return matchesSearch && matchesStatus && matchesEmployee
+  })
+  const hasActiveEmployeeDocumentFilters = Boolean(
+    employeeDocumentSearch.trim() || employeeDocumentStatusFilter !== "all" || employeeDocumentEmployeeFilter,
+  )
+  const employeeStatusOptions = [
+    { value: "active", label: "Active Employees" },
+    { value: "exited", label: "Exited Employees" },
+  ]
+  const employeeFilterOptions = employees.map((employee) => ({
+    value: employee.id,
+    label: `${employee.name} (${employee.id})`,
+  }))
+  const clearEmployeeDocumentFilters = () => {
+    setEmployeeDocumentSearch("")
+    setEmployeeDocumentStatusFilter("all")
+    setEmployeeDocumentEmployeeFilter("")
+    setSelectedEmployeeDocumentIds([])
+  }
+  const allVisibleEmployeeDocumentsSelected = filteredEmployeeDocuments.length > 0 && filteredEmployeeDocuments.every((document) => selectedEmployeeDocumentIds.includes(document.id))
+  const someVisibleEmployeeDocumentsSelected = filteredEmployeeDocuments.some((document) => selectedEmployeeDocumentIds.includes(document.id))
+  useEffect(() => {
+    if (employeeTableHeaderCheckboxRef.current) {
+      employeeTableHeaderCheckboxRef.current.indeterminate = someVisibleEmployeeDocumentsSelected && !allVisibleEmployeeDocumentsSelected
+    }
+  }, [allVisibleEmployeeDocumentsSelected, someVisibleEmployeeDocumentsSelected])
+  const renderEmployeeDocumentActionMenu = (document: EmployeeFolderDocument) => (
+    <div style={{ position: "relative", flex: "0 0 auto" }}>
+      <button
+        type="button"
+        aria-label={`Actions for ${document.fileName}`}
+        title="Document actions"
+        onClick={(event) => {
+          if (openEmployeeDocumentMenuId === document.id) {
+            setOpenEmployeeDocumentMenuId(null)
+            setEmployeeDocumentMenuPosition(null)
+            return
+          }
+          const rect = event.currentTarget.getBoundingClientRect()
+          const menuWidth = 140
+          const menuHeight = 48
+          const left = Math.max(8, Math.min(rect.right - menuWidth, window.innerWidth - menuWidth - 8))
+          const top = rect.bottom + menuHeight > window.innerHeight ? Math.max(8, rect.top - menuHeight - 4) : rect.bottom + 4
+          setEmployeeDocumentMenuPosition({ top, left })
+          setOpenEmployeeDocumentMenuId(document.id)
+        }}
+        style={{ display: "inline-flex", width: 30, height: 30, alignItems: "center", justifyContent: "center", border: `1px solid ${F.border}`, borderRadius: 5, background: F.card, color: F.text2, cursor: "pointer" }}
+      >
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><circle cx="3" cy="8" r="1.3" /><circle cx="8" cy="8" r="1.3" /><circle cx="13" cy="8" r="1.3" /></svg>
+      </button>
+      {openEmployeeDocumentMenuId === document.id && (
+        <div style={{ position: "fixed", top: employeeDocumentMenuPosition?.top ?? 0, left: employeeDocumentMenuPosition?.left ?? 0, zIndex: 1000, width: 140, padding: 4, background: F.card, border: `1px solid ${F.border}`, borderRadius: 6, boxShadow: "0 6px 18px rgba(15,23,42,0.16)" }}>
+          <button type="button" onClick={() => { setEmployeeDocumentToDelete({ id: document.id, folderId: document.folderId }); setOpenEmployeeDocumentMenuId(null); setEmployeeDocumentMenuPosition(null) }} style={{ display: "block", width: "100%", padding: "8px 10px", border: 0, borderRadius: 4, background: "transparent", color: F.error, textAlign: "left", cursor: "pointer", font: "inherit", fontSize: 13 }}>Delete</button>
+        </div>
+      )}
+    </div>
+  )
+
+  return (
+    <div style={{ order: 2, display: active ? "flex" : "none", flex: "1 1 auto", minHeight: 0, flexDirection: "column", gap: 18 }}>
+      <section style={{ display: "flex", flex: "1 1 auto", minHeight: 0, gap: 16, background: F.card, border: `1px solid ${F.border}`, borderRadius: 8, padding: 16 }}>
+        <aside style={{ display: "flex", flexDirection: "column", minHeight: 0, width: 220, flex: "0 0 220px", paddingRight: 14, borderRight: `1px solid ${F.border}` }}>
+          <button
+            type="button"
+            onClick={() => { setSelectedFolderId(null); setIsEmployeeTrashOpen(false); setFolderMenuId(null); setSelectedEmployeeDocumentIds([]); setIsEmployeeBulkMoveMenuOpen(false) }}
+            style={{ display: "block", width: "100%", padding: "9px 10px", border: 0, borderRadius: 5, background: selectedFolder ? "transparent" : F.infoBg, color: selectedFolder ? F.text1 : F.brand, textAlign: "left", font: "inherit", fontSize: 13, fontWeight: 700, cursor: "pointer" }}
+          >
+            All Employee Documents
+          </button>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, margin: "18px 6px 8px 10px" }}>
+            <div style={{ color: F.text3, fontSize: 10, fontWeight: 800, letterSpacing: "0.08em" }}>EMPLOYEE FOLDER</div>
+            <button type="button" aria-label="New employee folder" title="New Folder" onClick={openNewFolderForm} style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 22, height: 22, padding: 0, border: 0, borderRadius: 4, background: "transparent", color: F.brand, fontSize: 18, fontWeight: 500, lineHeight: 1, cursor: "pointer" }}>+</button>
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 3, flex: 1, minHeight: 0, overflowY: "auto" }}>
+            {folders.map((folder) => (
+              <div key={folder.id} style={{ position: "relative", display: "flex", alignItems: "center", gap: 4, padding: "3px 4px 3px 8px", borderRadius: 5, background: selectedFolderId === folder.id ? F.infoBg : "transparent" }}>
+                <button
+                  type="button"
+                  title={folder.name}
+                  onClick={() => { setSelectedFolderId(folder.id); setIsEmployeeTrashOpen(false); setSelectedEmployeeFile(null); setEmployeeFileError(""); setSelectedEmployeeId(""); setEmployeeSelectionError(""); setFolderMenuId(null); setSelectedEmployeeDocumentIds([]); setIsEmployeeBulkMoveMenuOpen(false) }}
+                  style={{ display: "flex", flex: 1, minWidth: 0, alignItems: "center", gap: 8, padding: "6px 2px", border: 0, background: "transparent", color: selectedFolderId === folder.id ? F.brand : F.text1, textAlign: "left", font: "inherit", fontSize: 12, fontWeight: selectedFolderId === folder.id ? 700 : 500, cursor: "pointer" }}
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true" style={{ flex: "0 0 auto" }}>
+                    <path d="M3.5 6.5A1.5 1.5 0 0 1 5 5h5l2 2h7A1.5 1.5 0 0 1 20.5 8.5v9A1.5 1.5 0 0 1 19 19H5a1.5 1.5 0 0 1-1.5-1.5z" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" />
+                  </svg>
+                  <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{folder.name}</span>
+                </button>
+                <button type="button" aria-label={`Actions for ${folder.name}`} title="Folder actions" onClick={() => setFolderMenuId(folderMenuId === folder.id ? null : folder.id)} style={{ flex: "0 0 26px", width: 26, height: 26, border: 0, borderRadius: 4, background: "transparent", color: F.text2, fontSize: 19, lineHeight: 1, cursor: "pointer" }}>⋯</button>
+                {folderMenuId === folder.id && (
+                  <div style={{ position: "absolute", top: 32, right: 2, zIndex: 5, minWidth: 112, padding: 4, background: F.card, border: `1px solid ${F.border}`, borderRadius: 6, boxShadow: "0 6px 18px rgba(15,23,42,0.16)" }}>
+                    <button type="button" onClick={() => openEditFolderForm(folder)} style={{ display: "block", width: "100%", padding: "8px 10px", border: 0, borderRadius: 4, background: "transparent", color: F.text1, textAlign: "left", cursor: "pointer", font: "inherit", fontSize: 13 }}>Edit</button>
+                    <button type="button" onClick={() => { setFolderMenuId(null); setFolderToDelete(folder) }} style={{ display: "block", width: "100%", padding: "8px 10px", border: 0, borderRadius: 4, background: "transparent", color: F.error, textAlign: "left", cursor: "pointer", font: "inherit", fontSize: 13 }}>Delete</button>
+                  </div>
+                )}
+              </div>
+            ))}
+            {folders.length === 0 && <div style={{ padding: "6px 10px", color: F.text3, fontSize: 12 }}>No folders yet</div>}
+          </div>
+          <div style={{ marginTop: "auto", padding: "12px 10px 10px", borderTop: `1px solid ${F.border}` }}>
+            <div style={{ color: F.text2, fontSize: 12, fontWeight: 700 }}>Storage Limit</div>
+            <div style={{ marginTop: 4, color: F.text3, fontSize: 11 }}>1 GB / 100 employees</div>
+          </div>
+          <button
+            type="button"
+            onClick={() => { setSelectedFolderId(null); setIsEmployeeTrashOpen(true); setFolderMenuId(null); setSelectedEmployeeDocumentIds([]); setSelectedEmployeeTrashDocumentIds([]) }}
+            style={{ display: "block", width: "100%", padding: "10px 10px 9px", border: 0, borderTop: `1px solid ${F.border}`, borderRadius: 0, background: isEmployeeTrashOpen ? F.infoBg : "transparent", color: isEmployeeTrashOpen ? F.brand : F.text1, textAlign: "left", font: "inherit", fontSize: 13, fontWeight: isEmployeeTrashOpen ? 700 : 500, cursor: "pointer" }}
+          >
+            Trash
+          </button>
+        </aside>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 14 }}>
+            {isEmployeeTrashOpen ? (
+              <>
+                <span style={{ fontSize: 16, fontWeight: 800, color: F.text1 }}>Trash</span>
+                <Btn small variant="secondary" onClick={() => setIsEmployeeTrashOpen(false)}>Back to Employee Documents</Btn>
+              </>
+            ) : selectedFolder ? (
+              <>
+                <Btn small variant="secondary" onClick={() => { setSelectedFolderId(null); setSelectedEmployeeFile(null); setEmployeeFileError(""); setSelectedEmployeeId(""); setEmployeeSelectionError(""); setSelectedEmployeeDocumentIds([]) }}>? All Employee Documents</Btn>
+                <span style={{ fontSize: 16, fontWeight: 800, color: F.text1 }}>Folder Details</span>
+              </>
+            ) : (
+              <div style={{ fontSize: 16, fontWeight: 800, color: F.text1 }}>All Employee Documents</div>
+            )}
+          </div>
+          {isEmployeeTrashOpen ? (
+            trashedEmployeeDocuments.length === 0 ? (
+              <div style={{ padding: "32px 16px", border: `1px dashed ${F.border}`, borderRadius: 6, color: F.text3, textAlign: "center", fontSize: 14 }}>No employee documents in Trash</div>
+            ) : (
+              <div style={{ border: `1px solid ${F.border}`, borderRadius: 8, overflow: "hidden" }}>
+                {selectedEmployeeTrashDocumentIds.length > 0 && (
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", padding: "10px 14px", borderBottom: `1px solid ${F.border}`, background: F.pageBg }}>
+                    <strong style={{ fontSize: 12, color: F.text1 }}>{selectedEmployeeTrashDocumentIds.length} selected</strong>
+                    <Btn small variant="secondary" onClick={restoreSelectedEmployeeTrash}>Restore</Btn>
+                    <Btn small variant="danger" onClick={() => setIsEmployeeTrashPermanentDeleteConfirmOpen(true)}>Delete Permanently</Btn>
+                  </div>
+                )}
+                <div style={{ overflowX: "auto" }}>
+                  <table style={{ width: "100%", minWidth: 650, borderCollapse: "collapse", tableLayout: "fixed" }}>
+                    <colgroup><col style={{ width: 42 }} /><col style={{ width: "38%" }} /><col style={{ width: "25%" }} /><col style={{ width: "25%" }} /><col style={{ width: "12%" }} /></colgroup>
+                    <thead><tr>
+                      <th style={{ padding: "10px 8px", borderBottom: `1px solid ${F.border}` }}><input type="checkbox" aria-label="Select all trashed employee documents" checked={trashedEmployeeDocuments.length > 0 && trashedEmployeeDocuments.every((document) => selectedEmployeeTrashDocumentIds.includes(document.id))} onChange={(event) => setSelectedEmployeeTrashDocumentIds(event.target.checked ? trashedEmployeeDocuments.map((document) => document.id) : [])} /></th>
+                      <Th>File Name</Th><Th>Employee</Th><Th>Original Folder</Th><Th right>Size</Th>
+                    </tr></thead>
+                    <tbody>{trashedEmployeeDocuments.map((document) => (
+                      <TrH key={document.id}>
+                        <Td><input type="checkbox" aria-label={`Select ${document.fileName}`} checked={selectedEmployeeTrashDocumentIds.includes(document.id)} onChange={(event) => setSelectedEmployeeTrashDocumentIds((ids) => event.target.checked ? [...ids, document.id] : ids.filter((id) => id !== document.id))} /></Td>
+                        <Td><div style={{ fontWeight: 700 }}>{document.fileName}</div></Td><Td>{document.employeeName}</Td><Td>{document.originalFolderName}</Td><Td right>{formatEmployeeFileSize(document.fileSize)}</Td>
+                      </TrH>
+                    ))}</tbody>
+                  </table>
+                </div>
+              </div>
+            )
+          ) : selectedFolder ? (
+            <div>
+              <div style={{ fontSize: 22, fontWeight: 800, color: F.text1 }}>{selectedFolder.name}</div>
+              <div style={{ marginTop: 6, color: F.text2, fontSize: 13 }}>{selectedFolder.description}</div>
+              <div
+                onDragEnter={(event) => { event.preventDefault(); setIsEmployeeDropActive(true) }}
+                onDragOver={(event) => { event.preventDefault(); event.dataTransfer.dropEffect = "copy"; setIsEmployeeDropActive(true) }}
+                onDragLeave={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setIsEmployeeDropActive(false) }}
+                onDrop={(event) => { event.preventDefault(); setIsEmployeeDropActive(false); chooseEmployeeFile(event.dataTransfer.files[0]) }}
+                style={{ marginTop: 20, padding: "32px 16px", border: `2px dashed ${isEmployeeDropActive ? F.brand : F.border}`, borderRadius: 8, background: isEmployeeDropActive ? F.infoBg : F.pageBg, color: F.text3, textAlign: "center", transition: "border-color 0.15s, background 0.15s" }}
+              >
+                <input
+                  ref={employeeFileInputRef}
+                  type="file"
+                  aria-label="Choose an employee folder document"
+                  accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png"
+                  onChange={(event) => { chooseEmployeeFile(event.target.files?.[0]); event.target.value = "" }}
+                  style={{ display: "none" }}
+                />
+                  <>
+                    <div style={{ display: "flex", justifyContent: "center", marginBottom: 10, color: F.brand }}>
+                      <svg width="36" height="36" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                        <path d="M12 16V4m0 0L7.5 8.5M12 4l4.5 4.5M5 14.5v4A1.5 1.5 0 0 0 6.5 20h11a1.5 1.5 0 0 0 1.5-1.5v-4" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
+                    </div>
+                    <div style={{ fontSize: 16, fontWeight: 800, color: F.text1 }}>Drag &amp; Drop your file here</div>
+                    <div style={{ marginTop: 6, fontSize: 13, color: F.text2 }}>Drag and drop a file into this area, or choose a file from your device.</div>
+                    <Btn onClick={() => employeeFileInputRef.current?.click()} style={{ marginTop: 14 }}>Choose File</Btn>
+                    <div style={{ marginTop: 10, fontSize: 11, color: F.text3 }}>PDF, DOC, DOCX, XLS, XLSX, JPG, or PNG · Maximum file size: 10 MB</div>
+                  </>
+
+              </div>
+              {employeeFileError && <div role="alert" style={{ marginTop: 8, color: F.error, fontSize: 12, fontWeight: 600 }}>{employeeFileError}</div>}
+            </div>
+          ) : (
+            <div>
+              <div style={{ display: "flex", alignItems: "end", flexWrap: "wrap", gap: 10, marginBottom: 18 }}>
+                <span style={{ alignSelf: "center", color: F.text2, fontSize: 11, fontWeight: 800, letterSpacing: "0.06em", whiteSpace: "nowrap" }}>FILTER BY:</span>
+                <label style={{ display: "flex", flex: "1 1 180px", minWidth: 160, flexDirection: "column", gap: 5, color: F.text2, fontSize: 12, fontWeight: 600 }}>
+                  <span>Select Employee Status</span>
+                  <EmployeeDocumentDropdown
+                    options={employeeStatusOptions}
+                    value={employeeDocumentStatusFilter}
+                    onChange={(value) => { setEmployeeDocumentStatusFilter(value as "active" | "exited"); setSelectedEmployeeDocumentIds([]) }}
+                    placeholder="Select Employee Status"
+                  />
+                </label>
+                <div style={{ display: "flex", flex: "1 1 220px", minWidth: 180, flexDirection: "column", gap: 5, color: F.text2, fontSize: 12, fontWeight: 600 }}>
+                  <span>Select an Employee</span>
+                  <EmployeeDocumentDropdown
+                    options={employeeFilterOptions}
+                    value={employeeDocumentEmployeeFilter}
+                    onChange={(value) => { setEmployeeDocumentEmployeeFilter(value); setSelectedEmployeeDocumentIds([]) }}
+                    placeholder="Select an Employee"
+                  />
+                </div>
+                {hasActiveEmployeeDocumentFilters && (
+                  <button
+                    type="button"
+                    aria-label="Clear employee document filters"
+                    title="Clear filters"
+                    onClick={clearEmployeeDocumentFilters}
+                    style={{ width: 34, height: 38, border: `1px solid ${F.border}`, borderRadius: 6, background: F.card, color: F.text2, fontSize: 20, cursor: "pointer" }}
+                  >×</button>
+                )}
+              </div>
+              {filteredEmployeeDocuments.length > 0 ? (
+                <div style={{ border: `1px solid ${F.border}`, borderRadius: 8, overflow: "hidden" }}>
+                  {selectedEmployeeDocumentIds.length > 0 && (
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", padding: "10px 14px", borderBottom: `1px solid ${F.border}`, background: F.pageBg }}>
+                      <strong style={{ marginRight: 4, fontSize: 12, color: F.text1 }}>{selectedEmployeeDocumentIds.length} {selectedEmployeeDocumentIds.length === 1 ? "Document" : "Documents"} selected</strong>
+                      <div style={{ position: "relative" }}>
+                        <Btn small variant="secondary" onClick={() => setIsEmployeeBulkMoveMenuOpen((open) => !open)}>Move To ▾</Btn>
+                        {isEmployeeBulkMoveMenuOpen && <div style={{ position: "absolute", top: 34, left: 0, zIndex: 20, width: 200, maxHeight: 220, overflowY: "auto", padding: 4, background: F.card, border: `1px solid ${F.border}`, borderRadius: 6, boxShadow: "0 6px 18px rgba(15,23,42,0.16)" }}>{folders.map((folder) => <button key={folder.id} type="button" onClick={() => moveSelectedEmployeeDocuments(folder.id)} style={{ display: "block", width: "100%", padding: "8px 10px", border: 0, borderRadius: 4, background: "transparent", color: F.text1, textAlign: "left", cursor: "pointer", font: "inherit", fontSize: 12 }}>{folder.name}</button>)}</div>}
+                      </div>
+                      <Btn small variant="secondary" onClick={() => updateSelectedEmployeeDocumentsPortal(true)}>Show in Portal</Btn>
+                      <Btn small variant="secondary" onClick={() => updateSelectedEmployeeDocumentsPortal(false)}>Hide in Portal</Btn>
+                      <Btn small variant="secondary" onClick={() => toast("Share via Mail is available in a future update.", "info")}>Share via Mail</Btn>
+                      <Btn small variant="danger" onClick={() => setIsEmployeeBulkDeleteConfirmOpen(true)}>Delete</Btn>
+                      <div style={{ flex: 1 }} />
+                      <button type="button" aria-label="Clear document selection" title="Clear selection" onClick={() => { setSelectedEmployeeDocumentIds([]); setIsEmployeeBulkMoveMenuOpen(false) }} style={{ width: 28, height: 28, border: 0, borderRadius: 4, background: "transparent", color: F.text2, fontSize: 19, cursor: "pointer" }}>×</button>
+                    </div>
+                  )}
+                  <div style={{ overflowX: "auto" }}>
+                    <table style={{ width: "100%", borderCollapse: "collapse", tableLayout: "fixed", minWidth: 855 }}>
+                      <colgroup><col style={{ width: 38 }} /><col style={{ width: 280 }} /><col style={{ width: 190 }} /><col style={{ width: 140 }} /><col style={{ width: 205 }} /></colgroup>
+                      <thead><tr>
+                        <th style={{ width: 38, padding: "10px 8px", borderBottom: `1px solid ${F.border}` }}><input ref={employeeTableHeaderCheckboxRef} type="checkbox" aria-label="Select all displayed employee documents" checked={allVisibleEmployeeDocumentsSelected} onChange={(event) => setSelectedEmployeeDocumentIds(event.target.checked ? filteredEmployeeDocuments.map((document) => document.id) : [])} /></th>
+                        <Th>File Name</Th><Th>Employee / Name</Th><Th>Uploaded On</Th><Th right>Actions</Th>
+                      </tr></thead>
+                      <tbody>
+                        {filteredEmployeeDocuments.map((document) => (
+                          <TrH key={document.id}>
+                            <Td><input type="checkbox" aria-label={`Select ${document.fileName}`} checked={selectedEmployeeDocumentIds.includes(document.id)} onChange={(event) => setSelectedEmployeeDocumentIds((ids) => event.target.checked ? [...ids, document.id] : ids.filter((id) => id !== document.id))} /></Td>
+                            <Td><div style={{ fontWeight: 700, overflowWrap: "anywhere" }}>{document.fileName}</div><div style={{ marginTop: 3, fontSize: 11, color: F.text3 }}>{formatEmployeeFileSize(document.fileSize)}</div></Td>
+                            <Td>{document.employeeName}</Td>
+                            <Td>{fmtD(document.uploadedOn)}</Td>
+                            <Td right><div style={{ display: "flex", width: "100%", alignItems: "center", justifyContent: "flex-end", gap: 6, whiteSpace: "nowrap" }}>
+                              <Btn small variant="secondary" onClick={() => setPreviewingEmployeeDocument(document)}>Preview</Btn>
+                              <Btn small variant="secondary" onClick={() => downloadEmployeeDocument(document)}>Download</Btn>
+                              {renderEmployeeDocumentActionMenu(document)}
+                            </div></Td>
+                          </TrH>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              ) : (
+                <div style={{ padding: "32px 16px", border: `1px dashed ${F.border}`, borderRadius: 6, color: F.text3, textAlign: "center", fontSize: 14 }}>No employee documents found.</div>
+              )}
+            </div>
+          )}
+        </div>
+      </section>
+      {showEmployeeUploadModal && selectedEmployeeFile && selectedFolder && (
+        <Modal title={`New ${selectedFolder.name} Document`} onClose={closeEmployeeUploadModal}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+            <div>
+              <div style={{ marginBottom: 8, color: F.text3, fontSize: 11, fontWeight: 800, letterSpacing: "0.07em" }}>SELECTED DOCUMENT</div>
+              <div style={{ display: "flex", alignItems: "center", gap: 12, padding: 12, border: `1px solid ${F.border}`, borderRadius: 7, background: F.card }}>
+                <div aria-hidden="true" style={{ width: 42, height: 48, flex: "0 0 auto", display: "flex", alignItems: "center", justifyContent: "center", border: `1px solid ${F.border}`, borderRadius: 5, background: F.pageBg, color: F.brand, fontSize: 10, fontWeight: 800 }}>
+                  {(selectedEmployeeFile.name.split(".").pop() ?? "FILE").toUpperCase().slice(0, 5)}
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ color: F.text1, fontSize: 13, fontWeight: 700, overflowWrap: "anywhere" }}>{selectedEmployeeFile.name}</div>
+                  <div style={{ marginTop: 4, color: F.text3, fontSize: 12 }}>{formatEmployeeFileSize(selectedEmployeeFile.size)}</div>
+                </div>
+                <button
+                  type="button"
+                  disabled={isSavingEmployeeDocument}
+                  aria-label="Remove selected file"
+                  title="Remove selected file"
+                  onClick={closeEmployeeUploadModal}
+                  style={{ width: 32, height: 32, flex: "0 0 auto", display: "flex", alignItems: "center", justifyContent: "center", border: 0, borderRadius: 5, background: "transparent", color: F.text2, cursor: isSavingEmployeeDocument ? "not-allowed" : "pointer", opacity: isSavingEmployeeDocument ? 0.5 : 1 }}
+                >
+                  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                    <path d="M4 7h16M10 11v6m4-6v6M6 7l1 13h10l1-13M9 7V4h6v3" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+            <Fld label="Folder Name *">
+              <input value={selectedFolder.name} readOnly aria-readonly="true" style={{ ...iSt, background: F.pageBg, color: F.text2 }} />
+            </Fld>
+            <div style={{ marginTop: -10, color: F.text3, fontSize: 12 }}>
+              Ensure you've uploaded only the appropriate document to this folder.
+            </div>
+            <div>
+              <div style={{ marginBottom: 6, color: F.text2, fontSize: 12, fontWeight: 600 }}>Associate document to *</div>
+              <EmployeeDocumentDropdown
+                options={employeeFilterOptions}
+                value={selectedEmployeeId}
+                onChange={(employeeId) => { setSelectedEmployeeId(employeeId); setEmployeeSelectionError("") }}
+                placeholder="Select Employee"
+              />
+              {employeeSelectionError && <div role="alert" style={{ marginTop: 6, color: F.error, fontSize: 12, fontWeight: 600 }}>{employeeSelectionError}</div>}
+            </div>
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, paddingTop: 4, borderTop: `1px solid ${F.border}` }}>
+              <Btn disabled={isSavingEmployeeDocument} onClick={addEmployeeFolderDocument}>{isSavingEmployeeDocument ? "Saving..." : "Save File"}</Btn>
+              <Btn disabled={isSavingEmployeeDocument} variant="secondary" onClick={closeEmployeeUploadModal}>Cancel</Btn>
+            </div>
+          </div>
+        </Modal>
+      )}
+      {showFolderForm && (
+        <Modal title={editingFolderId !== null ? "Edit Folder" : "New Folder"} onClose={closeFolderForm}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+            <Fld label="Folder Name *">
+              <input required autoFocus value={folderName} onChange={(event) => { setFolderName(event.target.value); setFieldErrors((current) => ({ ...current, name: undefined })) }} style={iSt} placeholder="Enter folder name" />
+            </Fld>
+            {fieldErrors.name && <div style={{ marginTop: -10, color: F.error, fontSize: 12 }}>{fieldErrors.name}</div>}
+            <Fld label="Description *">
+              <textarea required value={folderDescription} onChange={(event) => { setFolderDescription(event.target.value); setFieldErrors((current) => ({ ...current, description: undefined })) }} style={{ ...iSt, minHeight: 76, resize: "vertical" }} placeholder="Enter folder description" />
+            </Fld>
+            {fieldErrors.description && <div style={{ marginTop: -10, color: F.error, fontSize: 12 }}>{fieldErrors.description}</div>}
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
+              <Btn variant="secondary" onClick={closeFolderForm}>Cancel</Btn>
+              <Btn onClick={saveEmployeeFolder}>Save</Btn>
+            </div>
+          </div>
+        </Modal>
+      )}
+      {folderToDelete && (
+        <Confirm msg={`Are you sure you want to delete the folder "${folderToDelete.name}"?`} okLabel="Delete" danger onCancel={() => setFolderToDelete(null)} onOk={confirmDeleteEmployeeFolder} />
+      )}
+      {isEmployeeBulkDeleteConfirmOpen && (
+        <Confirm
+          msg="Are you sure you want to delete the selected documents?"
+          okLabel="Yes"
+          cancelLabel="No"
+          danger
+          onCancel={() => setIsEmployeeBulkDeleteConfirmOpen(false)}
+          onOk={deleteSelectedEmployeeDocuments}
+        />
+      )}
+      {employeeDocumentToDelete && (
+        <Confirm msg="Are you sure you want to delete this document?" okLabel="Delete" danger onCancel={() => setEmployeeDocumentToDelete(null)} onOk={deleteEmployeeFolderDocument} />
+      )}
+      {isEmployeeTrashPermanentDeleteConfirmOpen && (
+        <Confirm
+          title="Delete Permanently?"
+          msg="Are you sure you want to permanently delete the selected document(s)? This action cannot be undone."
+          okLabel="Delete Permanently"
+          cancelLabel="Cancel"
+          danger
+          onCancel={() => setIsEmployeeTrashPermanentDeleteConfirmOpen(false)}
+          onOk={permanentlyDeleteSelectedEmployeeTrash}
+        />
+      )}
+      {previewingEmployeeDocument && (
+        <Modal title={previewingEmployeeDocument.fileName} onClose={() => setPreviewingEmployeeDocument(null)} wide>
+          <div>
+            {getEmployeePreviewKind(previewingEmployeeDocument.file) === "unsupported" ? (
+              <div style={{ padding: "48px 20px", textAlign: "center", color: F.text2 }}>Preview is not available for this file type.</div>
+            ) : employeePreviewUrl ? (
+              getEmployeePreviewKind(previewingEmployeeDocument.file) === "pdf" ? (
+                <iframe title={`Preview of ${previewingEmployeeDocument.fileName}`} src={employeePreviewUrl} style={{ display: "block", width: "100%", height: "65vh", border: `1px solid ${F.border}`, borderRadius: 4 }} />
+              ) : (
+                <div style={{ display: "flex", justifyContent: "center", maxHeight: "65vh", overflow: "auto" }}>
+                  <img src={employeePreviewUrl} alt={previewingEmployeeDocument.fileName} style={{ maxWidth: "100%", maxHeight: "65vh", objectFit: "contain" }} />
+                </div>
+              )
+            ) : (
+              <div style={{ padding: "48px 20px", textAlign: "center", color: F.text2 }}>Preparing preview...</div>
+            )}
+            <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 14 }}>
+              <Btn variant="secondary" onClick={() => setPreviewingEmployeeDocument(null)}>Close</Btn>
             </div>
           </div>
         </Modal>
@@ -25307,8 +26186,12 @@ function LoginPage({ onLogin }: { onLogin: (persona: Persona) => void }) {
 
 export default function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false)
+  const [isEmployeePortalDemoView, setIsEmployeePortalDemoView] = useState(false)
+  const [adminViewBeforePortal, setAdminViewBeforePortal] = useState("dashboard")
   const [persona, setPersona] = useState<Persona>("org_admin")
   const [view, setView] = useState("dashboard")
+  const [activeDocumentsTab, setActiveDocumentsTab] = useState<"organization" | "employee">("organization")
+  const [employeeDocumentSearch, setEmployeeDocumentSearch] = useState("")
   const [rangeFrom, setRangeFrom] = useState("")
   const [rangeTo, setRangeTo] = useState("")
   const [emps, setEmps] = useState<Employee[]>(INIT_EMPS)
@@ -25350,9 +26233,9 @@ export default function App() {
       observer.disconnect()
     }
   }, [])
-  const showToast = useCallback((msg: string, type: ToastType = "info") => {
+  const showToast = useCallback((msg: string, type: ToastType = "info", position: ToastPosition = "bottom") => {
     const id = Date.now()
-    setToasts((t) => [...t, { id, msg, type }])
+    setToasts((t) => [...t, { id, msg, type, position }])
     if (type === "error" && persona !== "employee") {
       setErrorLogs((prev) => [
         {
@@ -25731,6 +26614,10 @@ export default function App() {
                         docs={orgDocs}
                         setDocs={setOrgDocs}
                         emps={emps}
+                        activeDocumentsTab={activeDocumentsTab}
+                        setActiveDocumentsTab={setActiveDocumentsTab}
+                        employeeDocumentSearch={employeeDocumentSearch}
+                        setEmployeeDocumentSearch={setEmployeeDocumentSearch}
                       />
                     )}
                     {view === "reports" && (
