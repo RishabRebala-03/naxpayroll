@@ -568,12 +568,14 @@ function AdminWorkspaceHero({
 
 
 type Persona = "org_admin" | "product_admin" | "employee"
-type EmpStatus = "Active" | "Inactive" | "On Leave" | "Incomplete"
+type EmpStatus = "Active" | "Inactive" | "On Leave" | "Incomplete" | "Exited"
+type PortalAccessStatus = "Enabled" | "Disabled" | "Yet to Accept Invite"
 type OrgStatus = "Active" | "Draft" | "Inactive" | "Suspended"
 type PayrunStatus = "Draft" | "Calculated" | "Under Review" | "Approved" | "Completed" | "Locked"
 
 interface Employee {
   id: string
+  code?: string
   name: string
   email: string
   department: string
@@ -583,7 +585,20 @@ interface Employee {
   manager: string
   location: string
   mobile?: string
+  dob?: string
+  gender?: string
+  fatherName?: string
+  pan?: string
+  address?: string
+  differentlyAbled?: boolean
+  pfNumber?: string
+  esiNumber?: string
+  uan?: string
+  bankName?: string
+  bankAccount?: string
+  ifsc?: string
   status: EmpStatus
+  portalStatus?: PortalAccessStatus
   salaryStructure: string
   grossSalary: number
 }
@@ -752,6 +767,7 @@ const INIT_EMPS: Employee[] = [
     location: "Bangalore",
     mobile: "+91 98765 43210",
     status: "Active",
+    portalStatus: "Enabled",
     salaryStructure: "Senior Engineer",
     grossSalary: 110000,
   },
@@ -766,6 +782,7 @@ const INIT_EMPS: Employee[] = [
     manager: "Priya Nair",
     location: "Bangalore",
     status: "Active",
+    portalStatus: "Enabled",
     salaryStructure: "Junior Engineer",
     grossSalary: 55000,
   },
@@ -780,6 +797,7 @@ const INIT_EMPS: Employee[] = [
     manager: "Rajesh Kumar",
     location: "Mumbai",
     status: "Active",
+    portalStatus: "Enabled",
     salaryStructure: "Manager",
     grossSalary: 150000,
   },
@@ -794,6 +812,7 @@ const INIT_EMPS: Employee[] = [
     manager: "Meena Iyer",
     location: "Hyderabad",
     status: "Active",
+    portalStatus: "Yet to Accept Invite",
     salaryStructure: "Associate",
     grossSalary: 35000,
   },
@@ -808,6 +827,7 @@ const INIT_EMPS: Employee[] = [
     manager: "Rajesh Kumar",
     location: "Delhi",
     status: "Active",
+    portalStatus: "Enabled",
     salaryStructure: "Manager",
     grossSalary: 150000,
   },
@@ -822,6 +842,7 @@ const INIT_EMPS: Employee[] = [
     manager: "Priya Nair",
     location: "Bangalore",
     status: "On Leave",
+    portalStatus: "Enabled",
     salaryStructure: "Senior Engineer",
     grossSalary: 110000,
   },
@@ -836,6 +857,7 @@ const INIT_EMPS: Employee[] = [
     manager: "Anita Desai",
     location: "Bangalore",
     status: "Active",
+    portalStatus: "Disabled",
     salaryStructure: "Senior Engineer",
     grossSalary: 110000,
   },
@@ -850,6 +872,7 @@ const INIT_EMPS: Employee[] = [
     manager: "Priya Nair",
     location: "Remote",
     status: "Active",
+    portalStatus: "Yet to Accept Invite",
     salaryStructure: "Junior Engineer",
     grossSalary: 55000,
   },
@@ -864,6 +887,7 @@ const INIT_EMPS: Employee[] = [
     manager: "-",
     location: "Mumbai",
     status: "Active",
+    portalStatus: "Enabled",
     salaryStructure: "Director",
     grossSalary: 290000,
   },
@@ -878,6 +902,7 @@ const INIT_EMPS: Employee[] = [
     manager: "Meena Iyer",
     location: "Bangalore",
     status: "Incomplete",
+    portalStatus: "Disabled",
     salaryStructure: "Junior Engineer",
     grossSalary: 0,
   },
@@ -892,8 +917,39 @@ const INIT_EMPS: Employee[] = [
     manager: "Meena Iyer",
     location: "Bangalore",
     status: "Incomplete",
+    portalStatus: "Disabled",
     salaryStructure: "Junior Engineer",
     grossSalary: 0,
+  },
+  {
+    id: "EMP-012",
+    name: "Rohan Verma",
+    email: "rohan.verma@globaltech.in",
+    department: "Engineering",
+    designation: "Software Engineer",
+    doj: "2019-05-10",
+    empType: "Full-Time",
+    manager: "Priya Nair",
+    location: "Bangalore",
+    status: "Exited",
+    portalStatus: "Disabled",
+    salaryStructure: "Senior Engineer",
+    grossSalary: 95000,
+  },
+  {
+    id: "EMP-013",
+    name: "Sneha Kapoor",
+    email: "sneha.kapoor@globaltech.in",
+    department: "HR",
+    designation: "HR Executive",
+    doj: "2021-08-15",
+    empType: "Full-Time",
+    manager: "Meena Iyer",
+    location: "Mumbai",
+    status: "Exited",
+    portalStatus: "Disabled",
+    salaryStructure: "Associate",
+    grossSalary: 45000,
   },
 ]
 
@@ -1294,8 +1350,9 @@ function empBadge(s: EmpStatus) {
     Inactive: [F.text3, F.pageBg, F.text3],
     "On Leave": [F.warning, F.warningBg, F.warning],
     Incomplete: [F.warning, F.warningBg, F.warning],
+    Exited: [F.error, F.errorBg, F.error],
   }
-  const [c, b, d] = m[s]
+  const [c, b, d] = m[s] || [F.text3, F.pageBg, F.text3]
   return <Badge label={s} color={c} bg={b} dot={d} />
 }
 function prBadge(s: PayrunStatus) {
@@ -1408,7 +1465,26 @@ const iSt: React.CSSProperties = {
   fontFamily: "inherit",
 }
 
-function Fld({ label, children }: { label: string children: React.ReactNode }) {
+function Fld({ label, children }: { label: React.ReactNode; children: React.ReactNode }) {
+  const renderLabel = () => {
+    if (typeof label === "string" && label.includes("*")) {
+      const parts = label.split("*")
+      return (
+        <>
+          {parts.map((part, i) => (
+            <React.Fragment key={i}>
+              {part}
+              {i < parts.length - 1 && (
+                <span style={{ color: "#EF4444", fontWeight: 700, marginLeft: 2 }}>*</span>
+              )}
+            </React.Fragment>
+          ))}
+        </>
+      )
+    }
+    return label
+  }
+
   return (
     <div className="sap-field" style={{ display: "flex", flexDirection: "column", gap: 4 }}>
       <label
@@ -1420,7 +1496,7 @@ function Fld({ label, children }: { label: string children: React.ReactNode }) {
           letterSpacing: "0.06em",
         }}
       >
-        {label}
+        {renderLabel()}
       </label>
       {children}
     </div>
@@ -3872,6 +3948,2302 @@ function DashboardView({
   )
 }
 
+interface OtherBenefitsModalProps {
+  isOpen: boolean
+  onClose: () => void
+  onSave: (benefit: {
+    id: string
+    name: string
+    items: { title: string; calcText: string }[]
+  }) => void
+}
+
+function OtherBenefitsModal({ isOpen, onClose, onSave }: OtherBenefitsModalProps) {
+  const toast = useToast()
+
+  // Mode: "select_plan" (Initial Image 2) or "new_benefit" (Custom Benefit)
+  const [viewMode, setViewMode] = useState<"select_plan" | "new_benefit">("select_plan")
+
+  // Selected Benefit Plan (Empty at start as shown in Image 2!)
+  const [benefitPlan, setBenefitPlan] = useState<string>("")
+  const [isBenefitPlanOpen, setIsBenefitPlanOpen] = useState(false)
+  const [benefitPlanSearch, setBenefitPlanSearch] = useState("")
+
+  // Custom Benefit Name
+  const [customBenefitName, setCustomBenefitName] = useState("")
+  const [customBenefitPlan, setCustomBenefitPlan] = useState("")
+  const [isCustomBenefitPlanOpen, setIsCustomBenefitPlanOpen] = useState(false)
+  const [customBenefitPlanSearch, setCustomBenefitPlanSearch] = useState("")
+
+  // Checkboxes
+  const [includeEmployerContrib, setIncludeEmployerContrib] = useState(false)
+  const [considerSuperannuation, setConsiderSuperannuation] = useState(false)
+
+  // Associate investment (for Other Non-Taxable Deduction and Custom Benefit)
+  const [associateInvestment, setAssociateInvestment] = useState("")
+  const [isAssociateInvestmentOpen, setIsAssociateInvestmentOpen] = useState(false)
+  const [associateInvestmentSearch, setAssociateInvestmentSearch] = useState("")
+
+  // Employer Contribution
+  const [employerContribType, setEmployerContribType] = useState<"Fixed amount" | "% of Basic">("Fixed amount")
+  const [employerContribValue, setEmployerContribValue] = useState("")
+  const [employerContribPlanType, setEmployerContribPlanType] = useState("Never ends")
+  const [isEmployerContribPlanTypeOpen, setIsEmployerContribPlanTypeOpen] = useState(false)
+  const [employerContribPlanTypeSearch, setEmployerContribPlanTypeSearch] = useState("")
+
+  // Employee Contribution (for VPF & NPS)
+  const [employeeContribType, setEmployeeContribType] = useState<"% of Basic" | "Fixed amount">("Fixed amount")
+  const [employeeContribValue, setEmployeeContribValue] = useState("")
+  const [employeeContribPlanType, setEmployeeContribPlanType] = useState("Never ends")
+  const [isEmployeeContribPlanTypeOpen, setIsEmployeeContribPlanTypeOpen] = useState(false)
+  const [employeeContribPlanTypeSearch, setEmployeeContribPlanTypeSearch] = useState("")
+
+  // Draggable container state (moving container with cursor)
+  const [modalPos, setModalPos] = useState({ x: 0, y: 0 })
+  const [isDragging, setIsDragging] = useState(false)
+  const dragStartRef = useRef({ startX: 0, startY: 0, initialX: 0, initialY: 0 })
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if (e.button !== 0) return
+    const target = e.target as HTMLElement
+    if (target.closest("button") || target.closest("input") || target.closest("select")) return
+    setIsDragging(true)
+    dragStartRef.current = {
+      startX: e.clientX,
+      startY: e.clientY,
+      initialX: modalPos.x,
+      initialY: modalPos.y,
+    }
+  }
+
+  useEffect(() => {
+    if (!isDragging) return
+    const handleMouseMove = (e: MouseEvent) => {
+      const dx = e.clientX - dragStartRef.current.startX
+      const dy = e.clientY - dragStartRef.current.startY
+      setModalPos({
+        x: dragStartRef.current.initialX + dx,
+        y: dragStartRef.current.initialY + dy,
+      })
+    }
+    const handleMouseUp = () => {
+      setIsDragging(false)
+    }
+    window.addEventListener("mousemove", handleMouseMove)
+    window.addEventListener("mouseup", handleMouseUp)
+    return () => {
+      window.removeEventListener("mousemove", handleMouseMove)
+      window.removeEventListener("mouseup", handleMouseUp)
+    }
+  }, [isDragging])
+
+  // Reset when modal opens/closes
+  useEffect(() => {
+    if (isOpen) {
+      setModalPos({ x: 0, y: 0 })
+      setViewMode("select_plan")
+      setBenefitPlan("")
+      setIsBenefitPlanOpen(false)
+      setBenefitPlanSearch("")
+      setCustomBenefitName("")
+      setCustomBenefitPlan("")
+      setIsCustomBenefitPlanOpen(false)
+      setCustomBenefitPlanSearch("")
+      setIncludeEmployerContrib(false)
+      setConsiderSuperannuation(false)
+      setAssociateInvestment("")
+      setIsAssociateInvestmentOpen(false)
+      setAssociateInvestmentSearch("")
+      setEmployerContribType("Fixed amount")
+      setEmployerContribValue("")
+      setEmployerContribPlanType("Never ends")
+      setIsEmployerContribPlanTypeOpen(false)
+      setEmployeeContribType("Fixed amount")
+      setEmployeeContribValue("")
+      setEmployeeContribPlanType("Never ends")
+      setIsEmployeeContribPlanTypeOpen(false)
+    }
+  }, [isOpen])
+
+  if (!isOpen) return null
+
+  // Dropdown list options for Select a benefit plan (Picture 1)
+  const planOptions: string[] = [
+    "Voluntary Provident Fund",
+  ]
+  const filteredPlanOptions = planOptions.filter(p =>
+    p.toLowerCase().includes(benefitPlanSearch.toLowerCase())
+  )
+
+  // Dropdown list options for Benefit Plan in New Benefit (Picture 2)
+  const customPlanOptions: string[] = [
+    "National Pension Scheme",
+    "Other Non-Taxable Deduction",
+  ]
+  const filteredCustomPlanOptions = customPlanOptions.filter(p =>
+    p.toLowerCase().includes(customBenefitPlanSearch.toLowerCase())
+  )
+
+  const contributionTypeOptions = [
+    "Ends when specified amount is deducted within the fiscal year and restarts the next fiscal year",
+    "Ends when specific amount is deducted",
+    "Never ends",
+  ]
+  const filteredEmployerContribPlanTypes = contributionTypeOptions.filter(opt =>
+    opt.toLowerCase().includes(employerContribPlanTypeSearch.toLowerCase())
+  )
+  const filteredEmployeeContribPlanTypes = contributionTypeOptions.filter(opt =>
+    opt.toLowerCase().includes(employeeContribPlanTypeSearch.toLowerCase())
+  )
+
+  const investmentGroups = [
+    {
+      section: "Section 123 (80C)",
+      items: [
+        "Life Insurance Premium",
+        "Public Provident Fund",
+        "Unit-linked insurance plan",
+        "ELSS Tax Saving Mutual Fund",
+      ],
+    },
+    {
+      section: "Section 126 (80D)",
+      items: [
+        "Medi Claim Policy for self, spouse, children",
+        "Medi Claim Policy for self, spouse, children for senior citizen",
+        "Medi Claim Policy for parents",
+        "Medi Claim Policy for parents for senior citizen",
+        "Preventive health check up",
+        "Preventive health check up for parents",
+        "Medical Bills for self, spouse, children for senior citizen",
+        "Medical Bills for parents for senior citizen",
+      ],
+    },
+    {
+      section: "Section 127 (80DD)",
+      items: [
+        "Treatment of dependent with disability",
+        "Treatment of dependent with severe disability",
+      ],
+    },
+    {
+      section: "Section 128 (80DDB)",
+      items: [
+        "Medical expenditure for self or dependent",
+        "Medical expenditure for self or dependent for senior citizen",
+        "Medical expenditure for self or dependent for very senior citizen",
+      ],
+    },
+    {
+      section: "Section 137 (80GGC)",
+      items: [
+        "Donation for political party",
+      ],
+    },
+  ]
+
+  const filteredInvestmentGroups = investmentGroups
+    .map((grp) => {
+      const q = associateInvestmentSearch.trim().toLowerCase()
+      if (!q) return grp
+      const sectionMatches = grp.section.toLowerCase().includes(q)
+      const matchingItems = sectionMatches
+        ? grp.items
+        : grp.items.filter((item) => item.toLowerCase().includes(q))
+      return {
+        ...grp,
+        items: matchingItems,
+      }
+    })
+    .filter((grp) => grp.items.length > 0)
+
+  const handleSave = () => {
+    if (viewMode === "select_plan") {
+      if (!benefitPlan) {
+        toast("Please select a benefit plan (*)", "error")
+        return
+      }
+
+      const items: { title: string; calcText: string }[] = []
+
+      if (benefitPlan === "Voluntary Provident Fund") {
+        const val = parseFloat(employeeContribValue) || 0
+        const calcText = employeeContribType === "% of Basic" ? `${val.toFixed(2)}% of Basic` : `₹${val.toLocaleString("en-IN")}`
+        items.push({ title: "Employee's Contribution", calcText })
+        onSave({
+          id: `vpf-${Date.now()}`,
+          name: "Voluntary Provident Fund",
+          items,
+        })
+        toast("Voluntary Provident Fund added to benefits.", "success")
+        onClose()
+      } else if (benefitPlan === "National Pension Scheme") {
+        if (includeEmployerContrib) {
+          const empVal = parseFloat(employerContribValue) || 0
+          const calcText = employerContribType === "Fixed amount" ? `₹${empVal.toLocaleString("en-IN")}` : `${empVal.toFixed(2)}% of Basic`
+          items.push({ title: "Employer's Contribution", calcText })
+        }
+        const eeVal = parseFloat(employeeContribValue) || 0
+        const eeCalcText = employeeContribType === "% of Basic" ? `${eeVal.toFixed(2)}% of Basic` : `₹${eeVal.toLocaleString("en-IN")}`
+        items.push({ title: "Employee's Contribution", calcText: eeCalcText })
+        onSave({
+          id: `nps-${Date.now()}`,
+          name: "National Pension Scheme",
+          items,
+        })
+        toast("National Pension Scheme added to benefits.", "success")
+        onClose()
+      } else if (benefitPlan === "Other Non-Taxable Deduction") {
+        const empVal = parseFloat(employerContribValue) || 0
+        const calcText = employerContribType === "Fixed amount" ? `₹${empVal.toLocaleString("en-IN")}` : `${empVal.toFixed(2)}% of Basic`
+        items.push({ title: "Employer's Contribution", calcText })
+        onSave({
+          id: `other-${Date.now()}`,
+          name: "Other Non-Taxable Deduction",
+          items,
+        })
+        toast("Other Non-Taxable Deduction added to benefits.", "success")
+        onClose()
+      }
+    } else {
+      if (!customBenefitName.trim()) {
+        toast("Benefit Name is required (*)", "error")
+        return
+      }
+      const items: { title: string; calcText: string }[] = []
+      const empVal = parseFloat(employerContribValue) || 0
+      const empCalcText = employerContribType === "Fixed amount" ? `₹${empVal.toLocaleString("en-IN")}` : `${empVal.toFixed(2)}% of Basic`
+      items.push({ title: "Employer's Contribution", calcText: empCalcText })
+
+      const shouldIncludeEmployeeContrib =
+        customBenefitPlan === "National Pension Scheme" ||
+        (customBenefitPlan === "Other Non-Taxable Deduction" && !!associateInvestment && associateInvestment !== "None")
+
+      if (shouldIncludeEmployeeContrib) {
+        const eeVal = parseFloat(employeeContribValue) || 0
+        const eeCalcText = employeeContribType === "Fixed amount" ? `₹${eeVal.toLocaleString("en-IN")}` : `${eeVal.toFixed(2)}% of Basic`
+        items.push({ title: "Employee's Contribution", calcText: eeCalcText })
+      }
+
+      onSave({
+        id: `benefit-${Date.now()}`,
+        name: customBenefitName.trim(),
+        items,
+      })
+      toast(`${customBenefitName.trim()} added to benefits.`, "success")
+      onClose()
+    }
+  }
+
+  // SVG Helper Icons
+  const SearchSvg = () => (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="11" cy="11" r="8"></circle>
+      <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+    </svg>
+  )
+
+  const ChevronDownSvg = () => (
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#64748B" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="6 9 12 15 18 9"></polyline>
+    </svg>
+  )
+
+  const ChevronUpSvg = () => (
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#64748B" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="18 15 12 9 6 15"></polyline>
+    </svg>
+  )
+
+  const CloseSvg = () => (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#64748B" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+      <line x1="18" y1="6" x2="6" y2="18"></line>
+      <line x1="6" y1="6" x2="18" y2="18"></line>
+    </svg>
+  )
+
+  const CheckmarkSvg = () => (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#2563EB" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="20 6 9 17 4 12"></polyline>
+    </svg>
+  )
+
+  const PlusSvg = () => (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#2563EB" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <line x1="12" y1="5" x2="12" y2="19"></line>
+      <line x1="5" y1="12" x2="19" y2="12"></line>
+    </svg>
+  )
+
+  return (
+    <div
+      style={{
+        position: "fixed",
+        inset: 0,
+        background: "rgba(15, 23, 42, 0.45)",
+        backdropFilter: "blur(2px)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        zIndex: 9999,
+        padding: 16,
+        overflowY: viewMode === "new_benefit" ? "auto" : "visible",
+      }}
+      onClick={onClose}
+    >
+      <div
+        style={{
+          background: "#FFFFFF",
+          borderRadius: 8,
+          width: "100%",
+          maxWidth: 510,
+          maxHeight: viewMode === "new_benefit" ? "calc(100vh - 40px)" : "none",
+          display: "flex",
+          flexDirection: "column",
+          boxShadow: "0 20px 25px -5px rgba(0,0,0,0.12), 0 10px 10px -5px rgba(0,0,0,0.04)",
+          border: "1px solid #E2E8F0",
+          overflow: viewMode === "new_benefit" ? "hidden" : "visible",
+          transform: `translate(${modalPos.x}px, ${modalPos.y}px)`,
+          transition: isDragging ? "none" : "transform 0.05s ease",
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header - Movable with cursor via drag */}
+        <div
+          onMouseDown={handleMouseDown}
+          style={{
+            padding: "16px 20px",
+            borderBottom: "1px solid #F1F5F9",
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            flexShrink: 0,
+            background: "#FFFFFF",
+            cursor: isDragging ? "grabbing" : "grab",
+            userSelect: "none",
+          }}
+          title="Drag to move container"
+        >
+          <div style={{ fontSize: 16, fontWeight: 700, color: "#1E293B" }}>
+            Add Benefits
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            style={{
+              background: "#F1F5F9",
+              border: "none",
+              borderRadius: "50%",
+              width: 26,
+              height: 26,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              cursor: "pointer",
+            }}
+          >
+            <CloseSvg />
+          </button>
+        </div>
+
+        {/* Form Body - Scrollable only in new_benefit mode; completely unconstrained in select_plan */}
+        <div
+          style={{
+            padding: "20px 24px",
+            display: "flex",
+            flexDirection: "column",
+            gap: 16,
+            flex: viewMode === "new_benefit" ? 1 : "none",
+            overflowY: viewMode === "new_benefit" ? "auto" : "visible",
+            overflowX: "visible",
+          }}
+        >
+          {viewMode === "select_plan" ? (
+            <>
+              {/* Field 1: Select a benefit plan * (Exact Image 2) */}
+              <div style={{ position: "relative" }}>
+                <label style={{ display: "block", fontSize: 13, fontWeight: 600, color: "#1E293B", marginBottom: 6 }}>
+                  Select a benefit plan<span style={{ color: "#EF4444" }}>*</span>
+                </label>
+                <div
+                  onClick={() => setIsBenefitPlanOpen(!isBenefitPlanOpen)}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    padding: "10px 14px",
+                    borderRadius: 6,
+                    border: isBenefitPlanOpen ? "1px solid #3B82F6" : "1px solid #CBD5E1",
+                    boxShadow: isBenefitPlanOpen ? "0 0 0 2px rgba(59, 130, 246, 0.15)" : "none",
+                    background: "#FFFFFF",
+                    cursor: "pointer",
+                    fontSize: 13,
+                    color: benefitPlan ? "#1E293B" : "#64748B",
+                  }}
+                >
+                  <span>{benefitPlan || "Select"}</span>
+                  {isBenefitPlanOpen ? <ChevronUpSvg /> : <ChevronDownSvg />}
+                </div>
+
+                {/* Dropdown Menu */}
+                {isBenefitPlanOpen && (
+                  <div
+                    style={{
+                      position: "absolute",
+                      top: "100%",
+                      left: 0,
+                      right: 0,
+                      marginTop: 4,
+                      background: "#FFFFFF",
+                      border: "1px solid #CBD5E1",
+                      borderRadius: 6,
+                      boxShadow: "0 10px 25px -5px rgba(0,0,0,0.15), 0 8px 10px -6px rgba(0,0,0,0.1)",
+                      zIndex: 1000,
+                      overflow: "hidden",
+                    }}
+                  >
+                    {/* Search input with non-overlapping cursor */}
+                    <div style={{ padding: "8px 10px", borderBottom: "1px solid #F1F5F9" }}>
+                      <div style={{ position: "relative", width: "100%", display: "flex", alignItems: "center" }}>
+                        <div style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", display: "flex", alignItems: "center", pointerEvents: "none" }}>
+                          <SearchSvg />
+                        </div>
+                        <input
+                          type="text"
+                          value={benefitPlanSearch}
+                          onChange={(e) => setBenefitPlanSearch(e.target.value)}
+                          placeholder="Search..."
+                          style={{
+                            width: "100%",
+                            padding: "7px 10px 7px 34px",
+                            borderRadius: 4,
+                            border: "1px solid #CBD5E1",
+                            background: "#FFFFFF",
+                            fontSize: 12,
+                            outline: "none",
+                            color: "#1E293B",
+                            boxSizing: "border-box",
+                          }}
+                          autoFocus
+                        />
+                      </div>
+                    </div>
+
+                    {/* Options list */}
+                    <div style={{ maxHeight: 180, overflowY: "auto" }}>
+                      {filteredPlanOptions.map((opt) => (
+                        <div
+                          key={opt}
+                          onClick={() => {
+                            setBenefitPlan(opt)
+                            setIsBenefitPlanOpen(false)
+                          }}
+                          style={{
+                            padding: "9px 14px",
+                            fontSize: 13,
+                            color: benefitPlan === opt ? "#2563EB" : "#1E293B",
+                            fontWeight: benefitPlan === opt ? 600 : 400,
+                            background: benefitPlan === opt ? "#EFF6FF" : "transparent",
+                            cursor: "pointer",
+                            display: "flex",
+                            justifyContent: "space-between",
+                            alignItems: "center",
+                          }}
+                          onMouseEnter={(e) => {
+                            if (benefitPlan !== opt) e.currentTarget.style.background = "#F8FAFC"
+                          }}
+                          onMouseLeave={(e) => {
+                            if (benefitPlan !== opt) e.currentTarget.style.background = "transparent"
+                          }}
+                        >
+                          <span>{opt}</span>
+                          {benefitPlan === opt && <CheckmarkSvg />}
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* + New Benefit Link */}
+                    <div
+                      onClick={() => {
+                        setIsBenefitPlanOpen(false)
+                        setCustomBenefitPlan("Other Non-Taxable Deduction")
+                        setAssociateInvestment("")
+                        setEmployerContribValue("")
+                        setEmployeeContribValue("")
+                        setViewMode("new_benefit")
+                      }}
+                      style={{
+                        padding: "10px 14px",
+                        borderTop: "1px solid #F1F5F9",
+                        fontSize: 13,
+                        fontWeight: 600,
+                        color: "#2563EB",
+                        cursor: "pointer",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 8,
+                        background: "#FFFFFF",
+                        transition: "background 0.15s ease",
+                      }}
+                      onMouseEnter={(e) => (e.currentTarget.style.background = "#F8FAFC")}
+                      onMouseLeave={(e) => (e.currentTarget.style.background = "#FFFFFF")}
+                    >
+                      <PlusSvg />
+                      <span>New Benefit</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* A. If Voluntary Provident Fund is selected */}
+              {benefitPlan === "Voluntary Provident Fund" && (
+                <>
+                  <div>
+                    <label style={{ display: "block", fontSize: 13, fontWeight: 600, color: "#1E293B", marginBottom: 6 }}>
+                      Employee's Contribution <span style={{ color: "#EF4444" }}>*</span>
+                    </label>
+                    <div style={{ display: "grid", gridTemplateColumns: "140px 1fr auto", alignItems: "center", gap: 10 }}>
+                      <div style={{ position: "relative" }}>
+                        <select
+                          value={employeeContribType}
+                          onChange={(e) => setEmployeeContribType(e.target.value as "% of Basic" | "Fixed amount")}
+                          style={{
+                            width: "100%",
+                            padding: "9px 28px 9px 12px",
+                            borderRadius: 6,
+                            border: "1px solid #CBD5E1",
+                            background: "#FFFFFF",
+                            color: "#1E293B",
+                            fontSize: 13,
+                            outline: "none",
+                            cursor: "pointer",
+                            appearance: "none",
+                          }}
+                        >
+                          <option value="% of Basic">% of Basic</option>
+                          <option value="Fixed amount">Fixed amount</option>
+                        </select>
+                        <div style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }}>
+                          <ChevronDownSvg />
+                        </div>
+                      </div>
+
+                      <input
+                        type="text"
+                        value={employeeContribValue}
+                        onChange={(e) => setEmployeeContribValue(e.target.value)}
+                        style={{
+                          width: "100%",
+                          padding: "9px 12px",
+                          borderRadius: 6,
+                          border: "1px solid #CBD5E1",
+                          background: "#FFFFFF",
+                          color: "#1E293B",
+                          fontSize: 13,
+                          outline: "none",
+                          boxSizing: "border-box",
+                        }}
+                      />
+                      <span style={{ fontSize: 13, color: "#64748B", whiteSpace: "nowrap" }}>per pay period</span>
+                    </div>
+                  </div>
+
+                  {/* Contribution Type */}
+                  <div style={{ position: "relative" }}>
+                    <label style={{ display: "block", fontSize: 13, fontWeight: 600, color: "#1E293B", marginBottom: 6 }}>
+                      Contribution Type
+                    </label>
+                    <div
+                      onClick={() => setIsEmployeeContribPlanTypeOpen(!isEmployeeContribPlanTypeOpen)}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        padding: "10px 14px",
+                        borderRadius: 6,
+                        border: isEmployeeContribPlanTypeOpen ? "1px solid #3B82F6" : "1px solid #CBD5E1",
+                        boxShadow: isEmployeeContribPlanTypeOpen ? "0 0 0 2px rgba(59, 130, 246, 0.15)" : "none",
+                        background: "#FFFFFF",
+                        cursor: "pointer",
+                        fontSize: 13,
+                        color: "#1E293B",
+                      }}
+                    >
+                      <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{employeeContribPlanType}</span>
+                      {isEmployeeContribPlanTypeOpen ? <ChevronUpSvg /> : <ChevronDownSvg />}
+                    </div>
+
+                    {isEmployeeContribPlanTypeOpen && (
+                      <div
+                        style={{
+                          position: "absolute",
+                          bottom: "calc(100% + 4px)",
+                          left: 0,
+                          right: 0,
+                          background: "#FFFFFF",
+                          border: "1px solid #CBD5E1",
+                          borderRadius: 6,
+                          boxShadow: "0 -10px 25px -5px rgba(0,0,0,0.15), 0 -8px 10px -6px rgba(0,0,0,0.1)",
+                          zIndex: 1000,
+                          overflow: "hidden",
+                        }}
+                      >
+                        <div style={{ padding: "8px 10px", borderBottom: "1px solid #F1F5F9" }}>
+                          <div style={{ position: "relative", width: "100%", display: "flex", alignItems: "center" }}>
+                            <div style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", display: "flex", alignItems: "center", pointerEvents: "none" }}>
+                              <SearchSvg />
+                            </div>
+                            <input
+                              type="text"
+                              value={employeeContribPlanTypeSearch}
+                              onChange={(e) => setEmployeeContribPlanTypeSearch(e.target.value)}
+                              placeholder="Search..."
+                              style={{
+                                width: "100%",
+                                padding: "7px 10px 7px 34px",
+                                borderRadius: 4,
+                                border: "1px solid #CBD5E1",
+                                background: "#FFFFFF",
+                                fontSize: 12,
+                                outline: "none",
+                                color: "#1E293B",
+                                boxSizing: "border-box",
+                              }}
+                              autoFocus
+                            />
+                          </div>
+                        </div>
+
+                        <div style={{ maxHeight: 200, overflowY: "auto" }}>
+                          {filteredEmployeeContribPlanTypes.map((opt) => (
+                            <div
+                              key={opt}
+                              onClick={() => {
+                                setEmployeeContribPlanType(opt)
+                                setIsEmployeeContribPlanTypeOpen(false)
+                              }}
+                              style={{
+                                padding: "10px 14px",
+                                fontSize: 13,
+                                color: employeeContribPlanType === opt ? "#2563EB" : "#1E293B",
+                                fontWeight: employeeContribPlanType === opt ? 600 : 400,
+                                background: employeeContribPlanType === opt ? "#EFF6FF" : "transparent",
+                                cursor: "pointer",
+                                display: "flex",
+                                justifyContent: "space-between",
+                                alignItems: "center",
+                                gap: 8,
+                              }}
+                              onMouseEnter={(e) => {
+                                if (employeeContribPlanType !== opt) e.currentTarget.style.background = "#F8FAFC"
+                              }}
+                              onMouseLeave={(e) => {
+                                if (employeeContribPlanType !== opt) e.currentTarget.style.background = "transparent"
+                              }}
+                            >
+                              <span>{opt}</span>
+                              {employeeContribPlanType === opt && <CheckmarkSvg />}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
+
+              {/* B. If National Pension Scheme is selected */}
+              {benefitPlan === "National Pension Scheme" && (
+                <>
+                  <div style={{ fontSize: 12, color: "#5E6C84", lineHeight: 1.45, marginTop: -4 }}>
+                    If the employer’s total contribution towards EPF, EPS, NPS and superannuation fund exceeds ₹7.5 lakh in a financial year, the excess amount will be treated as a taxable perquisite for the employee.
+                  </div>
+
+                  <div>
+                    <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "#1E293B", cursor: "pointer" }}>
+                      <input
+                        type="checkbox"
+                        checked={includeEmployerContrib}
+                        onChange={(e) => {
+                          setIncludeEmployerContrib(e.target.checked)
+                          if (e.target.checked) {
+                            setIsEmployerContribPlanTypeOpen(false)
+                            setIsEmployeeContribPlanTypeOpen(false)
+                          }
+                        }}
+                      />
+                      <span>Include employer's contribution in employee's salary structure.</span>
+                    </label>
+                  </div>
+
+                  <div>
+                    <label style={{ display: "block", fontSize: 13, fontWeight: 600, color: "#1E293B", marginBottom: 6 }}>
+                      Employer's Contribution
+                    </label>
+                    <div style={{ display: "grid", gridTemplateColumns: "140px 1fr auto", alignItems: "center", gap: 10 }}>
+                      <div style={{ position: "relative" }}>
+                        <select
+                          value={employerContribType}
+                          onChange={(e) => setEmployerContribType(e.target.value as "Fixed amount" | "% of Basic")}
+                          style={{
+                            width: "100%",
+                            padding: "9px 28px 9px 12px",
+                            borderRadius: 6,
+                            border: "1px solid #CBD5E1",
+                            background: "#FFFFFF",
+                            color: "#1E293B",
+                            fontSize: 13,
+                            outline: "none",
+                            cursor: "pointer",
+                            appearance: "none",
+                          }}
+                        >
+                          <option value="Fixed amount">Fixed amount</option>
+                          <option value="% of Basic">% of Basic</option>
+                        </select>
+                        <div style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }}>
+                          <ChevronDownSvg />
+                        </div>
+                      </div>
+
+                      <input
+                        type="text"
+                        value={employerContribValue}
+                        onChange={(e) => setEmployerContribValue(e.target.value)}
+                        style={{
+                          width: "100%",
+                          padding: "9px 12px",
+                          borderRadius: 6,
+                          border: "1px solid #CBD5E1",
+                          background: "#FFFFFF",
+                          color: "#1E293B",
+                          fontSize: 13,
+                          outline: "none",
+                          boxSizing: "border-box",
+                        }}
+                      />
+                      <span style={{ fontSize: 13, color: "#64748B", whiteSpace: "nowrap" }}>per pay period</span>
+                    </div>
+                  </div>
+
+                  {/* Contribution Type (Disabled if includeEmployerContrib is checked) */}
+                  <div style={{ position: "relative" }}>
+                    <label style={{ display: "block", fontSize: 13, fontWeight: 600, color: "#1E293B", marginBottom: 6 }}>
+                      Contribution Type
+                    </label>
+                    <div
+                      onClick={() => {
+                        if (!includeEmployerContrib) {
+                          setIsEmployerContribPlanTypeOpen(!isEmployerContribPlanTypeOpen)
+                        }
+                      }}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        padding: "10px 14px",
+                        borderRadius: 6,
+                        border: "1px solid #CBD5E1",
+                        background: includeEmployerContrib ? "#F8FAFC" : "#FFFFFF",
+                        cursor: includeEmployerContrib ? "not-allowed" : "pointer",
+                        opacity: includeEmployerContrib ? 0.6 : 1,
+                        fontSize: 13,
+                        color: "#1E293B",
+                      }}
+                    >
+                      <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{employerContribPlanType}</span>
+                      <span style={{ opacity: includeEmployerContrib ? 0.4 : 1 }}>
+                        {isEmployerContribPlanTypeOpen && !includeEmployerContrib ? <ChevronUpSvg /> : <ChevronDownSvg />}
+                      </span>
+                    </div>
+
+                    {isEmployerContribPlanTypeOpen && !includeEmployerContrib && (
+                      <div
+                        style={{
+                          position: "absolute",
+                          bottom: "calc(100% + 4px)",
+                          left: 0,
+                          right: 0,
+                          background: "#FFFFFF",
+                          border: "1px solid #CBD5E1",
+                          borderRadius: 6,
+                          boxShadow: "0 -10px 25px -5px rgba(0,0,0,0.15), 0 -8px 10px -6px rgba(0,0,0,0.1)",
+                          zIndex: 1000,
+                          overflow: "hidden",
+                        }}
+                      >
+                        <div style={{ padding: "8px 10px", borderBottom: "1px solid #F1F5F9" }}>
+                          <div style={{ position: "relative", width: "100%", display: "flex", alignItems: "center" }}>
+                            <div style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", display: "flex", alignItems: "center", pointerEvents: "none" }}>
+                              <SearchSvg />
+                            </div>
+                            <input
+                              type="text"
+                              value={employerContribPlanTypeSearch}
+                              onChange={(e) => setEmployerContribPlanTypeSearch(e.target.value)}
+                              placeholder="Search..."
+                              style={{
+                                width: "100%",
+                                padding: "7px 10px 7px 34px",
+                                borderRadius: 4,
+                                border: "1px solid #CBD5E1",
+                                background: "#FFFFFF",
+                                fontSize: 12,
+                                outline: "none",
+                                color: "#1E293B",
+                                boxSizing: "border-box",
+                              }}
+                              autoFocus
+                            />
+                          </div>
+                        </div>
+
+                        <div style={{ maxHeight: 200, overflowY: "auto" }}>
+                          {filteredEmployerContribPlanTypes.map((opt) => (
+                            <div
+                              key={opt}
+                              onClick={() => {
+                                setEmployerContribPlanType(opt)
+                                setIsEmployerContribPlanTypeOpen(false)
+                              }}
+                              style={{
+                                padding: "10px 14px",
+                                fontSize: 13,
+                                color: employerContribPlanType === opt ? "#2563EB" : "#1E293B",
+                                fontWeight: employerContribPlanType === opt ? 600 : 400,
+                                background: employerContribPlanType === opt ? "#EFF6FF" : "transparent",
+                                cursor: "pointer",
+                                display: "flex",
+                                justifyContent: "space-between",
+                                alignItems: "center",
+                                gap: 8,
+                              }}
+                              onMouseEnter={(e) => {
+                                if (employerContribPlanType !== opt) e.currentTarget.style.background = "#F8FAFC"
+                              }}
+                              onMouseLeave={(e) => {
+                                if (employerContribPlanType !== opt) e.currentTarget.style.background = "transparent"
+                              }}
+                            >
+                              <span>{opt}</span>
+                              {employerContribPlanType === opt && <CheckmarkSvg />}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  <div style={{ borderTop: "1px dashed #CBD5E1", margin: "4px 0" }} />
+
+                  {/* Employee's Contribution */}
+                  <div>
+                    <label style={{ display: "block", fontSize: 13, fontWeight: 600, color: "#1E293B", marginBottom: 6 }}>
+                      Employee's Contribution <span style={{ color: "#EF4444" }}>*</span>
+                    </label>
+                    <div style={{ display: "grid", gridTemplateColumns: "140px 1fr auto", alignItems: "center", gap: 10 }}>
+                      <div style={{ position: "relative" }}>
+                        <select
+                          value={employeeContribType}
+                          onChange={(e) => setEmployeeContribType(e.target.value as "% of Basic" | "Fixed amount")}
+                          style={{
+                            width: "100%",
+                            padding: "9px 28px 9px 12px",
+                            borderRadius: 6,
+                            border: "1px solid #CBD5E1",
+                            background: "#FFFFFF",
+                            color: "#1E293B",
+                            fontSize: 13,
+                            outline: "none",
+                            cursor: "pointer",
+                            appearance: "none",
+                          }}
+                        >
+                          <option value="% of Basic">% of Basic</option>
+                          <option value="Fixed amount">Fixed amount</option>
+                        </select>
+                        <div style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }}>
+                          <ChevronDownSvg />
+                        </div>
+                      </div>
+
+                      <input
+                        type="text"
+                        value={employeeContribValue}
+                        onChange={(e) => setEmployeeContribValue(e.target.value)}
+                        style={{
+                          width: "100%",
+                          padding: "9px 12px",
+                          borderRadius: 6,
+                          border: "1px solid #CBD5E1",
+                          background: "#FFFFFF",
+                          color: "#1E293B",
+                          fontSize: 13,
+                          outline: "none",
+                          boxSizing: "border-box",
+                        }}
+                      />
+                      <span style={{ fontSize: 13, color: "#64748B", whiteSpace: "nowrap" }}>per pay period</span>
+                    </div>
+                  </div>
+
+                  {/* Employee Contribution Type */}
+                  <div style={{ position: "relative" }}>
+                    <label style={{ display: "block", fontSize: 13, fontWeight: 600, color: "#1E293B", marginBottom: 6 }}>
+                      Contribution Type
+                    </label>
+                    <div
+                      onClick={() => {
+                        if (!includeEmployerContrib) {
+                          setIsEmployeeContribPlanTypeOpen(!isEmployeeContribPlanTypeOpen)
+                        }
+                      }}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        padding: "10px 14px",
+                        borderRadius: 6,
+                        border: isEmployeeContribPlanTypeOpen && !includeEmployerContrib ? "1px solid #3B82F6" : "1px solid #CBD5E1",
+                        boxShadow: isEmployeeContribPlanTypeOpen && !includeEmployerContrib ? "0 0 0 2px rgba(59, 130, 246, 0.15)" : "none",
+                        background: includeEmployerContrib ? "#F8FAFC" : "#FFFFFF",
+                        cursor: includeEmployerContrib ? "not-allowed" : "pointer",
+                        opacity: includeEmployerContrib ? 0.6 : 1,
+                        fontSize: 13,
+                        color: "#1E293B",
+                      }}
+                    >
+                      <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{employeeContribPlanType}</span>
+                      <span style={{ opacity: includeEmployerContrib ? 0.4 : 1 }}>
+                        {isEmployeeContribPlanTypeOpen && !includeEmployerContrib ? <ChevronUpSvg /> : <ChevronDownSvg />}
+                      </span>
+                    </div>
+
+                    {isEmployeeContribPlanTypeOpen && !includeEmployerContrib && (
+                      <div
+                        style={{
+                          position: "absolute",
+                          bottom: "calc(100% + 4px)",
+                          left: 0,
+                          right: 0,
+                          background: "#FFFFFF",
+                          border: "1px solid #CBD5E1",
+                          borderRadius: 6,
+                          boxShadow: "0 -10px 25px -5px rgba(0,0,0,0.15), 0 -8px 10px -6px rgba(0,0,0,0.1)",
+                          zIndex: 1000,
+                          overflow: "hidden",
+                        }}
+                      >
+                        <div style={{ padding: "8px 10px", borderBottom: "1px solid #F1F5F9" }}>
+                          <div style={{ position: "relative", width: "100%", display: "flex", alignItems: "center" }}>
+                            <div style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", display: "flex", alignItems: "center", pointerEvents: "none" }}>
+                              <SearchSvg />
+                            </div>
+                            <input
+                              type="text"
+                              value={employeeContribPlanTypeSearch}
+                              onChange={(e) => setEmployeeContribPlanTypeSearch(e.target.value)}
+                              placeholder="Search..."
+                              style={{
+                                width: "100%",
+                                padding: "7px 10px 7px 34px",
+                                borderRadius: 4,
+                                border: "1px solid #CBD5E1",
+                                background: "#FFFFFF",
+                                fontSize: 12,
+                                outline: "none",
+                                color: "#1E293B",
+                                boxSizing: "border-box",
+                              }}
+                              autoFocus
+                            />
+                          </div>
+                        </div>
+
+                        <div style={{ maxHeight: 200, overflowY: "auto" }}>
+                          {filteredEmployeeContribPlanTypes.map((opt) => (
+                            <div
+                              key={opt}
+                              onClick={() => {
+                                setEmployeeContribPlanType(opt)
+                                setIsEmployeeContribPlanTypeOpen(false)
+                              }}
+                              style={{
+                                padding: "10px 14px",
+                                fontSize: 13,
+                                color: employeeContribPlanType === opt ? "#2563EB" : "#1E293B",
+                                fontWeight: employeeContribPlanType === opt ? 600 : 400,
+                                background: employeeContribPlanType === opt ? "#EFF6FF" : "transparent",
+                                cursor: "pointer",
+                                display: "flex",
+                                justifyContent: "space-between",
+                                alignItems: "center",
+                                gap: 8,
+                              }}
+                              onMouseEnter={(e) => {
+                                if (employeeContribPlanType !== opt) e.currentTarget.style.background = "#F8FAFC"
+                              }}
+                              onMouseLeave={(e) => {
+                                if (employeeContribPlanType !== opt) e.currentTarget.style.background = "transparent"
+                              }}
+                            >
+                              <span>{opt}</span>
+                              {employeeContribPlanType === opt && <CheckmarkSvg />}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
+
+              {/* C. If Other Non-Taxable Deduction is selected */}
+              {benefitPlan === "Other Non-Taxable Deduction" && (
+                <>
+                  <div>
+                    <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "#1E293B", cursor: "pointer" }}>
+                      <input
+                        type="checkbox"
+                        checked={includeEmployerContrib}
+                        onChange={(e) => {
+                          setIncludeEmployerContrib(e.target.checked)
+                          if (e.target.checked) {
+                            setIsEmployerContribPlanTypeOpen(false)
+                            setIsEmployeeContribPlanTypeOpen(false)
+                          }
+                        }}
+                      />
+                      <span>Include employer's contribution in employee's salary structure.</span>
+                    </label>
+                  </div>
+
+                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                    <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "#1E293B", cursor: "pointer" }}>
+                      <input
+                        type="checkbox"
+                        checked={considerSuperannuation}
+                        onChange={(e) => setConsiderSuperannuation(e.target.checked)}
+                      />
+                      <span>Consider this a superannuation fund</span>
+                    </label>
+
+                    {considerSuperannuation && (
+                      <div style={{ fontSize: 12, color: "#5E6C84", lineHeight: 1.45, marginLeft: 22 }}>
+                        If the employer’s total contribution towards EPF, EPS, NPS and superannuation fund exceeds ₹7.5 lakh in a financial year, the excess amount will be treated as a taxable perquisite for the employee.
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Associate this benefit with */}
+                  <div style={{ position: "relative" }}>
+                    <label style={{ display: "block", fontSize: 13, fontWeight: 600, color: "#1E293B", marginBottom: 6 }}>
+                      Associate this benefit with
+                    </label>
+                    <div
+                      onClick={() => setIsAssociateInvestmentOpen(!isAssociateInvestmentOpen)}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        padding: "10px 14px",
+                        borderRadius: 6,
+                        border: isAssociateInvestmentOpen ? "1px solid #3B82F6" : "1px solid #CBD5E1",
+                        boxShadow: isAssociateInvestmentOpen ? "0 0 0 2px rgba(59, 130, 246, 0.15)" : "none",
+                        background: "#FFFFFF",
+                        cursor: "pointer",
+                        fontSize: 13,
+                        color: associateInvestment ? "#1E293B" : "#64748B",
+                      }}
+                    >
+                      <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{associateInvestment || "Select an Investment"}</span>
+                      {isAssociateInvestmentOpen ? <ChevronUpSvg /> : <ChevronDownSvg />}
+                    </div>
+
+                    {isAssociateInvestmentOpen && (
+                      <div
+                        style={{
+                          position: "absolute",
+                          top: "100%",
+                          left: 0,
+                          right: 0,
+                          marginTop: 4,
+                          background: "#FFFFFF",
+                          border: "1px solid #CBD5E1",
+                          borderRadius: 6,
+                          boxShadow: "0 10px 25px -5px rgba(0,0,0,0.15), 0 8px 10px -6px rgba(0,0,0,0.1)",
+                          zIndex: 1000,
+                          overflow: "hidden",
+                        }}
+                      >
+                        <div style={{ padding: "8px 10px", borderBottom: "1px solid #F1F5F9" }}>
+                          <div style={{ position: "relative", width: "100%", display: "flex", alignItems: "center" }}>
+                            <div style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", display: "flex", alignItems: "center", pointerEvents: "none" }}>
+                              <SearchSvg />
+                            </div>
+                            <input
+                              type="text"
+                              value={associateInvestmentSearch}
+                              onChange={(e) => setAssociateInvestmentSearch(e.target.value)}
+                              placeholder="Search..."
+                              style={{
+                                width: "100%",
+                                padding: "7px 10px 7px 34px",
+                                borderRadius: 4,
+                                border: "1px solid #CBD5E1",
+                                background: "#FFFFFF",
+                                fontSize: 12,
+                                outline: "none",
+                                color: "#1E293B",
+                                boxSizing: "border-box",
+                              }}
+                              autoFocus
+                            />
+                          </div>
+                        </div>
+
+                        <div style={{ maxHeight: 220, overflowY: "auto", padding: "4px 0" }}>
+                          {filteredInvestmentGroups.length === 0 ? (
+                            <div style={{ padding: "12px 14px", fontSize: 13, color: "#94A3B8", textAlign: "center" }}>
+                              No matching investments found
+                            </div>
+                          ) : (
+                            filteredInvestmentGroups.map((grp) => (
+                              <div key={grp.section}>
+                                <div
+                                  style={{
+                                    padding: "10px 14px 4px 14px",
+                                    fontSize: 13,
+                                    fontWeight: 700,
+                                    color: "#0F172A",
+                                    letterSpacing: "-0.01em",
+                                    userSelect: "none",
+                                  }}
+                                >
+                                  {grp.section}
+                                </div>
+                                {grp.items.map((opt) => {
+                                  const isSelected = associateInvestment === opt
+                                  return (
+                                    <div
+                                      key={opt}
+                                      onClick={() => {
+                                        setAssociateInvestment(opt)
+                                        setIsAssociateInvestmentOpen(false)
+                                      }}
+                                      style={{
+                                        margin: "2px 8px",
+                                        padding: "8px 12px",
+                                        borderRadius: 4,
+                                        fontSize: 13,
+                                        fontWeight: isSelected ? 600 : 400,
+                                        color: isSelected ? "#FFFFFF" : "#1E293B",
+                                        background: isSelected ? "#3B82F6" : "transparent",
+                                        cursor: "pointer",
+                                        transition: "background 0.12s ease, color 0.12s ease",
+                                      }}
+                                      onMouseEnter={(e) => {
+                                        if (!isSelected) {
+                                          e.currentTarget.style.background = "#F1F5F9"
+                                        }
+                                      }}
+                                      onMouseLeave={(e) => {
+                                        if (!isSelected) {
+                                          e.currentTarget.style.background = "transparent"
+                                        }
+                                      }}
+                                    >
+                                      {opt}
+                                    </div>
+                                  )
+                                })}
+                              </div>
+                            ))
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Employer's Contribution */}
+                  <div>
+                    <label style={{ display: "block", fontSize: 13, fontWeight: 600, color: "#1E293B", marginBottom: 6 }}>
+                      Employer's Contribution
+                    </label>
+                    <div style={{ display: "grid", gridTemplateColumns: "140px 1fr auto", alignItems: "center", gap: 10 }}>
+                      <div style={{ position: "relative" }}>
+                        <select
+                          value={employerContribType}
+                          onChange={(e) => setEmployerContribType(e.target.value as "Fixed amount" | "% of Basic")}
+                          style={{
+                            width: "100%",
+                            padding: "9px 28px 9px 12px",
+                            borderRadius: 6,
+                            border: "1px solid #CBD5E1",
+                            background: "#FFFFFF",
+                            color: "#1E293B",
+                            fontSize: 13,
+                            outline: "none",
+                            cursor: "pointer",
+                            appearance: "none",
+                          }}
+                        >
+                          <option value="Fixed amount">Fixed amount</option>
+                          <option value="% of Basic">% of Basic</option>
+                        </select>
+                        <div style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }}>
+                          <ChevronDownSvg />
+                        </div>
+                      </div>
+
+                      <input
+                        type="text"
+                        value={employerContribValue}
+                        onChange={(e) => setEmployerContribValue(e.target.value)}
+                        style={{
+                          width: "100%",
+                          padding: "9px 12px",
+                          borderRadius: 6,
+                          border: "1px solid #CBD5E1",
+                          background: "#FFFFFF",
+                          color: "#1E293B",
+                          fontSize: 13,
+                          outline: "none",
+                          boxSizing: "border-box",
+                        }}
+                      />
+                      <span style={{ fontSize: 13, color: "#64748B", whiteSpace: "nowrap" }}>per pay period</span>
+                    </div>
+                  </div>
+
+                  {/* Contribution Type (Disabled if includeEmployerContrib is checked) */}
+                  <div style={{ position: "relative" }}>
+                    <label style={{ display: "block", fontSize: 13, fontWeight: 600, color: "#1E293B", marginBottom: 6 }}>
+                      Contribution Type
+                    </label>
+                    <div
+                      onClick={() => {
+                        if (!includeEmployerContrib) {
+                          setIsEmployerContribPlanTypeOpen(!isEmployerContribPlanTypeOpen)
+                        }
+                      }}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        padding: "10px 14px",
+                        borderRadius: 6,
+                        border: "1px solid #CBD5E1",
+                        background: includeEmployerContrib ? "#F8FAFC" : "#FFFFFF",
+                        cursor: includeEmployerContrib ? "not-allowed" : "pointer",
+                        opacity: includeEmployerContrib ? 0.6 : 1,
+                        fontSize: 13,
+                        color: "#1E293B",
+                      }}
+                    >
+                      <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{employerContribPlanType}</span>
+                      <span style={{ opacity: includeEmployerContrib ? 0.4 : 1 }}>
+                        {isEmployerContribPlanTypeOpen && !includeEmployerContrib ? <ChevronUpSvg /> : <ChevronDownSvg />}
+                      </span>
+                    </div>
+
+                    {isEmployerContribPlanTypeOpen && !includeEmployerContrib && (
+                      <div
+                        style={{
+                          position: "absolute",
+                          bottom: "calc(100% + 4px)",
+                          left: 0,
+                          right: 0,
+                          background: "#FFFFFF",
+                          border: "1px solid #CBD5E1",
+                          borderRadius: 6,
+                          boxShadow: "0 -10px 25px -5px rgba(0,0,0,0.15), 0 -8px 10px -6px rgba(0,0,0,0.1)",
+                          zIndex: 1000,
+                          overflow: "hidden",
+                        }}
+                      >
+                        <div style={{ padding: "8px 10px", borderBottom: "1px solid #F1F5F9" }}>
+                          <div style={{ position: "relative", width: "100%", display: "flex", alignItems: "center" }}>
+                            <div style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", display: "flex", alignItems: "center", pointerEvents: "none" }}>
+                              <SearchSvg />
+                            </div>
+                            <input
+                              type="text"
+                              value={employerContribPlanTypeSearch}
+                              onChange={(e) => setEmployerContribPlanTypeSearch(e.target.value)}
+                              placeholder="Search..."
+                              style={{
+                                width: "100%",
+                                padding: "7px 10px 7px 34px",
+                                borderRadius: 4,
+                                border: "1px solid #CBD5E1",
+                                background: "#FFFFFF",
+                                fontSize: 12,
+                                outline: "none",
+                                color: "#1E293B",
+                                boxSizing: "border-box",
+                              }}
+                              autoFocus
+                            />
+                          </div>
+                        </div>
+
+                        <div style={{ maxHeight: 200, overflowY: "auto" }}>
+                          {filteredEmployerContribPlanTypes.map((opt) => (
+                            <div
+                              key={opt}
+                              onClick={() => {
+                                setEmployerContribPlanType(opt)
+                                setIsEmployerContribPlanTypeOpen(false)
+                              }}
+                              style={{
+                                padding: "10px 14px",
+                                fontSize: 13,
+                                color: employerContribPlanType === opt ? "#2563EB" : "#1E293B",
+                                fontWeight: employerContribPlanType === opt ? 600 : 400,
+                                background: employerContribPlanType === opt ? "#EFF6FF" : "transparent",
+                                cursor: "pointer",
+                                display: "flex",
+                                justifyContent: "space-between",
+                                alignItems: "center",
+                                gap: 8,
+                              }}
+                              onMouseEnter={(e) => {
+                                if (employerContribPlanType !== opt) e.currentTarget.style.background = "#F8FAFC"
+                              }}
+                              onMouseLeave={(e) => {
+                                if (employerContribPlanType !== opt) e.currentTarget.style.background = "transparent"
+                              }}
+                            >
+                              <span>{opt}</span>
+                              {employerContribPlanType === opt && <CheckmarkSvg />}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
+            </>
+          ) : (
+            /* Custom Benefit View (Mode: new_benefit) */
+            <>
+              <div>
+                <label style={{ display: "block", fontSize: 13, fontWeight: 600, color: "#1E293B", marginBottom: 6 }}>
+                  Benefit Name<span style={{ color: "#EF4444" }}>*</span>
+                </label>
+                <input
+                  type="text"
+                  value={customBenefitName}
+                  onChange={(e) => setCustomBenefitName(e.target.value)}
+                  style={{
+                    width: "100%",
+                    padding: "10px 14px",
+                    borderRadius: 6,
+                    border: "1px solid #CBD5E1",
+                    outline: "none",
+                    fontSize: 13,
+                    color: "#1E293B",
+                    boxSizing: "border-box",
+                  }}
+                  autoFocus
+                />
+              </div>
+
+              {/* Benefit Plan custom dropdown in new_benefit mode */}
+              <div style={{ position: "relative" }}>
+                <label style={{ display: "block", fontSize: 13, fontWeight: 600, color: "#1E293B", marginBottom: 6 }}>
+                  Benefit Plan
+                </label>
+                <div
+                  onClick={() => setIsCustomBenefitPlanOpen(!isCustomBenefitPlanOpen)}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    padding: "10px 14px",
+                    borderRadius: 6,
+                    border: isCustomBenefitPlanOpen ? "1px solid #3B82F6" : "1px solid #CBD5E1",
+                    background: "#FFFFFF",
+                    cursor: "pointer",
+                    fontSize: 13,
+                    color: customBenefitPlan ? "#1E293B" : "#64748B",
+                  }}
+                >
+                  <span>{customBenefitPlan || "Select a Benefit Plan"}</span>
+                  {isCustomBenefitPlanOpen ? <ChevronUpSvg /> : <ChevronDownSvg />}
+                </div>
+
+                {isCustomBenefitPlanOpen && (
+                  <div
+                    style={{
+                      position: "absolute",
+                      top: "100%",
+                      left: 0,
+                      right: 0,
+                      marginTop: 4,
+                      background: "#FFFFFF",
+                      border: "1px solid #CBD5E1",
+                      borderRadius: 6,
+                      boxShadow: "0 10px 25px -5px rgba(0,0,0,0.15), 0 8px 10px -6px rgba(0,0,0,0.1)",
+                      zIndex: 1000,
+                      overflow: "hidden",
+                    }}
+                  >
+                    <div style={{ padding: "8px 10px", borderBottom: "1px solid #F1F5F9" }}>
+                      <div style={{ position: "relative", width: "100%", display: "flex", alignItems: "center" }}>
+                        <div style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", display: "flex", alignItems: "center", pointerEvents: "none" }}>
+                          <SearchSvg />
+                        </div>
+                        <input
+                          type="text"
+                          value={customBenefitPlanSearch}
+                          onChange={(e) => setCustomBenefitPlanSearch(e.target.value)}
+                          placeholder="Search..."
+                          style={{
+                            width: "100%",
+                            padding: "7px 10px 7px 34px",
+                            borderRadius: 4,
+                            border: "1px solid #CBD5E1",
+                            background: "#FFFFFF",
+                            fontSize: 12,
+                            outline: "none",
+                            color: "#1E293B",
+                            boxSizing: "border-box",
+                          }}
+                          autoFocus
+                        />
+                      </div>
+                    </div>
+
+                    <div style={{ maxHeight: 180, overflowY: "auto" }}>
+                      {filteredCustomPlanOptions.map((opt) => (
+                        <div
+                          key={opt}
+                          onClick={() => {
+                            setCustomBenefitPlan(opt)
+                            setIsCustomBenefitPlanOpen(false)
+                          }}
+                          style={{
+                            padding: "10px 14px",
+                            fontSize: 13,
+                            color: customBenefitPlan === opt ? "#2563EB" : "#1E293B",
+                            fontWeight: customBenefitPlan === opt ? 600 : 400,
+                            background: customBenefitPlan === opt ? "#EFF6FF" : "transparent",
+                            cursor: "pointer",
+                            display: "flex",
+                            justifyContent: "space-between",
+                            alignItems: "center",
+                          }}
+                          onMouseEnter={(e) => {
+                            if (customBenefitPlan !== opt) e.currentTarget.style.background = "#F8FAFC"
+                          }}
+                          onMouseLeave={(e) => {
+                            if (customBenefitPlan !== opt) e.currentTarget.style.background = "transparent"
+                          }}
+                        >
+                          <span>{opt}</span>
+                          {customBenefitPlan === opt && <CheckmarkSvg />}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Layout for National Pension Scheme (Image 1) */}
+              {customBenefitPlan === "National Pension Scheme" && (
+                <>
+                  <div style={{ fontSize: 12, color: "#5E6C84", lineHeight: 1.45, marginTop: -4 }}>
+                    If the employer’s total contribution towards EPF, EPS, NPS and superannuation fund exceeds ₹7.5 lakh in a financial year, the excess amount will be treated as a taxable perquisite for the employee.
+                  </div>
+
+                  <div>
+                    <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "#1E293B", cursor: "pointer" }}>
+                      <input
+                        type="checkbox"
+                        checked={includeEmployerContrib}
+                        onChange={(e) => {
+                          setIncludeEmployerContrib(e.target.checked)
+                          if (e.target.checked) {
+                            setIsEmployerContribPlanTypeOpen(false)
+                            setIsEmployeeContribPlanTypeOpen(false)
+                          }
+                        }}
+                      />
+                      <span>Include employer's contribution in employee's salary structure.</span>
+                    </label>
+                  </div>
+
+                  <div>
+                    <label style={{ display: "block", fontSize: 13, fontWeight: 600, color: "#1E293B", marginBottom: 6 }}>
+                      Employer's Contribution
+                    </label>
+                    <div style={{ display: "grid", gridTemplateColumns: "140px 1fr auto", alignItems: "center", gap: 10 }}>
+                      <div style={{ position: "relative" }}>
+                        <select
+                          value={employerContribType}
+                          onChange={(e) => setEmployerContribType(e.target.value as "Fixed amount" | "% of Basic")}
+                          style={{
+                            width: "100%",
+                            padding: "9px 28px 9px 12px",
+                            borderRadius: 6,
+                            border: "1px solid #CBD5E1",
+                            background: "#FFFFFF",
+                            color: "#1E293B",
+                            fontSize: 13,
+                            outline: "none",
+                            cursor: "pointer",
+                            appearance: "none",
+                          }}
+                        >
+                          <option value="Fixed amount">Fixed amount</option>
+                          <option value="% of Basic">% of Basic</option>
+                        </select>
+                        <div style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }}>
+                          <ChevronDownSvg />
+                        </div>
+                      </div>
+
+                      <input
+                        type="text"
+                        value={employerContribValue}
+                        onChange={(e) => setEmployerContribValue(e.target.value)}
+                        style={{
+                          width: "100%",
+                          padding: "9px 12px",
+                          borderRadius: 6,
+                          border: "1px solid #CBD5E1",
+                          background: "#FFFFFF",
+                          color: "#1E293B",
+                          fontSize: 13,
+                          outline: "none",
+                          boxSizing: "border-box",
+                        }}
+                      />
+                      <span style={{ fontSize: 13, color: "#64748B", whiteSpace: "nowrap" }}>per pay period</span>
+                    </div>
+                  </div>
+
+                  <div style={{ position: "relative" }}>
+                    <label style={{ display: "block", fontSize: 13, fontWeight: 600, color: "#1E293B", marginBottom: 6 }}>
+                      Contribution Type
+                    </label>
+                    <div
+                      onClick={() => {
+                        if (!includeEmployerContrib) {
+                          setIsEmployerContribPlanTypeOpen(!isEmployerContribPlanTypeOpen)
+                        }
+                      }}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        padding: "10px 14px",
+                        borderRadius: 6,
+                        border: isEmployerContribPlanTypeOpen && !includeEmployerContrib ? "1px solid #3B82F6" : "1px solid #CBD5E1",
+                        boxShadow: isEmployerContribPlanTypeOpen && !includeEmployerContrib ? "0 0 0 2px rgba(59, 130, 246, 0.15)" : "none",
+                        background: includeEmployerContrib ? "#F8FAFC" : "#FFFFFF",
+                        cursor: includeEmployerContrib ? "not-allowed" : "pointer",
+                        opacity: includeEmployerContrib ? 0.6 : 1,
+                        fontSize: 13,
+                        color: "#1E293B",
+                      }}
+                    >
+                      <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{employerContribPlanType}</span>
+                      <span style={{ opacity: includeEmployerContrib ? 0.4 : 1 }}>
+                        {isEmployerContribPlanTypeOpen && !includeEmployerContrib ? <ChevronUpSvg /> : <ChevronDownSvg />}
+                      </span>
+                    </div>
+
+                    {isEmployerContribPlanTypeOpen && !includeEmployerContrib && (
+                      <div
+                        style={{
+                          position: "absolute",
+                          bottom: "calc(100% + 4px)",
+                          left: 0,
+                          right: 0,
+                          background: "#FFFFFF",
+                          border: "1px solid #CBD5E1",
+                          borderRadius: 6,
+                          boxShadow: "0 -10px 25px -5px rgba(0,0,0,0.15), 0 -8px 10px -6px rgba(0,0,0,0.1)",
+                          zIndex: 1000,
+                          overflow: "hidden",
+                        }}
+                      >
+                        <div style={{ maxHeight: 200, overflowY: "auto" }}>
+                          {contributionTypeOptions.map((opt) => (
+                            <div
+                              key={opt}
+                              onClick={() => {
+                                setEmployerContribPlanType(opt)
+                                setIsEmployerContribPlanTypeOpen(false)
+                              }}
+                              style={{
+                                padding: "10px 14px",
+                                fontSize: 13,
+                                color: employerContribPlanType === opt ? "#2563EB" : "#1E293B",
+                                fontWeight: employerContribPlanType === opt ? 600 : 400,
+                                background: employerContribPlanType === opt ? "#EFF6FF" : "transparent",
+                                cursor: "pointer",
+                                display: "flex",
+                                justifyContent: "space-between",
+                                alignItems: "center",
+                                gap: 8,
+                              }}
+                              onMouseEnter={(e) => {
+                                if (employerContribPlanType !== opt) e.currentTarget.style.background = "#F8FAFC"
+                              }}
+                              onMouseLeave={(e) => {
+                                if (employerContribPlanType !== opt) e.currentTarget.style.background = "transparent"
+                              }}
+                            >
+                              <span>{opt}</span>
+                              {employerContribPlanType === opt && <CheckmarkSvg />}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Dotted separator line */}
+                  <div style={{ borderTop: "1px dashed #CBD5E1", margin: "6px 0" }} />
+
+                  {/* Employee's Contribution (Image 1) */}
+                  <div>
+                    <label style={{ display: "block", fontSize: 13, fontWeight: 600, color: "#1E293B", marginBottom: 6 }}>
+                      Employee's Contribution
+                    </label>
+                    <div style={{ display: "grid", gridTemplateColumns: "140px 1fr auto", alignItems: "center", gap: 10 }}>
+                      <div style={{ position: "relative" }}>
+                        <select
+                          value={employeeContribType}
+                          onChange={(e) => setEmployeeContribType(e.target.value as "% of Basic" | "Fixed amount")}
+                          style={{
+                            width: "100%",
+                            padding: "9px 28px 9px 12px",
+                            borderRadius: 6,
+                            border: "1px solid #CBD5E1",
+                            background: "#FFFFFF",
+                            color: "#1E293B",
+                            fontSize: 13,
+                            outline: "none",
+                            cursor: "pointer",
+                            appearance: "none",
+                          }}
+                        >
+                          <option value="Fixed amount">Fixed amount</option>
+                          <option value="% of Basic">% of Basic</option>
+                        </select>
+                        <div style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }}>
+                          <ChevronDownSvg />
+                        </div>
+                      </div>
+
+                      <input
+                        type="text"
+                        value={employeeContribValue}
+                        onChange={(e) => setEmployeeContribValue(e.target.value)}
+                        style={{
+                          width: "100%",
+                          padding: "9px 12px",
+                          borderRadius: 6,
+                          border: "1px solid #CBD5E1",
+                          background: "#FFFFFF",
+                          color: "#1E293B",
+                          fontSize: 13,
+                          outline: "none",
+                          boxSizing: "border-box",
+                        }}
+                      />
+                      <span style={{ fontSize: 13, color: "#64748B", whiteSpace: "nowrap" }}>per pay period</span>
+                    </div>
+                  </div>
+
+                  <div style={{ position: "relative" }}>
+                    <label style={{ display: "block", fontSize: 13, fontWeight: 600, color: "#1E293B", marginBottom: 6 }}>
+                      Contribution Type
+                    </label>
+                    <div
+                      onClick={() => {
+                        if (!includeEmployerContrib) {
+                          setIsEmployeeContribPlanTypeOpen(!isEmployeeContribPlanTypeOpen)
+                        }
+                      }}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        padding: "10px 14px",
+                        borderRadius: 6,
+                        border: isEmployeeContribPlanTypeOpen && !includeEmployerContrib ? "1px solid #3B82F6" : "1px solid #CBD5E1",
+                        boxShadow: isEmployeeContribPlanTypeOpen && !includeEmployerContrib ? "0 0 0 2px rgba(59, 130, 246, 0.15)" : "none",
+                        background: includeEmployerContrib ? "#F8FAFC" : "#FFFFFF",
+                        cursor: includeEmployerContrib ? "not-allowed" : "pointer",
+                        opacity: includeEmployerContrib ? 0.6 : 1,
+                        fontSize: 13,
+                        color: "#1E293B",
+                      }}
+                    >
+                      <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{employeeContribPlanType}</span>
+                      <span style={{ opacity: includeEmployerContrib ? 0.4 : 1 }}>
+                        {isEmployeeContribPlanTypeOpen && !includeEmployerContrib ? <ChevronUpSvg /> : <ChevronDownSvg />}
+                      </span>
+                    </div>
+
+                    {isEmployeeContribPlanTypeOpen && !includeEmployerContrib && (
+                      <div
+                        style={{
+                          position: "absolute",
+                          bottom: "calc(100% + 4px)",
+                          left: 0,
+                          right: 0,
+                          background: "#FFFFFF",
+                          border: "1px solid #CBD5E1",
+                          borderRadius: 6,
+                          boxShadow: "0 -10px 25px -5px rgba(0,0,0,0.15), 0 -8px 10px -6px rgba(0,0,0,0.1)",
+                          zIndex: 1000,
+                          overflow: "hidden",
+                        }}
+                      >
+                        <div style={{ maxHeight: 200, overflowY: "auto" }}>
+                          {contributionTypeOptions.map((opt) => (
+                            <div
+                              key={opt}
+                              onClick={() => {
+                                setEmployeeContribPlanType(opt)
+                                setIsEmployeeContribPlanTypeOpen(false)
+                              }}
+                              style={{
+                                padding: "10px 14px",
+                                fontSize: 13,
+                                color: employeeContribPlanType === opt ? "#2563EB" : "#1E293B",
+                                fontWeight: employeeContribPlanType === opt ? 600 : 400,
+                                background: employeeContribPlanType === opt ? "#EFF6FF" : "transparent",
+                                cursor: "pointer",
+                                display: "flex",
+                                justifyContent: "space-between",
+                                alignItems: "center",
+                                gap: 8,
+                              }}
+                              onMouseEnter={(e) => {
+                                if (employeeContribPlanType !== opt) e.currentTarget.style.background = "#F8FAFC"
+                              }}
+                              onMouseLeave={(e) => {
+                                if (employeeContribPlanType !== opt) e.currentTarget.style.background = "transparent"
+                              }}
+                            >
+                              <span>{opt}</span>
+                              {employeeContribPlanType === opt && <CheckmarkSvg />}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
+
+              {/* Layout for Other Non-Taxable Deduction or Default (Image 2 & Image 3) */}
+              {customBenefitPlan !== "National Pension Scheme" && (
+                <>
+                  <div>
+                    <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "#1E293B", cursor: "pointer" }}>
+                      <input
+                        type="checkbox"
+                        checked={includeEmployerContrib}
+                        onChange={(e) => {
+                          setIncludeEmployerContrib(e.target.checked)
+                          if (e.target.checked) {
+                            setIsEmployerContribPlanTypeOpen(false)
+                            setIsEmployeeContribPlanTypeOpen(false)
+                          }
+                        }}
+                      />
+                      <span>Include employer's contribution in employee's salary structure.</span>
+                    </label>
+                  </div>
+
+                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                    <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "#1E293B", cursor: "pointer" }}>
+                      <input
+                        type="checkbox"
+                        checked={considerSuperannuation}
+                        onChange={(e) => setConsiderSuperannuation(e.target.checked)}
+                      />
+                      <span>Consider this a superannuation fund</span>
+                    </label>
+
+                    {considerSuperannuation && (
+                      <div style={{ fontSize: 12, color: "#5E6C84", lineHeight: 1.45, marginLeft: 22 }}>
+                        If the employer’s total contribution towards EPF, EPS, NPS and superannuation fund exceeds ₹7.5 lakh in a financial year, the excess amount will be treated as a taxable perquisite for the employee.
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Associate investment dropdown */}
+                  <div style={{ position: "relative" }}>
+                    <label style={{ display: "block", fontSize: 13, fontWeight: 600, color: "#1E293B", marginBottom: 6 }}>
+                      Associate this benefit with
+                    </label>
+                    <div
+                      onClick={() => setIsAssociateInvestmentOpen(!isAssociateInvestmentOpen)}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        padding: "10px 14px",
+                        borderRadius: 6,
+                        border: isAssociateInvestmentOpen ? "1px solid #3B82F6" : "1px solid #CBD5E1",
+                        boxShadow: isAssociateInvestmentOpen ? "0 0 0 2px rgba(59, 130, 246, 0.15)" : "none",
+                        background: "#FFFFFF",
+                        cursor: "pointer",
+                        fontSize: 13,
+                        color: associateInvestment ? "#1E293B" : "#64748B",
+                      }}
+                    >
+                      <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{associateInvestment || "Select an Investment"}</span>
+                      {isAssociateInvestmentOpen ? <ChevronUpSvg /> : <ChevronDownSvg />}
+                    </div>
+
+                    {isAssociateInvestmentOpen && (
+                      <div
+                        style={{
+                          position: "absolute",
+                          top: "100%",
+                          left: 0,
+                          right: 0,
+                          marginTop: 4,
+                          background: "#FFFFFF",
+                          border: "1px solid #CBD5E1",
+                          borderRadius: 6,
+                          boxShadow: "0 10px 25px -5px rgba(0,0,0,0.15), 0 8px 10px -6px rgba(0,0,0,0.1)",
+                          zIndex: 1000,
+                          overflow: "hidden",
+                        }}
+                      >
+                        <div style={{ padding: "8px 10px", borderBottom: "1px solid #F1F5F9" }}>
+                          <div style={{ position: "relative", width: "100%", display: "flex", alignItems: "center" }}>
+                            <div style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", display: "flex", alignItems: "center", pointerEvents: "none" }}>
+                              <SearchSvg />
+                            </div>
+                            <input
+                              type="text"
+                              value={associateInvestmentSearch}
+                              onChange={(e) => setAssociateInvestmentSearch(e.target.value)}
+                              placeholder="Search..."
+                              style={{
+                                width: "100%",
+                                padding: "7px 10px 7px 34px",
+                                borderRadius: 4,
+                                border: "1px solid #CBD5E1",
+                                background: "#FFFFFF",
+                                fontSize: 12,
+                                outline: "none",
+                                color: "#1E293B",
+                                boxSizing: "border-box",
+                              }}
+                              autoFocus
+                            />
+                          </div>
+                        </div>
+
+                        <div style={{ maxHeight: 220, overflowY: "auto", padding: "4px 0" }}>
+                          {filteredInvestmentGroups.length === 0 ? (
+                            <div style={{ padding: "12px 14px", fontSize: 13, color: "#94A3B8", textAlign: "center" }}>
+                              No matching investments found
+                            </div>
+                          ) : (
+                            filteredInvestmentGroups.map((grp) => (
+                              <div key={grp.section}>
+                                <div
+                                  style={{
+                                    padding: "10px 14px 4px 14px",
+                                    fontSize: 13,
+                                    fontWeight: 700,
+                                    color: "#0F172A",
+                                    letterSpacing: "-0.01em",
+                                    userSelect: "none",
+                                  }}
+                                >
+                                  {grp.section}
+                                </div>
+                                {grp.items.map((opt) => {
+                                  const isSelected = associateInvestment === opt
+                                  return (
+                                    <div
+                                      key={opt}
+                                      onClick={() => {
+                                        setAssociateInvestment(opt)
+                                        setIsAssociateInvestmentOpen(false)
+                                      }}
+                                      style={{
+                                        margin: "2px 8px",
+                                        padding: "8px 12px",
+                                        borderRadius: 4,
+                                        fontSize: 13,
+                                        fontWeight: isSelected ? 600 : 400,
+                                        color: isSelected ? "#FFFFFF" : "#1E293B",
+                                        background: isSelected ? "#3B82F6" : "transparent",
+                                        cursor: "pointer",
+                                        transition: "background 0.12s ease, color 0.12s ease",
+                                      }}
+                                      onMouseEnter={(e) => {
+                                        if (!isSelected) {
+                                          e.currentTarget.style.background = "#F1F5F9"
+                                        }
+                                      }}
+                                      onMouseLeave={(e) => {
+                                        if (!isSelected) {
+                                          e.currentTarget.style.background = "transparent"
+                                        }
+                                      }}
+                                    >
+                                      {opt}
+                                    </div>
+                                  )
+                                })}
+                              </div>
+                            ))
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  <div>
+                    <label style={{ display: "block", fontSize: 13, fontWeight: 600, color: "#1E293B", marginBottom: 6 }}>
+                      Employer's Contribution
+                    </label>
+                    <div style={{ display: "grid", gridTemplateColumns: "140px 1fr auto", alignItems: "center", gap: 10 }}>
+                      <div style={{ position: "relative" }}>
+                        <select
+                          value={employerContribType}
+                          onChange={(e) => setEmployerContribType(e.target.value as "Fixed amount" | "% of Basic")}
+                          style={{
+                            width: "100%",
+                            padding: "9px 28px 9px 12px",
+                            borderRadius: 6,
+                            border: "1px solid #CBD5E1",
+                            background: "#FFFFFF",
+                            color: "#1E293B",
+                            fontSize: 13,
+                            outline: "none",
+                            cursor: "pointer",
+                            appearance: "none",
+                          }}
+                        >
+                          <option value="Fixed amount">Fixed amount</option>
+                          <option value="% of Basic">% of Basic</option>
+                        </select>
+                        <div style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }}>
+                          <ChevronDownSvg />
+                        </div>
+                      </div>
+
+                      <input
+                        type="text"
+                        value={employerContribValue}
+                        onChange={(e) => setEmployerContribValue(e.target.value)}
+                        style={{
+                          width: "100%",
+                          padding: "9px 12px",
+                          borderRadius: 6,
+                          border: "1px solid #CBD5E1",
+                          background: "#FFFFFF",
+                          color: "#1E293B",
+                          fontSize: 13,
+                          outline: "none",
+                          boxSizing: "border-box",
+                        }}
+                      />
+                      <span style={{ fontSize: 13, color: "#64748B", whiteSpace: "nowrap" }}>per pay period</span>
+                    </div>
+                  </div>
+
+                  <div style={{ position: "relative" }}>
+                    <label style={{ display: "block", fontSize: 13, fontWeight: 600, color: "#1E293B", marginBottom: 6 }}>
+                      Contribution Type
+                    </label>
+                    <div
+                      onClick={() => {
+                        if (!includeEmployerContrib) {
+                          setIsEmployerContribPlanTypeOpen(!isEmployerContribPlanTypeOpen)
+                        }
+                      }}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        padding: "10px 14px",
+                        borderRadius: 6,
+                        border: isEmployerContribPlanTypeOpen && !includeEmployerContrib ? "1px solid #3B82F6" : "1px solid #CBD5E1",
+                        boxShadow: isEmployerContribPlanTypeOpen && !includeEmployerContrib ? "0 0 0 2px rgba(59, 130, 246, 0.15)" : "none",
+                        background: includeEmployerContrib ? "#F8FAFC" : "#FFFFFF",
+                        cursor: includeEmployerContrib ? "not-allowed" : "pointer",
+                        opacity: includeEmployerContrib ? 0.6 : 1,
+                        fontSize: 13,
+                        color: "#1E293B",
+                      }}
+                    >
+                      <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{employerContribPlanType}</span>
+                      <span style={{ opacity: includeEmployerContrib ? 0.4 : 1 }}>
+                        {isEmployerContribPlanTypeOpen && !includeEmployerContrib ? <ChevronUpSvg /> : <ChevronDownSvg />}
+                      </span>
+                    </div>
+
+                    {isEmployerContribPlanTypeOpen && !includeEmployerContrib && (
+                      <div
+                        style={{
+                          position: "absolute",
+                          bottom: "calc(100% + 4px)",
+                          left: 0,
+                          right: 0,
+                          background: "#FFFFFF",
+                          border: "1px solid #CBD5E1",
+                          borderRadius: 6,
+                          boxShadow: "0 -10px 25px -5px rgba(0,0,0,0.15), 0 -8px 10px -6px rgba(0,0,0,0.1)",
+                          zIndex: 1000,
+                          overflow: "hidden",
+                        }}
+                      >
+                        <div style={{ maxHeight: 200, overflowY: "auto" }}>
+                          {contributionTypeOptions.map((opt) => (
+                            <div
+                              key={opt}
+                              onClick={() => {
+                                setEmployerContribPlanType(opt)
+                                setIsEmployerContribPlanTypeOpen(false)
+                              }}
+                              style={{
+                                padding: "10px 14px",
+                                fontSize: 13,
+                                color: employerContribPlanType === opt ? "#2563EB" : "#1E293B",
+                                fontWeight: employerContribPlanType === opt ? 600 : 400,
+                                background: employerContribPlanType === opt ? "#EFF6FF" : "transparent",
+                                cursor: "pointer",
+                                display: "flex",
+                                justifyContent: "space-between",
+                                alignItems: "center",
+                                gap: 8,
+                              }}
+                              onMouseEnter={(e) => {
+                                if (employerContribPlanType !== opt) e.currentTarget.style.background = "#F8FAFC"
+                              }}
+                              onMouseLeave={(e) => {
+                                if (employerContribPlanType !== opt) e.currentTarget.style.background = "transparent"
+                              }}
+                            >
+                              <span>{opt}</span>
+                              {employerContribPlanType === opt && <CheckmarkSvg />}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Dotted separator line */}
+                  <div style={{ borderTop: "1px dashed #CBD5E1", margin: "6px 0" }} />
+
+                  {/* Employee's Contribution - Only shown if an option is selected in associate benefit! (Image 3) */}
+                  {associateInvestment && associateInvestment !== "None" && (
+                    <>
+                      <div>
+                        <label style={{ display: "block", fontSize: 13, fontWeight: 600, color: "#1E293B", marginBottom: 6 }}>
+                          Employee's Contribution <span style={{ color: "#EF4444" }}>*</span>
+                        </label>
+                        <div style={{ display: "grid", gridTemplateColumns: "140px 1fr auto", alignItems: "center", gap: 10 }}>
+                          <div style={{ position: "relative" }}>
+                            <select
+                              value={employeeContribType}
+                              onChange={(e) => setEmployeeContribType(e.target.value as "% of Basic" | "Fixed amount")}
+                              style={{
+                                width: "100%",
+                                padding: "9px 28px 9px 12px",
+                                borderRadius: 6,
+                                border: "1px solid #CBD5E1",
+                                background: "#FFFFFF",
+                                color: "#1E293B",
+                                fontSize: 13,
+                                outline: "none",
+                                cursor: "pointer",
+                                appearance: "none",
+                              }}
+                            >
+                              <option value="Fixed amount">Fixed amount</option>
+                              <option value="% of Basic">% of Basic</option>
+                            </select>
+                            <div style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }}>
+                              <ChevronDownSvg />
+                            </div>
+                          </div>
+
+                          <input
+                            type="text"
+                            value={employeeContribValue}
+                            onChange={(e) => setEmployeeContribValue(e.target.value)}
+                            style={{
+                              width: "100%",
+                              padding: "9px 12px",
+                              borderRadius: 6,
+                              border: "1px solid #CBD5E1",
+                              background: "#FFFFFF",
+                              color: "#1E293B",
+                              fontSize: 13,
+                              outline: "none",
+                              boxSizing: "border-box",
+                            }}
+                          />
+                          <span style={{ fontSize: 13, color: "#64748B", whiteSpace: "nowrap" }}>per pay period</span>
+                        </div>
+                      </div>
+
+                      <div style={{ position: "relative" }}>
+                        <label style={{ display: "block", fontSize: 13, fontWeight: 600, color: "#1E293B", marginBottom: 6 }}>
+                          Contribution Type
+                        </label>
+                        <div
+                          onClick={() => {
+                            if (!includeEmployerContrib) {
+                              setIsEmployeeContribPlanTypeOpen(!isEmployeeContribPlanTypeOpen)
+                            }
+                          }}
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "space-between",
+                            padding: "10px 14px",
+                            borderRadius: 6,
+                            border: isEmployeeContribPlanTypeOpen && !includeEmployerContrib ? "1px solid #3B82F6" : "1px solid #CBD5E1",
+                            boxShadow: isEmployeeContribPlanTypeOpen && !includeEmployerContrib ? "0 0 0 2px rgba(59, 130, 246, 0.15)" : "none",
+                            background: includeEmployerContrib ? "#F8FAFC" : "#FFFFFF",
+                            cursor: includeEmployerContrib ? "not-allowed" : "pointer",
+                            opacity: includeEmployerContrib ? 0.6 : 1,
+                            fontSize: 13,
+                            color: "#1E293B",
+                          }}
+                        >
+                          <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{employeeContribPlanType}</span>
+                          <span style={{ opacity: includeEmployerContrib ? 0.4 : 1 }}>
+                            {isEmployeeContribPlanTypeOpen && !includeEmployerContrib ? <ChevronUpSvg /> : <ChevronDownSvg />}
+                          </span>
+                        </div>
+
+                        {isEmployeeContribPlanTypeOpen && !includeEmployerContrib && (
+                          <div
+                            style={{
+                              position: "absolute",
+                              bottom: "calc(100% + 4px)",
+                              left: 0,
+                              right: 0,
+                              background: "#FFFFFF",
+                              border: "1px solid #CBD5E1",
+                              borderRadius: 6,
+                              boxShadow: "0 -10px 25px -5px rgba(0,0,0,0.15), 0 -8px 10px -6px rgba(0,0,0,0.1)",
+                              zIndex: 1000,
+                              overflow: "hidden",
+                            }}
+                          >
+                            <div style={{ maxHeight: 200, overflowY: "auto" }}>
+                              {contributionTypeOptions.map((opt) => (
+                                <div
+                                  key={opt}
+                                  onClick={() => {
+                                    setEmployeeContribPlanType(opt)
+                                    setIsEmployeeContribPlanTypeOpen(false)
+                                  }}
+                                  style={{
+                                    padding: "10px 14px",
+                                    fontSize: 13,
+                                    color: employeeContribPlanType === opt ? "#2563EB" : "#1E293B",
+                                    fontWeight: employeeContribPlanType === opt ? 600 : 400,
+                                    background: employeeContribPlanType === opt ? "#EFF6FF" : "transparent",
+                                    cursor: "pointer",
+                                    display: "flex",
+                                    justifyContent: "space-between",
+                                    alignItems: "center",
+                                    gap: 8,
+                                  }}
+                                  onMouseEnter={(e) => {
+                                    if (employeeContribPlanType !== opt) e.currentTarget.style.background = "#F8FAFC"
+                                  }}
+                                  onMouseLeave={(e) => {
+                                    if (employeeContribPlanType !== opt) e.currentTarget.style.background = "transparent"
+                                  }}
+                                >
+                                  <span>{opt}</span>
+                                  {employeeContribPlanType === opt && <CheckmarkSvg />}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </>
+                  )}
+                </>
+              )}
+            </>
+          )}
+        </div>
+
+        {/* Footer (Save and Cancel) */}
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            padding: "14px 24px",
+            borderTop: "1px solid #F1F5F9",
+            background: "#FFFFFF",
+            flexShrink: 0,
+          }}
+        >
+          <div style={{ display: "flex", gap: 10 }}>
+            <button
+              type="button"
+              onClick={handleSave}
+              style={{
+                background: "#2563EB",
+                color: "#FFFFFF",
+                border: "none",
+                borderRadius: 6,
+                padding: "9px 24px",
+                fontSize: 13,
+                fontWeight: 600,
+                cursor: "pointer",
+              }}
+            >
+              Save
+            </button>
+            <button
+              type="button"
+              onClick={viewMode === "new_benefit" ? () => setViewMode("select_plan") : onClose}
+              style={{
+                background: "#FFFFFF",
+                color: "#334155",
+                border: "1px solid #CBD5E1",
+                borderRadius: 6,
+                padding: "9px 20px",
+                fontSize: 13,
+                fontWeight: 600,
+                cursor: "pointer",
+              }}
+            >
+              Cancel
+            </button>
+          </div>
+          <div style={{ fontSize: 12, color: "#EF4444" }}>
+            * indicates mandatory fields
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
 function EmployeeDetailPage({
   emp,
   ss,
@@ -3910,9 +6282,208 @@ function EmployeeDetailPage({
     }
   })
   const [editingPayroll, setEditingPayroll] = useState(false)
-  const [annualCtc, setAnnualCtc] = useState(emp.grossSalary * 12)
-  const [extraEarnings, setExtraEarnings] = useState<{ id: number; name: string; calculation: string; amount: number }[]>([])
-  const [calculationType, setCalculationType] = useState({ basic: "% of CTC", hra: "% of Basic", fixedAllowance: "Fixed amount", specialAllowance: "Fixed amount" })
+  const [annualCTC, setAnnualCTC] = useState(emp.grossSalary * 12 || 600000)
+  const [statutory, setStatutory] = useState({
+    epf: true,
+    esi: false,
+    pt: true,
+    lwf: false,
+  })
+  const [statutoryBonusCategory, setStatutoryBonusCategory] = useState("None")
+
+  const [earnings, setEarnings] = useState<
+    { id: string; name: string; calcType: CalcType; value: number; isBasic?: boolean; isFixed?: boolean }[]
+  >([
+    { id: "basic", name: "Basic", calcType: "percent_ctc", value: 50.0, isBasic: true },
+  ])
+
+  const [benefits, setBenefits] = useState<
+    {
+      id: string
+      name: string
+      planType: "epf" | "esi"
+      enabled: boolean
+      epsEnabled: boolean
+      epsActualWages: boolean
+      employerCalculationText: string
+    }[]
+  >([
+    {
+      id: "epf-emp",
+      name: "EPF - Employer Contribution",
+      planType: "epf",
+      enabled: true,
+      epsEnabled: false,
+      epsActualWages: false,
+      employerCalculationText: "12.00% of PF Wages",
+    },
+    {
+      id: "esi-emp",
+      name: "ESI - Employer Contribution",
+      planType: "esi",
+      enabled: false,
+      epsEnabled: false,
+      epsActualWages: false,
+      employerCalculationText: "3.25% of ESI Wages",
+    },
+  ])
+
+  const [otherBenefits, setOtherBenefits] = useState<
+    {
+      id: string
+      name: string
+      items: { title: string; calcText: string }[]
+    }[]
+  >([
+    {
+      id: "epf-contrib",
+      name: "EPF Contribution",
+      items: [
+        { title: "Employer's Contribution", calcText: "12.00% of PF Wages" },
+        { title: "Employee's Contribution", calcText: "12.00% of PF Wages" },
+      ],
+    },
+  ])
+
+  const [showAddEarningModal, setShowAddEarningModal] = useState(false)
+  const [showAddBenefitModal, setShowAddBenefitModal] = useState(false)
+  const [showAddOtherBenefitModal, setShowAddOtherBenefitModal] = useState(false)
+  const [selectedOtherBenefitPlan, setSelectedOtherBenefitPlan] = useState("")
+  const [hoveredRowId, setHoveredRowId] = useState<string | null>(null)
+
+  const monthlyCTC = Math.round(annualCTC / 12)
+
+  const basicRow = earnings.find((e) => e.isBasic) || {
+    id: "basic",
+    name: "Basic",
+    calcType: "percent_ctc" as CalcType,
+    value: 50,
+  }
+
+  const monthlyBasic =
+    basicRow.calcType === "percent_ctc"
+      ? Math.round((monthlyCTC * basicRow.value) / 100)
+      : basicRow.calcType === "fixed"
+      ? basicRow.value
+      : Math.round((monthlyCTC * 0.5))
+  const annualBasic = monthlyBasic * 12
+
+  const calculatedEarnings = earnings.map((earning) => {
+    let monthly = 0
+    if (earning.isBasic) {
+      monthly = monthlyBasic
+    } else if (earning.calcType === "percent_basic") {
+      monthly = Math.round((monthlyBasic * earning.value) / 100)
+    } else if (earning.calcType === "percent_ctc") {
+      monthly = Math.round((monthlyCTC * earning.value) / 100)
+    } else {
+      monthly = earning.value
+    }
+    return {
+      ...earning,
+      monthly,
+      annual: monthly * 12,
+    }
+  })
+
+  const otherEarningsSum = calculatedEarnings
+    .filter((e) => !e.isBasic)
+    .reduce((acc, curr) => acc + curr.monthly, 0)
+
+  const monthlyFixed = Math.max(0, monthlyCTC - monthlyBasic - otherEarningsSum)
+  const annualFixed = monthlyFixed * 12
+
+  const handleUpdateEarning = (id: string, updates: Partial<{ value: number; calcType: CalcType }>) => {
+    setEarnings(earnings.map((e) => (e.id === id ? { ...e, ...updates } : e)))
+  }
+
+  const handleAddEarning = (preset: { name: string; calcType: CalcType; defaultValue: number }) => {
+    const newId = `earning-${Date.now()}`
+    setEarnings([
+      ...earnings,
+      {
+        id: newId,
+        name: preset.name,
+        calcType: preset.calcType,
+        value: preset.defaultValue,
+      },
+    ])
+    setShowAddEarningModal(false)
+    toast(`${preset.name} added to earnings.`, "success")
+  }
+
+  const handleRemoveEarning = (id: string) => {
+    const earning = earnings.find((e) => e.id === id)
+    if (earning?.isBasic) {
+      toast("Basic earning component cannot be removed.", "error")
+      return
+    }
+    setEarnings(earnings.filter((e) => e.id !== id))
+    toast("Earning component removed.", "info")
+  }
+
+  const handleRemoveBenefit = (id: string) => {
+    setBenefits(
+      benefits.map((b) => {
+        if (b.id === id) {
+          if (b.planType === "epf") setStatutory((prev) => ({ ...prev, epf: false }))
+          if (b.planType === "esi") setStatutory((prev) => ({ ...prev, esi: false }))
+          return { ...b, enabled: false }
+        }
+        return b
+      }),
+    )
+    toast("Benefit component removed.", "info")
+  }
+
+  const handleToggleBenefitEps = (id: string, checked: boolean) => {
+    setBenefits(benefits.map((b) => (b.id === id ? { ...b, epsEnabled: checked } : b)))
+  }
+
+  const handleToggleBenefitEpsActualWages = (id: string, checked: boolean) => {
+    setBenefits(benefits.map((b) => (b.id === id ? { ...b, epsActualWages: checked } : b)))
+  }
+
+  const handleAddOtherBenefit = () => {
+    if (!selectedOtherBenefitPlan) {
+      toast("Please select a benefit plan.", "error")
+      return
+    }
+    const id = `other-benefit-${Date.now()}`
+    setOtherBenefits([
+      ...otherBenefits,
+      {
+        id,
+        name: selectedOtherBenefitPlan,
+        items: [{ title: `${selectedOtherBenefitPlan} Contribution`, calcText: "Applicable Slab" }],
+      },
+    ])
+    setShowAddOtherBenefitModal(false)
+    setSelectedOtherBenefitPlan("")
+    toast("Benefit plan added successfully.", "success")
+  }
+
+  const handleRemoveOtherBenefit = (id: string) => {
+    setOtherBenefits(otherBenefits.filter((b) => b.id !== id))
+    toast("Benefit removed from optional add-ons.", "info")
+  }
+
+  const saveSalaryDetails = () => {
+    setEmps(
+      emps.map((item) =>
+        item.id === emp.id
+          ? {
+              ...item,
+              grossSalary: monthlyCTC,
+              salaryStructure: `${emp.designation} CTC Structure`,
+            }
+          : item,
+      ),
+    )
+    setEditingPayroll(false)
+    toast("Salary details and statutory components saved successfully", "success")
+  }
+
   const [editingPayslips, setEditingPayslips] = useState(false)
   const [payslipRows, setPayslipRows] = useState(() => ["August 2026", "July 2026", "June 2026", "May 2026"].map((period, index) => ({ period, gross: emp.grossSalary, deductions: Math.round(emp.grossSalary * 0.22) + (emp.grossSalary > 15000 ? 200 : 150), status: index === 0 ? "Available" : "Paid" })))
   const [editingDocuments, setEditingDocuments] = useState(false)
@@ -3927,18 +6498,37 @@ function EmployeeDetailPage({
   const [editingLoans, setEditingLoans] = useState(false)
   const [editingStatutory, setEditingStatutory] = useState(false)
   const [editingPersonal, setEditingPersonal] = useState(false)
-  const [personalInfo, setPersonalInfo] = useState({ dateOfBirth: "03/11/2002", fatherName: "Rajinikanth", pan: "AAAAA0000A", personalEmail: emp.email, address: "Panvel, Maharashtra - 410206", differentlyAbled: "None" })
-  const [draft, setDraft] = useState<Employee>({ ...emp })
+  const [editingPayment, setEditingPayment] = useState(false)
+  const [portalAccessEnabled, setPortalAccessEnabled] = useState(
+    emp.portalStatus !== "Disabled",
+  )
+  const [epfEnabled, setEpfEnabled] = useState(true)
+  const [epsEnabled, setEpsEnabled] = useState(true)
+  const [esiEnabled, setEsiEnabled] = useState(true)
+  const [ptEnabled, setPtEnabled] = useState(true)
+  const [lwfEnabled, setLwfEnabled] = useState(false)
+  const [statutoryBonusEnabled, setStatutoryBonusEnabled] = useState(false)
+  const [showAccountNumber, setShowAccountNumber] = useState(false)
+  const [showInviteNotice, setShowInviteNotice] = useState(false)
+  const [viewingPayslip, setViewingPayslip] = useState<{ period: string; gross: number; deductions: number; net: number; status: string } | null>(null)
+  const [personalInfo, setPersonalInfo] = useState({
+    dateOfBirth: emp.dob || "05/07/2004",
+    fatherName: emp.fatherName || "xyz",
+    pan: emp.pan || "AAAAA0000X",
+    personalEmail: emp.email || "prasadpolavarapu57@gmail.com",
+    address: emp.address || "jagannadhapuram\ntadepalligudem Andhra Pradesh - 534145",
+    differentlyAbled: emp.differentlyAbled || "Other",
+  })
+  const [draft, setDraft] = useState<Employee>({ ...emp, gender: emp.gender || "Male" })
   const [confirm, setConfirm] = useState<{
     msg: string
     onOk: () => void
   } | null>(null)
   const s = ss.find((x) => x.name === payroll.salaryStructure)
-  const extraEarningsTotal = extraEarnings.reduce((sum, item) => sum + item.amount, 0)
-  const gross = payroll.basic + payroll.hra + payroll.fixedAllowance + payroll.specialAllowance + extraEarningsTotal
-  const pf = Math.round(payroll.basic * (payroll.pfRate / 100))
+  const gross = monthlyCTC
+  const pf = Math.round(monthlyBasic * 0.12)
   const tds = Math.round(gross * (payroll.tdsRate / 100))
-  const pt = payroll.professionalTax
+  const pt = statutory.pt ? (gross > 15000 ? 200 : 150) : 0
   const net = gross - pf - tds - pt
 
   const savePayroll = () => {
@@ -4177,449 +6767,1920 @@ function EmployeeDetailPage({
         })}
       </div>
 
-      <div style={{ background: "#FFF6DF", borderTop: "1px solid #F8E5B6", borderBottom: "1px solid #F8E5B6", padding: "14px 16px", margin: "0 -26px 22px", color: "#553311" }}>
-        <div style={{ fontSize: 13, fontWeight: 800, marginBottom: 6 }}>● &nbsp; Need Your Attention</div>
-        <div style={{ fontSize: 13 }}>• &nbsp; An invite has been sent to this employee to access the Employee Self Service Portal. However, the employee is yet to accept it. <button onClick={() => toast("Invitation resent", "success")} style={{ border: "none", background: "transparent", color: F.brand, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>Reinvite</button><span style={{ color: F.border, margin: "0 10px" }}>|</span><button onClick={() => toast("Portal access disabled", "success")} style={{ border: "none", background: "transparent", color: F.brand, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>Disable Portal</button></div>
-      </div>
+      {showInviteNotice && (
+        <div style={{ background: "#FFF6DF", borderTop: "1px solid #F8E5B6", borderBottom: "1px solid #F8E5B6", padding: "14px 16px", margin: "0 -26px 22px", color: "#553311", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div>
+            <div style={{ fontSize: 13, fontWeight: 800, marginBottom: 6 }}>● &nbsp; Need Your Attention</div>
+            <div style={{ fontSize: 13 }}>• &nbsp; An invite has been sent to this employee to access the Employee Self Service Portal. However, the employee is yet to accept it. <button onClick={() => toast("Invitation resent", "success")} style={{ border: "none", background: "transparent", color: F.brand, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>Reinvite</button><span style={{ color: F.border, margin: "0 10px" }}>|</span><button onClick={() => { setPortalAccessEnabled(false); setShowInviteNotice(false); toast("Portal access disabled", "info"); }} style={{ border: "none", background: "transparent", color: F.brand, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>Disable Portal</button></div>
+          </div>
+          <button onClick={() => setShowInviteNotice(false)} style={{ border: "none", background: "transparent", color: "#854D0E", cursor: "pointer", fontSize: 16 }}>✕</button>
+        </div>
+      )}
 
       {/* Two-column detail grid */}
-      {activeTab === "overview" && <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 14 }}>
-        {/* Personal & Employment */}
-        <div
-          style={{
-            background: F.card,
-            border: `1px solid ${F.border}`,
-            borderRadius: 10,
-          }}
-        >
-          <div
-            style={{
-              padding: "14px 20px",
-              borderBottom: `1px solid ${F.border}`,
-              fontSize: 13,
-              fontWeight: 700,
-              color: F.text1,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-            }}
-          >
-            <span>Basic Information</span>
-            <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              {editing && <Btn small variant="success" onClick={save}>Save</Btn>}
-              <button aria-label="Edit basic information" onClick={() => { setDraft({ ...emp }); setEditing(true) }} style={{ border: "none", background: "transparent", color: F.brand, cursor: "pointer", fontSize: 17 }}><UiIcon name="edit" /></button>
-            </span>
-          </div>
-          <div
-            className="employee-information-grid"
-            style={{
-              padding: "16px 20px",
-              display: editing ? "flex" : "grid",
-              gridTemplateColumns: editing ? undefined : "minmax(0, 1fr) minmax(0, 1fr)",
-              flexDirection: "column",
-              columnGap: editing ? undefined : 72,
-              rowGap: 0,
-            }}
-          >
-            {editing ? (
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "1fr 1fr",
-                  gap: 10,
-                }}
-              >
-                <Fld label="Full Name">
-                  <input
-                    style={iSt}
-                    value={draft.name}
-                    onChange={(e) =>
-                      setDraft({ ...draft, name: e.target.value })
-                    }
-                  />
-                </Fld>
-                <Fld label="Email">
-                  <input
-                    style={iSt}
-                    value={draft.email}
-                    onChange={(e) =>
-                      setDraft({ ...draft, email: e.target.value })
-                    }
-                  />
-                </Fld>
-                <Fld label="Department">
-                  <select
-                    style={iSt}
-                    value={draft.department}
-                    onChange={(e) =>
-                      setDraft({ ...draft, department: e.target.value })
-                    }
-                  >
-                    {[
-                      "Engineering",
-                      "HR",
-                      "Finance",
-                      "Sales",
-                      "Design",
-                      "Management",
-                      "Operations",
-                    ].map((d) => (
-                      <option key={d}>{d}</option>
-                    ))}
-                  </select>
-                </Fld>
-                <Fld label="Designation">
-                  <input
-                    style={iSt}
-                    value={draft.designation}
-                    onChange={(e) =>
-                      setDraft({ ...draft, designation: e.target.value })
-                    }
-                  />
-                </Fld>
-                <Fld label="Work Location">
-                  <input
-                    style={iSt}
-                    value={draft.location}
-                    onChange={(e) =>
-                      setDraft({ ...draft, location: e.target.value })
-                    }
-                  />
-                </Fld>
-                <Fld label="Employment Type">
-                  <select
-                    style={iSt}
-                    value={draft.empType}
-                    onChange={(e) =>
-                      setDraft({
-                        ...draft,
-                        empType: e.target.value as Employee["empType"],
-                      })
-                    }
-                  >
-                    <option>Full-Time</option>
-                    <option>Part-Time</option>
-                    <option>Contract</option>
-                  </select>
-                </Fld>
-                <Fld label="Reporting Manager">
-                  <select
-                    style={iSt}
-                    value={draft.manager}
-                    onChange={(e) =>
-                      setDraft({ ...draft, manager: e.target.value })
-                    }
-                  >
-                    <option value="">— none —</option>
-                    {emps
-                      .filter((x) => x.id !== emp.id)
-                      .map((x) => (
-                        <option key={x.id}>{x.name}</option>
-                      ))}
-                  </select>
-                </Fld>
-                <Fld label="Status">
-                  <select
-                    style={iSt}
-                    value={draft.status}
-                    onChange={(e) =>
-                      setDraft({
-                        ...draft,
-                        status: e.target.value as EmpStatus,
-                      })
-                    }
-                  >
-                    <option>Active</option>
-                    <option>Inactive</option>
-                    <option>On Leave</option>
-                  </select>
-                </Fld>
-              </div>
-            ) : (
-              [
-                ["Name", emp.name],
-                ["Email Address", emp.email],
-                ["Mobile Number", emp.mobile || "08668229742"],
-                ["Date of Joining", fmtD(emp.doj)],
-                ["Department", emp.department],
-                ["Designation", emp.designation],
-                ["Reporting Manager", emp.manager || "—"],
-                ["Work Location", emp.location],
-                ["Employment Type", emp.empType],
-                ["Portal Access", "Invite Sent · Reinvite · Disable"],
-              ].map(([l, v]) => (
-                <div
-                  key={l}
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    padding: "10px 0",
-                    borderBottom: `1px solid ${F.border}`,
-                    width: "100%",
-                    minWidth: 0,
-                  }}
-                >
-                  <span style={{ fontSize: 12, color: F.text2 }}>{l}</span>
-                  <span
-                    style={{
-                      fontSize: 13,
-                      fontWeight: 600,
-                      color: F.text1,
-                      textAlign: "right",
-                      maxWidth: "65%",
-                      minWidth: 0,
-                      overflowWrap: "anywhere",
-                    }}
-                  >
-                    {v}
-                  </span>
-                </div>
-              ))
-            )}
-          </div>
-        </div>
-
-        {/* Salary Details */}
-        <div style={{ display: "none", flexDirection: "column", gap: 14 }}>
+      {activeTab === "overview" && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 22 }}>
+          {/* Card 1: Basic Information */}
           <div
             style={{
               background: F.card,
               border: `1px solid ${F.border}`,
               borderRadius: 10,
+              padding: "24px 28px",
+              boxShadow: "0 1px 3px rgba(0, 0, 0, 0.02)",
             }}
           >
             <div
               style={{
-                padding: "14px 20px",
+                fontSize: 15.5,
+                fontWeight: 600,
+                color: F.text1,
+                marginBottom: 20,
+                paddingBottom: 14,
                 borderBottom: `1px solid ${F.border}`,
                 display: "flex",
                 justifyContent: "space-between",
                 alignItems: "center",
               }}
             >
-              <span style={{ fontSize: 13, fontWeight: 700, color: F.text1 }}>
-                Salary Structure
-              </span>
-              {editing && (
-                <select
-                  style={{ ...iSt, width: 200 }}
-                  value={draft.salaryStructure}
-                  onChange={(e) =>
-                    setDraft({ ...draft, salaryStructure: e.target.value })
-                  }
-                >
-                  {ss.map((x) => (
-                    <option key={x.id}>{x.name}</option>
-                  ))}
-                </select>
-              )}
-              {!editing && (
-                <span style={{ fontSize: 12, fontWeight: 600, color: F.brand }}>
-                  {emp.salaryStructure}
-                </span>
-              )}
-            </div>
-            {s && (
-              <div style={{ padding: "12px 20px" }}>
-                {([
-                  ["Basic", s.basic, F.brand],
-                  ["HRA", s.hra, F.success],
-                  ["Fixed Allowance", s.fixedAllowance, F.warning],
-                  ["Special Allowance", s.specialAllowance, "#8A5CF6"],
-                ] as [string, number, string][]).map(([l, v, c]) => (
-                  <div
-                    key={l}
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "center",
-                      padding: "9px 0",
-                      borderBottom: `1px solid ${F.border}`,
-                    }}
-                  >
-                    <span
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 8,
-                        fontSize: 12,
-                        color: F.text2,
-                      }}
-                    >
-                      <span
-                        style={{
-                          width: 8,
-                          height: 8,
-                          borderRadius: 2,
-                          background: c,
-                          display: "inline-block",
-                          flexShrink: 0,
-                        }}
-                      />
-                      {l}
-                    </span>
-                    <span
-                      style={{ fontWeight: 700, color: F.text1, fontSize: 13 }}
-                    >
-                      {inr(v)}
-                    </span>
-                  </div>
-                ))}
-                <div
+              <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                Basic Information
+                <button
+                  type="button"
+                  aria-label="Edit basic information"
+                  onClick={() => {
+                    setDraft({ ...emp, gender: draft.gender || emp.gender || "Male" })
+                    setEditing(!editing)
+                  }}
                   style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    padding: "10px 0",
-                    fontSize: 14,
-                    fontWeight: 800,
-                    color: F.success,
+                    border: "none",
+                    background: "transparent",
+                    color: F.brand,
+                    cursor: "pointer",
+                    padding: "0 4px",
+                    display: "inline-flex",
+                    alignItems: "center",
                   }}
                 >
-                  <span>Monthly Gross</span>
-                  <span>{inr(s.gross)}</span>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                  </svg>
+                </button>
+              </span>
+              {editing && (
+                <Btn small variant="success" onClick={save}>
+                  Save
+                </Btn>
+              )}
+            </div>
+
+            {editing ? (
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "1fr 1fr",
+                  columnGap: 36,
+                  rowGap: 16,
+                }}
+              >
+                <Fld label="Name">
+                  <input
+                    style={iSt}
+                    value={draft.name}
+                    onChange={(e) => setDraft({ ...draft, name: e.target.value })}
+                  />
+                </Fld>
+                <Fld label="Work Location">
+                  <input
+                    style={iSt}
+                    value={draft.location}
+                    onChange={(e) => setDraft({ ...draft, location: e.target.value })}
+                  />
+                </Fld>
+                <Fld label="Email Address">
+                  <input
+                    style={iSt}
+                    value={draft.email}
+                    onChange={(e) => setDraft({ ...draft, email: e.target.value })}
+                  />
+                </Fld>
+                <Fld label="Designation">
+                  <input
+                    style={iSt}
+                    value={draft.designation}
+                    onChange={(e) => setDraft({ ...draft, designation: e.target.value })}
+                  />
+                </Fld>
+                <Fld label="Mobile Number">
+                  <input
+                    style={iSt}
+                    value={draft.mobile || "6304852672"}
+                    onChange={(e) => setDraft({ ...draft, mobile: e.target.value })}
+                  />
+                </Fld>
+                <Fld label="Department">
+                  <input
+                    style={iSt}
+                    value={draft.department}
+                    onChange={(e) => setDraft({ ...draft, department: e.target.value })}
+                  />
+                </Fld>
+                <Fld label="Date of Joining">
+                  <input
+                    style={iSt}
+                    value={draft.doj}
+                    onChange={(e) => setDraft({ ...draft, doj: e.target.value })}
+                  />
+                </Fld>
+                <Fld label="Gender">
+                  <select
+                    style={iSt}
+                    value={draft.gender || "Male"}
+                    onChange={(e) => setDraft({ ...draft, gender: e.target.value })}
+                  >
+                    <option>Male</option>
+                    <option>Female</option>
+                    <option>Other</option>
+                  </select>
+                </Fld>
+              </div>
+            ) : (
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "1fr 1fr",
+                  columnGap: 72,
+                  rowGap: 18,
+                }}
+              >
+                {/* Left Column */}
+                <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+                  <div style={{ display: "grid", gridTemplateColumns: "190px 1fr", fontSize: 13.5, alignItems: "center", minHeight: 28 }}>
+                    <span style={{ color: "#5E6C84", fontWeight: 400 }}>Name</span>
+                    <span style={{ color: "#172B4D", fontWeight: 500 }}>{emp.name}</span>
+                  </div>
+                  <div style={{ display: "grid", gridTemplateColumns: "190px 1fr", fontSize: 13.5, alignItems: "center", minHeight: 28 }}>
+                    <span style={{ color: "#5E6C84", fontWeight: 400 }}>Email Address</span>
+                    <span style={{ color: "#172B4D", fontWeight: 500 }}>{emp.email}</span>
+                  </div>
+                  <div style={{ display: "grid", gridTemplateColumns: "190px 1fr", fontSize: 13.5, alignItems: "center", minHeight: 28 }}>
+                    <span style={{ color: "#5E6C84", fontWeight: 400 }}>Mobile Number</span>
+                    <span style={{ color: "#172B4D", fontWeight: 500 }}>{emp.mobile || "6304852672"}</span>
+                  </div>
+                  <div style={{ display: "grid", gridTemplateColumns: "190px 1fr", fontSize: 13.5, alignItems: "center", minHeight: 28 }}>
+                    <span style={{ color: "#5E6C84", fontWeight: 400 }}>Date of Joining</span>
+                    <span style={{ color: "#172B4D", fontWeight: 500 }}>{fmtD(emp.doj) || "08/10/2026"}</span>
+                  </div>
+                  <div style={{ display: "grid", gridTemplateColumns: "190px 1fr", fontSize: 13.5, alignItems: "center", minHeight: 28 }}>
+                    <span style={{ color: "#5E6C84", fontWeight: 400 }}>Gender</span>
+                    <span style={{ color: "#172B4D", fontWeight: 500 }}>{draft.gender || emp.gender || "Male"}</span>
+                  </div>
+                </div>
+
+                {/* Right Column */}
+                <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+                  <div style={{ display: "grid", gridTemplateColumns: "190px 1fr", fontSize: 13.5, alignItems: "center", minHeight: 28 }}>
+                    <span style={{ color: "#5E6C84", fontWeight: 400 }}>Work Location</span>
+                    <span style={{ color: "#172B4D", fontWeight: 500 }}>{emp.location || "Head Office"}</span>
+                  </div>
+                  <div style={{ display: "grid", gridTemplateColumns: "190px 1fr", fontSize: 13.5, alignItems: "center", minHeight: 28 }}>
+                    <span style={{ color: "#5E6C84", fontWeight: 400 }}>Designation</span>
+                    <span style={{ color: "#172B4D", fontWeight: 500 }}>{emp.designation || "Software Engineer"}</span>
+                  </div>
+                  <div style={{ display: "grid", gridTemplateColumns: "190px 1fr", fontSize: 13.5, alignItems: "center", minHeight: 28 }}>
+                    <span style={{ color: "#5E6C84", fontWeight: 400 }}>Department</span>
+                    <span style={{ color: "#172B4D", fontWeight: 500 }}>{emp.department || "Engineering"}</span>
+                  </div>
+                  <div style={{ display: "grid", gridTemplateColumns: "190px 1fr", fontSize: 13.5, alignItems: "center", minHeight: 28 }}>
+                    <span style={{ color: "#5E6C84", fontWeight: 400 }}>Portal Access</span>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                      {portalAccessEnabled ? (
+                        <>
+                          <span style={{ color: "#16A34A", fontWeight: 600, fontSize: 13.5 }}>✓ Enabled</span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setPortalAccessEnabled(false)
+                              toast("Portal access disabled", "info")
+                            }}
+                            style={{
+                              background: "none",
+                              border: "none",
+                              color: "#2563EB",
+                              cursor: "pointer",
+                              fontSize: 13,
+                              fontWeight: 500,
+                              textDecoration: "none",
+                              padding: "0 2px",
+                            }}
+                          >
+                            (Disable)
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <span style={{ color: "#64748B", fontWeight: 600, fontSize: 13.5 }}>✕ Disabled</span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setPortalAccessEnabled(true)
+                              toast("Portal access enabled", "success")
+                            }}
+                            style={{
+                              background: "none",
+                              border: "none",
+                              color: "#2563EB",
+                              cursor: "pointer",
+                              fontSize: 13,
+                              fontWeight: 500,
+                              textDecoration: "none",
+                              padding: "0 2px",
+                            }}
+                          >
+                            (Enable)
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  </div>
                 </div>
               </div>
             )}
           </div>
 
+          {/* Card 2: Statutory Information */}
           <div
             style={{
               background: F.card,
               border: `1px solid ${F.border}`,
               borderRadius: 10,
+              padding: "24px 28px",
+              boxShadow: "0 1px 3px rgba(0, 0, 0, 0.02)",
             }}
           >
             <div
               style={{
-                padding: "14px 20px",
-                borderBottom: `1px solid ${F.border}`,
-                fontSize: 13,
-                fontWeight: 700,
+                fontSize: 15.5,
+                fontWeight: 600,
                 color: F.text1,
+                marginBottom: 20,
+                paddingBottom: 14,
+                borderBottom: `1px solid ${F.border}`,
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
               }}
             >
-              Deductions (Monthly)
-            </div>
-            <div style={{ padding: "12px 20px" }}>
-              {([
-                ["Provident Fund (12% Basic)", pf, "#8A5CF6"],
-                ["TDS / Income Tax (10%)", tds, F.error],
-                ["Professional Tax", pt, F.warning],
-              ] as [string, number, string][]).map(([l, v, c]) => (
-                <div
-                  key={l}
+              <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                Statutory Information
+                <button
+                  type="button"
+                  aria-label="Edit statutory information"
+                  onClick={() => setEditingStatutory(!editingStatutory)}
                   style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    padding: "9px 0",
-                    borderBottom: `1px solid ${F.border}`,
+                    border: "none",
+                    background: "transparent",
+                    color: F.brand,
+                    cursor: "pointer",
+                    padding: "0 4px",
+                    display: "inline-flex",
+                    alignItems: "center",
                   }}
                 >
-                  <span
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 8,
-                      fontSize: 12,
-                      color: F.text2,
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                  </svg>
+                </button>
+              </span>
+              {editingStatutory && (
+                <Btn
+                  small
+                  variant="success"
+                  onClick={() => {
+                    setEditingStatutory(false)
+                    toast("Statutory information saved", "success")
+                  }}
+                >
+                  Save
+                </Btn>
+              )}
+            </div>
+
+            {editingStatutory ? (
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "1fr 1fr",
+                  columnGap: 36,
+                  rowGap: 16,
+                }}
+              >
+                <Fld label="PF Account Number">
+                  <input
+                    style={iSt}
+                    value={emp.pfNumber || ""}
+                    onChange={(e) => {
+                      emp.pfNumber = e.target.value
                     }}
-                  >
-                    <span
-                      style={{
-                        width: 8,
-                        height: 8,
-                        borderRadius: 2,
-                        background: c,
-                        display: "inline-block",
-                        flexShrink: 0,
-                      }}
-                    />
-                    {l}
-                  </span>
-                  <span style={{ fontWeight: 700, color: c, fontSize: 13 }}>
-                    {inr(v)}
-                  </span>
+                    placeholder="-"
+                  />
+                </Fld>
+                <Fld label="ESI Insurance Number">
+                  <input
+                    style={iSt}
+                    value={emp.esiNumber || ""}
+                    onChange={(e) => {
+                      emp.esiNumber = e.target.value
+                    }}
+                    placeholder="-"
+                  />
+                </Fld>
+                <Fld label="UAN">
+                  <input
+                    style={iSt}
+                    value={emp.uan || ""}
+                    onChange={(e) => {
+                      emp.uan = e.target.value
+                    }}
+                    placeholder="-"
+                  />
+                </Fld>
+              </div>
+            ) : (
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "1fr 1fr",
+                  columnGap: 72,
+                  rowGap: 18,
+                }}
+              >
+                {/* Left Column */}
+                <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+                  <div style={{ display: "grid", gridTemplateColumns: "190px 1fr", fontSize: 13.5, alignItems: "center", minHeight: 28 }}>
+                    <span style={{ color: "#5E6C84", fontWeight: 400 }}>EPF</span>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                      {epfEnabled ? (
+                        <>
+                          <span style={{ color: "#16A34A", fontWeight: 600, fontSize: 13.5 }}>✓ Enabled</span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEpfEnabled(false)
+                              toast("EPF disabled", "info")
+                            }}
+                            style={{
+                              background: "none",
+                              border: "none",
+                              color: "#2563EB",
+                              cursor: "pointer",
+                              fontSize: 13,
+                              fontWeight: 500,
+                              textDecoration: "none",
+                              padding: "0 2px",
+                            }}
+                          >
+                            (Disable)
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <span style={{ color: "#64748B", fontWeight: 600, fontSize: 13.5 }}>✕ Disabled</span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEpfEnabled(true)
+                              toast("EPF enabled", "success")
+                            }}
+                            style={{
+                              background: "none",
+                              border: "none",
+                              color: "#2563EB",
+                              cursor: "pointer",
+                              fontSize: 13,
+                              fontWeight: 500,
+                              textDecoration: "none",
+                              padding: "0 2px",
+                            }}
+                          >
+                            (Enable)
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                  <div style={{ display: "grid", gridTemplateColumns: "190px 1fr", fontSize: 13.5, alignItems: "center", minHeight: 28 }}>
+                    <span style={{ color: "#5E6C84", fontWeight: 400 }}>EPS Contribution</span>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                      {epsEnabled ? (
+                        <>
+                          <span style={{ color: "#16A34A", fontWeight: 600, fontSize: 13.5 }}>✓ Enabled</span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEpsEnabled(false)
+                              toast("EPS Contribution disabled", "info")
+                            }}
+                            style={{
+                              background: "none",
+                              border: "none",
+                              color: "#2563EB",
+                              cursor: "pointer",
+                              fontSize: 13,
+                              fontWeight: 500,
+                              textDecoration: "none",
+                              padding: "0 2px",
+                            }}
+                          >
+                            (Disable)
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <span style={{ color: "#64748B", fontWeight: 600, fontSize: 13.5 }}>✕ Disabled</span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEpsEnabled(true)
+                              toast("EPS Contribution enabled", "success")
+                            }}
+                            style={{
+                              background: "none",
+                              border: "none",
+                              color: "#2563EB",
+                              cursor: "pointer",
+                              fontSize: 13,
+                              fontWeight: 500,
+                              textDecoration: "none",
+                              padding: "0 2px",
+                            }}
+                          >
+                            (Enable)
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                  <div style={{ display: "grid", gridTemplateColumns: "190px 1fr", fontSize: 13.5, alignItems: "center", minHeight: 28 }}>
+                    <span style={{ color: "#5E6C84", fontWeight: 400 }}>PF Account Number</span>
+                    <span style={{ color: "#172B4D", fontWeight: 500 }}>{emp.pfNumber || "-"}</span>
+                  </div>
+                  <div style={{ display: "grid", gridTemplateColumns: "190px 1fr", fontSize: 13.5, alignItems: "center", minHeight: 28 }}>
+                    <span style={{ color: "#5E6C84", fontWeight: 400 }}>UAN</span>
+                    <span style={{ color: "#172B4D", fontWeight: 500 }}>{emp.uan || "-"}</span>
+                  </div>
+                  <div style={{ display: "grid", gridTemplateColumns: "190px 1fr", fontSize: 13.5, alignItems: "center", minHeight: 28 }}>
+                    <span style={{ color: "#5E6C84", fontWeight: 400 }}>Statutory Bonus</span>
+                    <span style={{ color: "#172B4D", fontWeight: 500 }}>
+                      {statutoryBonusEnabled ? "Employment category: Regular" : "Employment category: None"}
+                    </span>
+                  </div>
                 </div>
-              ))}
+
+                {/* Right Column */}
+                <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+                  <div style={{ display: "grid", gridTemplateColumns: "190px 1fr", fontSize: 13.5, alignItems: "center", minHeight: 28 }}>
+                    <span style={{ color: "#5E6C84", fontWeight: 400 }}>ESI</span>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                      {esiEnabled ? (
+                        <>
+                          <span style={{ color: "#16A34A", fontWeight: 600, fontSize: 13.5 }}>✓ Enabled</span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEsiEnabled(false)
+                              toast("ESI disabled", "info")
+                            }}
+                            style={{
+                              background: "none",
+                              border: "none",
+                              color: "#2563EB",
+                              cursor: "pointer",
+                              fontSize: 13,
+                              fontWeight: 500,
+                              textDecoration: "none",
+                              padding: "0 2px",
+                            }}
+                          >
+                            (Disable)
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <span style={{ color: "#64748B", fontWeight: 600, fontSize: 13.5 }}>✕ Disabled</span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEsiEnabled(true)
+                              toast("ESI enabled", "success")
+                            }}
+                            style={{
+                              background: "none",
+                              border: "none",
+                              color: "#2563EB",
+                              cursor: "pointer",
+                              fontSize: 13,
+                              fontWeight: 500,
+                              textDecoration: "none",
+                              padding: "0 2px",
+                            }}
+                          >
+                            (Enable)
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                  <div style={{ display: "grid", gridTemplateColumns: "190px 1fr", fontSize: 13.5, alignItems: "center", minHeight: 28 }}>
+                    <span style={{ color: "#5E6C84", fontWeight: 400 }}>ESI Insurance Number</span>
+                    <span style={{ color: "#172B4D", fontWeight: 500 }}>{emp.esiNumber || "-"}</span>
+                  </div>
+                  <div style={{ display: "grid", gridTemplateColumns: "190px 1fr", fontSize: 13.5, alignItems: "center", minHeight: 28 }}>
+                    <span style={{ color: "#5E6C84", fontWeight: 400 }}>Professional Tax</span>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                      {ptEnabled ? (
+                        <>
+                          <span style={{ color: "#16A34A", fontWeight: 600, fontSize: 13.5 }}>✓ Enabled</span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setPtEnabled(false)
+                              toast("Professional Tax disabled", "info")
+                            }}
+                            style={{
+                              background: "none",
+                              border: "none",
+                              color: "#2563EB",
+                              cursor: "pointer",
+                              fontSize: 13,
+                              fontWeight: 500,
+                              textDecoration: "none",
+                              padding: "0 2px",
+                            }}
+                          >
+                            (Disable)
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <span style={{ color: "#64748B", fontWeight: 600, fontSize: 13.5 }}>✕ Disabled</span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setPtEnabled(true)
+                              toast("Professional Tax enabled", "success")
+                            }}
+                            style={{
+                              background: "none",
+                              border: "none",
+                              color: "#2563EB",
+                              cursor: "pointer",
+                              fontSize: 13,
+                              fontWeight: 500,
+                              textDecoration: "none",
+                              padding: "0 2px",
+                            }}
+                          >
+                            (Enable)
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                  <div style={{ display: "grid", gridTemplateColumns: "190px 1fr", fontSize: 13.5, alignItems: "center", minHeight: 28 }}>
+                    <span style={{ color: "#5E6C84", fontWeight: 400 }}>Labour Welfare Fund</span>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                      {lwfEnabled ? (
+                        <>
+                          <span style={{ color: "#16A34A", fontWeight: 600, fontSize: 13.5 }}>✓ Enabled</span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setLwfEnabled(false)
+                              toast("Labour Welfare Fund disabled", "info")
+                            }}
+                            style={{
+                              background: "none",
+                              border: "none",
+                              color: "#2563EB",
+                              cursor: "pointer",
+                              fontSize: 13,
+                              fontWeight: 500,
+                              textDecoration: "none",
+                              padding: "0 2px",
+                            }}
+                          >
+                            (Disable)
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <span style={{ color: "#64748B", fontWeight: 600, fontSize: 13.5 }}>✕ Disabled</span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setLwfEnabled(true)
+                              toast("Labour Welfare Fund enabled", "success")
+                            }}
+                            style={{
+                              background: "none",
+                              border: "none",
+                              color: "#2563EB",
+                              cursor: "pointer",
+                              fontSize: 13,
+                              fontWeight: 500,
+                              textDecoration: "none",
+                              padding: "0 2px",
+                            }}
+                          >
+                            (Enable)
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Card 3: Personal Information */}
+          <div
+            style={{
+              background: F.card,
+              border: `1px solid ${F.border}`,
+              borderRadius: 10,
+              padding: "24px 28px",
+              boxShadow: "0 1px 3px rgba(0, 0, 0, 0.02)",
+            }}
+          >
+            <div
+              style={{
+                fontSize: 15.5,
+                fontWeight: 600,
+                color: F.text1,
+                marginBottom: 20,
+                paddingBottom: 14,
+                borderBottom: `1px solid ${F.border}`,
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+              }}
+            >
+              <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                Personal Information
+                <button
+                  type="button"
+                  aria-label="Edit personal information"
+                  onClick={() => setEditingPersonal(!editingPersonal)}
+                  style={{
+                    border: "none",
+                    background: "transparent",
+                    color: F.brand,
+                    cursor: "pointer",
+                    padding: "0 4px",
+                    display: "inline-flex",
+                    alignItems: "center",
+                  }}
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                  </svg>
+                </button>
+              </span>
+              {editingPersonal && (
+                <Btn
+                  small
+                  variant="success"
+                  onClick={() => {
+                    setEditingPersonal(false)
+                    toast("Personal information saved", "success")
+                  }}
+                >
+                  Save
+                </Btn>
+              )}
+            </div>
+
+            {editingPersonal ? (
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "1fr 1fr",
+                  columnGap: 36,
+                  rowGap: 16,
+                }}
+              >
+                <Fld label="Date of Birth">
+                  <input
+                    style={iSt}
+                    value={personalInfo.dateOfBirth}
+                    onChange={(e) =>
+                      setPersonalInfo({ ...personalInfo, dateOfBirth: e.target.value })
+                    }
+                  />
+                </Fld>
+                <Fld label="Email Address">
+                  <input
+                    style={iSt}
+                    value={personalInfo.personalEmail}
+                    onChange={(e) =>
+                      setPersonalInfo({ ...personalInfo, personalEmail: e.target.value })
+                    }
+                  />
+                </Fld>
+                <Fld label="Father's Name">
+                  <input
+                    style={iSt}
+                    value={personalInfo.fatherName}
+                    onChange={(e) =>
+                      setPersonalInfo({ ...personalInfo, fatherName: e.target.value })
+                    }
+                  />
+                </Fld>
+                <Fld label="Residential Address">
+                  <input
+                    style={iSt}
+                    value={personalInfo.address}
+                    onChange={(e) =>
+                      setPersonalInfo({ ...personalInfo, address: e.target.value })
+                    }
+                  />
+                </Fld>
+                <Fld label="PAN">
+                  <input
+                    style={iSt}
+                    value={personalInfo.pan}
+                    onChange={(e) =>
+                      setPersonalInfo({ ...personalInfo, pan: e.target.value })
+                    }
+                  />
+                </Fld>
+                <Fld label="Differently Abled Type">
+                  <input
+                    style={iSt}
+                    value={String(personalInfo.differentlyAbled || "")}
+                    onChange={(e) =>
+                      setPersonalInfo({ ...personalInfo, differentlyAbled: e.target.value })
+                    }
+                  />
+                </Fld>
+              </div>
+            ) : (
+              <div>
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "1fr 1fr",
+                    columnGap: 72,
+                    rowGap: 18,
+                  }}
+                >
+                  {/* Left Column */}
+                  <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+                    <div style={{ display: "grid", gridTemplateColumns: "190px 1fr", fontSize: 13.5, alignItems: "center", minHeight: 28 }}>
+                      <span style={{ color: "#5E6C84", fontWeight: 400 }}>Date of Birth</span>
+                      <span style={{ color: "#172B4D", fontWeight: 500 }}>{personalInfo.dateOfBirth}</span>
+                    </div>
+                    <div style={{ display: "grid", gridTemplateColumns: "190px 1fr", fontSize: 13.5, alignItems: "center", minHeight: 28 }}>
+                      <span style={{ color: "#5E6C84", fontWeight: 400 }}>Father's Name</span>
+                      <span style={{ color: "#172B4D", fontWeight: 500 }}>{personalInfo.fatherName}</span>
+                    </div>
+                    <div style={{ display: "grid", gridTemplateColumns: "190px 1fr", fontSize: 13.5, alignItems: "center", minHeight: 28 }}>
+                      <span style={{ color: "#5E6C84", fontWeight: 400 }}>PAN</span>
+                      <span style={{ color: "#172B4D", fontWeight: 500 }}>{personalInfo.pan}</span>
+                    </div>
+                  </div>
+
+                  {/* Right Column */}
+                  <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+                    <div style={{ display: "grid", gridTemplateColumns: "190px 1fr", fontSize: 13.5, alignItems: "center", minHeight: 28 }}>
+                      <span style={{ color: "#5E6C84", fontWeight: 400 }}>Email Address</span>
+                      <span style={{ color: "#172B4D", fontWeight: 500 }}>{personalInfo.personalEmail}</span>
+                    </div>
+                    <div style={{ display: "grid", gridTemplateColumns: "190px 1fr", fontSize: 13.5, alignItems: "start", minHeight: 28 }}>
+                      <span style={{ color: "#5E6C84", fontWeight: 400 }}>Residential Address</span>
+                      <span style={{ color: "#172B4D", fontWeight: 500, lineHeight: 1.5, whiteSpace: "pre-line" }}>{personalInfo.address}</span>
+                    </div>
+                    <div style={{ display: "grid", gridTemplateColumns: "190px 1fr", fontSize: 13.5, alignItems: "center", minHeight: 28 }}>
+                      <span style={{ color: "#5E6C84", fontWeight: 400 }}>Differently Abled Type</span>
+                      <span style={{ color: "#172B4D", fontWeight: 500 }}>{personalInfo.differentlyAbled}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Card 4: Payment Information */}
+          <div
+            style={{
+              background: F.card,
+              border: `1px solid ${F.border}`,
+              borderRadius: 10,
+              padding: "24px 28px",
+              boxShadow: "0 1px 3px rgba(0, 0, 0, 0.02)",
+            }}
+          >
+            <div
+              style={{
+                fontSize: 15.5,
+                fontWeight: 600,
+                color: F.text1,
+                marginBottom: 20,
+                paddingBottom: 14,
+                borderBottom: `1px solid ${F.border}`,
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+              }}
+            >
+              <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                Payment Information
+                <button
+                  type="button"
+                  aria-label="Edit payment information"
+                  onClick={() => setEditingPayment(!editingPayment)}
+                  style={{
+                    border: "none",
+                    background: "transparent",
+                    color: F.brand,
+                    cursor: "pointer",
+                    padding: "0 4px",
+                    display: "inline-flex",
+                    alignItems: "center",
+                  }}
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                  </svg>
+                </button>
+              </span>
+              {editingPayment && (
+                <Btn
+                  small
+                  variant="success"
+                  onClick={() => {
+                    setEditingPayment(false)
+                    toast("Payment information saved", "success")
+                  }}
+                >
+                  Save
+                </Btn>
+              )}
+            </div>
+
+            {editingPayment ? (
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "1fr 1fr",
+                  columnGap: 36,
+                  rowGap: 16,
+                }}
+              >
+                <Fld label="Payment Mode">
+                  <select
+                    style={iSt}
+                    value={payroll.paymentMethod}
+                    onChange={(e) => setPayroll({ ...payroll, paymentMethod: e.target.value })}
+                  >
+                    <option>Cash</option>
+                    <option>Cheque</option>
+                    <option>Direct Deposit</option>
+                    <option>Bank transfer</option>
+                  </select>
+                </Fld>
+                {payroll.paymentMethod !== "Cash" && payroll.paymentMethod !== "Cheque" && (
+                  <>
+                    <Fld label="Bank Name">
+                      <input
+                        style={iSt}
+                        value={emp.bankName || "HDFC Bank"}
+                        onChange={(e) => {
+                          emp.bankName = e.target.value
+                        }}
+                      />
+                    </Fld>
+                    <Fld label="Account Number">
+                      <input
+                        style={iSt}
+                        value={payroll.bankAccount}
+                        onChange={(e) => setPayroll({ ...payroll, bankAccount: e.target.value })}
+                      />
+                    </Fld>
+                    <Fld label="IFSC Code">
+                      <input
+                        style={iSt}
+                        value={payroll.ifsc}
+                        onChange={(e) => setPayroll({ ...payroll, ifsc: e.target.value })}
+                      />
+                    </Fld>
+                  </>
+                )}
+              </div>
+            ) : (
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "1fr 1fr",
+                  columnGap: 72,
+                  rowGap: 18,
+                }}
+              >
+                {payroll.paymentMethod === "Cash" || payroll.paymentMethod === "Cheque" ? (
+                  <div style={{ display: "grid", gridTemplateColumns: "190px 1fr", fontSize: 13.5, alignItems: "center", minHeight: 28 }}>
+                    <span style={{ color: "#5E6C84", fontWeight: 400 }}>Payment Mode</span>
+                    <span style={{ color: "#172B4D", fontWeight: 500 }}>{payroll.paymentMethod || "Cash"}</span>
+                  </div>
+                ) : (
+                  <>
+                    {/* Left Column */}
+                    <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+                      <div style={{ display: "grid", gridTemplateColumns: "190px 1fr", fontSize: 13.5, alignItems: "center", minHeight: 28 }}>
+                        <span style={{ color: "#5E6C84", fontWeight: 400 }}>Payment Mode</span>
+                        <span style={{ color: "#172B4D", fontWeight: 500 }}>
+                          {payroll.paymentMethod === "Bank transfer" ? "Bank Transfer" : payroll.paymentMethod || "Bank Transfer"}
+                        </span>
+                      </div>
+                      <div style={{ display: "grid", gridTemplateColumns: "190px 1fr", fontSize: 13.5, alignItems: "center", minHeight: 28 }}>
+                        <span style={{ color: "#5E6C84", fontWeight: 400 }}>Account Holder Name</span>
+                        <span style={{ color: "#172B4D", fontWeight: 500 }}>{emp.name}</span>
+                      </div>
+                      <div style={{ display: "grid", gridTemplateColumns: "190px 1fr", fontSize: 13.5, alignItems: "center", minHeight: 28 }}>
+                        <span style={{ color: "#5E6C84", fontWeight: 400 }}>Account Number</span>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                          <span style={{ color: "#172B4D", fontWeight: 500, fontFamily: showAccountNumber ? "inherit" : "monospace", letterSpacing: showAccountNumber ? "normal" : "0.5px" }}>
+                            {(() => {
+                              const raw = emp.bankAccount || "1232040128358"
+                              if (showAccountNumber) return raw
+                              if (raw.length <= 4) return raw
+                              return "x".repeat(raw.length - 4) + raw.slice(-4)
+                            })()}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => setShowAccountNumber(!showAccountNumber)}
+                            title={showAccountNumber ? "Hide account number" : "Show account number"}
+                            style={{
+                              background: "none",
+                              border: "none",
+                              padding: "2px 4px",
+                              display: "inline-flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              cursor: "pointer",
+                              color: "#64748B",
+                              borderRadius: 4,
+                              transition: "color 0.15s ease, background 0.15s ease",
+                            }}
+                            onMouseEnter={(e) => {
+                              e.currentTarget.style.color = "#2563EB"
+                              e.currentTarget.style.background = "#F1F5F9"
+                            }}
+                            onMouseLeave={(e) => {
+                              e.currentTarget.style.color = "#64748B"
+                              e.currentTarget.style.background = "none"
+                            }}
+                          >
+                            {showAccountNumber ? (
+                              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
+                                <line x1="1" y1="1" x2="23" y2="23"></line>
+                              </svg>
+                            ) : (
+                              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                                <circle cx="12" cy="12" r="3"></circle>
+                              </svg>
+                            )}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Right Column */}
+                    <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+                      <div style={{ display: "grid", gridTemplateColumns: "190px 1fr", fontSize: 13.5, alignItems: "center", minHeight: 28, visibility: "hidden" }}>
+                        <span style={{ color: "#5E6C84" }}>Spacer</span>
+                        <span>Spacer</span>
+                      </div>
+                      <div style={{ display: "grid", gridTemplateColumns: "190px 1fr", fontSize: 13.5, alignItems: "center", minHeight: 28 }}>
+                        <span style={{ color: "#5E6C84", fontWeight: 400 }}>Bank Name</span>
+                        <span style={{ color: "#172B4D", fontWeight: 500 }}>{emp.bankName || "HDFC Bank"}</span>
+                      </div>
+                      <div style={{ display: "grid", gridTemplateColumns: "190px 1fr", fontSize: 13.5, alignItems: "center", minHeight: 28 }}>
+                        <span style={{ color: "#5E6C84", fontWeight: 400 }}>IFSC Code</span>
+                        <span style={{ color: "#172B4D", fontWeight: 500 }}>{emp.ifsc || payroll.ifsc || "HDFC0001234"}</span>
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {activeTab === "salary" && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+          {/* 1. Statutory Components Card (Zoho Reference 1) */}
+          <div
+            style={{
+              background: F.card,
+              border: `1px solid ${F.border}`,
+              borderRadius: 8,
+              padding: "24px 32px",
+              display: "flex",
+              flexDirection: "column",
+              gap: 16,
+            }}
+          >
+            <div>
+              <div style={{ fontSize: 16, fontWeight: 800, color: F.text1, marginBottom: 4 }}>
+                Statutory Components
+              </div>
+              <div style={{ fontSize: 13, color: F.text2 }}>
+                Enable the necessary benefits and tax applicable for this employee.
+              </div>
+            </div>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: 12, marginTop: 4 }}>
+              <label style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 13, color: F.text1, cursor: "pointer" }}>
+                <input
+                  type="checkbox"
+                  checked={statutory.epf}
+                  onChange={(e) => {
+                    setStatutory({ ...statutory, epf: e.target.checked })
+                    setBenefits(benefits.map(b => b.planType === "epf" ? { ...b, enabled: e.target.checked } : b))
+                  }}
+                />
+                <span>Employees' Provident Fund</span>
+              </label>
+              <label style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 13, color: F.text1, cursor: "pointer" }}>
+                <input
+                  type="checkbox"
+                  checked={statutory.esi}
+                  onChange={(e) => {
+                    setStatutory({ ...statutory, esi: e.target.checked })
+                    setBenefits(benefits.map(b => b.planType === "esi" ? { ...b, enabled: e.target.checked } : b))
+                  }}
+                />
+                <span>Employees' State Insurance</span>
+              </label>
+              <label style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 13, color: F.text1, cursor: "pointer" }}>
+                <input
+                  type="checkbox"
+                  checked={statutory.pt}
+                  onChange={(e) => setStatutory({ ...statutory, pt: e.target.checked })}
+                />
+                <span>Professional Tax</span>
+              </label>
+              <label style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 13, color: F.text1, cursor: "pointer" }}>
+                <input
+                  type="checkbox"
+                  checked={statutory.lwf}
+                  onChange={(e) => setStatutory({ ...statutory, lwf: e.target.checked })}
+                />
+                <span>Labour Welfare Fund</span>
+              </label>
+            </div>
+
+            <div style={{ marginTop: 8 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 600, color: F.text1, marginBottom: 6 }}>
+                <span>Statutory Bonus</span>
+                <span
+                  title="Enable statutory bonus category for eligible employees"
+                  style={{
+                    fontSize: 11,
+                    color: F.text3,
+                    border: `1px solid ${F.text3}`,
+                    borderRadius: "50%",
+                    width: 14,
+                    height: 14,
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    cursor: "help",
+                  }}
+                >
+                  i
+                </span>
+              </div>
+              <div style={{ width: 280 }}>
+                <div style={{ fontSize: 12, color: F.text2, marginBottom: 4 }}>Employment category</div>
+                <select
+                  value={statutoryBonusCategory}
+                  onChange={(e) => setStatutoryBonusCategory(e.target.value)}
+                  style={{ ...iSt, width: "100%", background: F.card }}
+                >
+                  <option>None</option>
+                  <option>Covered under Statutory Bonus</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          {/* 2. Salary Structure Card (Zoho Reference 2, 3, 4, 5) */}
+          <div
+            style={{
+              background: F.card,
+              border: `1px solid ${F.border}`,
+              borderRadius: 8,
+              padding: "24px 32px",
+              display: "flex",
+              flexDirection: "column",
+              gap: 20,
+            }}
+          >
+            <div>
+              <div style={{ fontSize: 16, fontWeight: 800, color: F.text1, marginBottom: 4 }}>
+                Salary Structure
+              </div>
+              <div style={{ fontSize: 13, color: F.text2 }}>
+                Set how the employee's salary is divided for accurate pay calculation.
+              </div>
+            </div>
+
+            {/* Annual CTC Row */}
+            <div style={{ display: "flex", alignItems: "center", gap: 24, margin: "6px 0 12px 0" }}>
+              <div style={{ width: 140, fontSize: 13, fontWeight: 700, color: F.text1 }}>
+                Annual CTC <span style={{ color: F.error }}>*</span>
+              </div>
               <div
                 style={{
                   display: "flex",
-                  justifyContent: "space-between",
-                  padding: "10px 0",
-                  fontSize: 13,
-                  fontWeight: 800,
-                  color: F.success,
+                  alignItems: "center",
+                  border: `1px solid ${F.border}`,
+                  borderRadius: 4,
+                  overflow: "hidden",
+                  background: F.card,
+                  width: 280,
                 }}
               >
-                <span>Net Take-Home</span>
-                <span>{inr(net)}</span>
+                <span
+                  style={{
+                    padding: "6px 12px",
+                    background: F.pageBg,
+                    color: F.text2,
+                    fontSize: 13,
+                    borderRight: `1px solid ${F.border}`,
+                  }}
+                >
+                  ₹
+                </span>
+                <input
+                  type="number"
+                  min="0"
+                  style={{
+                    border: "none",
+                    padding: "6px 10px",
+                    width: "100%",
+                    fontSize: 13,
+                    outline: "none",
+                    fontWeight: 700,
+                    color: F.text1,
+                    background: F.card,
+                  }}
+                  value={annualCTC || ""}
+                  placeholder="0"
+                  onChange={(e) => setAnnualCTC(Math.max(0, Number(e.target.value) || 0))}
+                />
+                <span style={{ padding: "6px 12px", color: F.text3, fontSize: 12, whiteSpace: "nowrap" }}>
+                  per year
+                </span>
               </div>
             </div>
-          </div>
-        </div>
-      </div>}
 
-      {activeTab === "overview" && <>
-        <div style={{ background: F.card, border: `1px solid ${F.border}`, borderRadius: 10, padding: "20px 22px", marginTop: 14 }}>
-          <div style={{ fontSize: 15, fontWeight: 800, marginBottom: 18, display: "flex", justifyContent: "space-between" }}><span>Statutory Information</span><span>{editingStatutory && <Btn small variant="success" onClick={() => { setEditingStatutory(false); toast("Statutory information saved", "success") }}>Save</Btn>} <button aria-label="Edit statutory information" onClick={() => setEditingStatutory(!editingStatutory)} style={{ border: "none", background: "transparent", color: F.brand, cursor: "pointer", fontSize: 17 }}><UiIcon name="edit" /></button></span></div>
-          <div className="employee-information-grid" style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)", columnGap: 72, rowGap: 16 }}>
-            {[ ["EPF rate (%)", "pfRate"], ["TDS rate (%)", "tdsRate"], ["Professional Tax", "professionalTax"], ["Payment Method", "paymentMethod"], ["Account Ending", "bankAccount"], ["IFSC Code", "ifsc"] ].map(([label, field]) => <div key={label} style={{ display: "grid", gridTemplateColumns: "235px 1fr", fontSize: 13, alignItems: "center" }}><span style={{ color: F.text2 }}>{label}</span>{editingStatutory ? (field === "paymentMethod" ? <select style={iSt} value={payroll.paymentMethod} onChange={(e) => setPayroll({ ...payroll, paymentMethod: e.target.value })}><option>Bank transfer</option><option>Cheque</option><option>Cash</option></select> : <input type={field === "ifsc" || field === "bankAccount" ? "text" : "number"} style={iSt} value={payroll[field as "pfRate" | "tdsRate" | "professionalTax" | "bankAccount" | "ifsc"]} onChange={(e) => setPayroll({ ...payroll, [field]: field === "ifsc" || field === "bankAccount" ? e.target.value : Number(e.target.value) })} />) : <strong>{String(payroll[field as "pfRate" | "tdsRate" | "professionalTax" | "paymentMethod" | "bankAccount" | "ifsc"])}</strong>}</div>)}
-          </div>
-        </div>
-        <div style={{ background: F.card, border: `1px solid ${F.border}`, borderRadius: 10, padding: "20px 22px", marginTop: 14 }}>
-          <div style={{ fontSize: 15, fontWeight: 800, marginBottom: 18, display: "flex", justifyContent: "space-between" }}><span>Personal Information</span><span>{editingPersonal && <Btn small variant="success" onClick={() => { setEditingPersonal(false); toast("Personal information saved", "success") }}>Save</Btn>} <button aria-label="Edit personal information" onClick={() => setEditingPersonal(!editingPersonal)} style={{ border: "none", background: "transparent", color: F.brand, cursor: "pointer", fontSize: 17 }}><UiIcon name="edit" /></button></span></div>
-          <div className="employee-information-grid" style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)", columnGap: 72, rowGap: 16 }}>
-            {[ ["Date of Birth", "dateOfBirth"], ["Personal Email", "personalEmail"], ["Father's Name", "fatherName"], ["Residential Address", "address"], ["PAN", "pan"], ["Differently Abled Type", "differentlyAbled"] ].map(([label, field]) => <div key={label} style={{ display: "grid", gridTemplateColumns: "235px 1fr", fontSize: 13, alignItems: "center" }}><span style={{ color: F.text2 }}>{label}</span>{editingPersonal ? <input style={iSt} maxLength={field === "dateOfBirth" ? 10 : undefined} value={personalInfo[field as keyof typeof personalInfo]} onChange={(e) => setPersonalInfo({ ...personalInfo, [field]: field === "dateOfBirth" ? limitDateYear(e.target.value) : e.target.value })} /> : <strong>{personalInfo[field as keyof typeof personalInfo]}</strong>}</div>)}
-          </div>
-        </div>
-      </>}
+            {/* Table Column Headers */}
+            <div
+              style={{
+                borderTop: `1px solid ${F.border}`,
+                borderBottom: `1px solid ${F.border}`,
+                padding: "10px 0",
+                display: "grid",
+                gridTemplateColumns: "30% 28% 18% 18% 6%",
+                fontSize: 11,
+                fontWeight: 700,
+                color: F.text3,
+                letterSpacing: "0.05em",
+                textTransform: "uppercase",
+              }}
+            >
+              <div>SALARY COMPONENTS</div>
+              <div>CALCULATION TYPE</div>
+              <div style={{ textAlign: "right" }}>MONTHLY AMOUNT</div>
+              <div style={{ textAlign: "right" }}>ANNUAL AMOUNT</div>
+              <div></div>
+            </div>
 
-      {activeTab === "salary" && (
-        <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1.35fr) minmax(280px, 0.65fr)", gap: 14 }}>
-          <div style={{ gridColumn: "1 / -1", background: F.card, border: `1px solid ${F.border}`, borderRadius: 8, overflow: "hidden" }}>
-              <div style={{ padding: "18px 20px", fontSize: 22, fontWeight: 500, borderBottom: `1px solid ${F.border}`, display: "flex", justifyContent: "space-between" }}><span>{emp.name.split(" ")[0]}'s salary details</span><button aria-label="Edit salary details" onClick={() => setEditingPayroll(true)} style={{ border: "none", background: "transparent", color: F.brand, cursor: "pointer", fontSize: 18 }}><UiIcon name="edit" /></button></div>
-            <div style={{ padding: "18px 20px" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 22, marginBottom: 22 }}><strong>Annual CTC <span style={{ color: F.error }}>*</span></strong>{editingPayroll ? <input type="number" aria-label="Annual CTC" style={{ ...iSt, width: 310, fontSize: 16 }} value={annualCtc} onChange={(e) => setAnnualCtc(Number(e.target.value))} /> : <strong style={{ fontSize: 17 }}>{inr(annualCtc)} <span style={{ fontSize: 12, color: F.text3, fontWeight: 500 }}>per year</span></strong>}</div>
-              <table style={{ width: "100%", borderCollapse: "collapse", border: `1px solid ${F.border}` }}><thead><tr><Th>Salary components</Th><Th>Calculation type</Th><Th right>Monthly amount</Th><Th right>Annual amount</Th></tr></thead><tbody><TrH><Td colSpan={4} style={{ fontWeight: 800, padding: "16px" }}>Earnings</Td></TrH>{([["Basic", "basic"], ["House Rent Allowance", "hra"], ["Fixed Allowance", "fixedAllowance"], ["Special Allowance", "specialAllowance"]] as [string, "basic" | "hra" | "fixedAllowance" | "specialAllowance"][]).map(([label, field]) => { const monthlyCtcBase = annualCtc / 12; const percentage = field === "basic" ? Math.round((payroll.basic / monthlyCtcBase) * 100) : field === "hra" ? Math.round((payroll.hra / payroll.basic) * 100) : 0; return <TrH key={field}><Td>{label}</Td><Td>{editingPayroll ? <div style={{ display: "flex", maxWidth: 260 }}><select aria-label={`${label} calculation type`} style={{ ...iSt, borderRadius: "6px 0 0 6px", minWidth: 130 }} value={calculationType[field]} onChange={(e) => setCalculationType({ ...calculationType, [field]: e.target.value })}><option>Fixed amount</option><option>% of CTC</option><option>% of Basic</option></select>{calculationType[field] !== "Fixed amount" && <input aria-label={`${label} percentage`} type="number" min="0" max="100" style={{ ...iSt, width: 75, borderRadius: "0 6px 6px 0", marginLeft: -1 }} value={percentage} onChange={(e) => { const pct = Number(e.target.value); if (field === "basic") setPayroll({ ...payroll, basic: Math.round(monthlyCtcBase * pct / 100) }); if (field === "hra") setPayroll({ ...payroll, hra: Math.round(payroll.basic * pct / 100) }) }} />}</div> : calculationType[field] === "Fixed amount" ? "Fixed amount" : `${percentage}% ${calculationType[field] === "% of CTC" ? "of CTC" : "of Basic"}`}</Td><Td right>{editingPayroll ? <input type="number" style={{ ...iSt, width: 150 }} value={payroll[field]} onChange={(e) => setPayroll({ ...payroll, [field]: Number(e.target.value) })} /> : inr(payroll[field])}</Td><Td right>{inr(payroll[field] * 12)}</Td></TrH>})}<TrH><Td colSpan={2} style={{ fontWeight: 800, background: "#EAF3FF", padding: "16px" }}>Cost to Company</Td><Td right style={{ fontWeight: 800, background: "#EAF3FF" }}>{inr(gross)}</Td><Td right style={{ fontWeight: 800, background: "#EAF3FF" }}>{inr(gross * 12)}</Td></TrH></tbody></table>
-              <button onClick={() => { setExtraEarnings([...extraEarnings, { id: Date.now(), name: "New Earning", calculation: "Fixed amount", amount: 0 }]); toast("New earning added", "success") }} style={{ marginTop: 14, border: "none", background: "transparent", color: F.brand, cursor: "pointer", fontWeight: 700, fontFamily: "inherit", fontSize: 14 }}>＋ Add Earning</button>
-              {extraEarnings.map((earning) => <div key={earning.id} style={{ display: "grid", gridTemplateColumns: "1.1fr 1fr 0.7fr auto", gap: 12, alignItems: "end", marginTop: 12, padding: 12, border: `1px solid ${F.brand}40`, borderRadius: 7, background: F.infoBg }}><Fld label="Earning name"><input style={iSt} value={earning.name} onChange={(e) => setExtraEarnings(extraEarnings.map((item) => item.id === earning.id ? { ...item, name: e.target.value } : item))} /></Fld><Fld label="Calculation type"><select style={iSt} value={earning.calculation} onChange={(e) => setExtraEarnings(extraEarnings.map((item) => item.id === earning.id ? { ...item, calculation: e.target.value } : item))}><option>Fixed amount</option><option>% of CTC</option><option>% of Basic</option></select></Fld><Fld label="Monthly amount"><input type="number" min="0" style={iSt} value={earning.amount} onChange={(e) => setExtraEarnings(extraEarnings.map((item) => item.id === earning.id ? { ...item, amount: Number(e.target.value) } : item))} /></Fld><Btn small variant="secondary" onClick={() => setExtraEarnings(extraEarnings.filter((item) => item.id !== earning.id))}>Remove</Btn></div>)}
-              <div style={{ borderTop: `1px solid ${F.border}`, marginTop: 22, paddingTop: 20 }}>
-                <div style={{ fontSize: 18, fontWeight: 800, marginBottom: 22 }}>Benefits</div>
-                <div style={{ display: "grid", gridTemplateColumns: "1.15fr 1fr 0.7fr 0.7fr", gap: 14, alignItems: "start" }}>
-                  <div><strong>EPF - Employer Contribution</strong><div style={{ marginTop: 12, paddingLeft: 14, borderLeft: `2px solid ${F.border}`, fontSize: 13 }}><strong>Employee Contribution</strong><div style={{ color: "#667085", marginTop: 5 }}>{payroll.pfRate}% of Actual PF Wage</div><label style={{ display: "block", marginTop: 10 }}><input type="checkbox" defaultChecked /> Contribute to Employee Pension Scheme</label><label style={{ display: "block", marginTop: 7 }}><input type="checkbox" defaultChecked /> Contribute EPS at actual PF Wages</label></div></div>
-                  <div style={{ paddingTop: 34 }}>{editingPayroll ? <input type="number" style={{ ...iSt, width: 130 }} value={payroll.pfRate} onChange={(e) => setPayroll({ ...payroll, pfRate: Number(e.target.value) })} /> : `${payroll.pfRate.toFixed(2)}% of PF Wages`}</div><div style={{ paddingTop: 34, textAlign: "right" }}>{inr(pf)}</div><div style={{ paddingTop: 34, textAlign: "right" }}>{inr(pf * 12)}</div>
+            {/* Earnings Section */}
+            <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+              <div style={{ fontSize: 14, fontWeight: 800, color: F.text1, marginTop: 4 }}>
+                Earnings
+              </div>
+
+              {/* Basic Row */}
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "30% 28% 18% 18% 6%",
+                  alignItems: "center",
+                  padding: "4px 0",
+                }}
+              >
+                <div style={{ fontSize: 13, fontWeight: 600, color: F.text1 }}>
+                  Basic
                 </div>
+                <div>
+                  <div
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      border: `1px solid ${F.border}`,
+                      borderRadius: 4,
+                      overflow: "hidden",
+                      background: F.card,
+                    }}
+                  >
+                    <input
+                      type="number"
+                      min="0"
+                      value={basicRow.value}
+                      onChange={(e) => handleUpdateEarning(basicRow.id, { value: Number(e.target.value) || 0 })}
+                      style={{
+                        width: 65,
+                        border: "none",
+                        padding: "6px 8px",
+                        fontSize: 13,
+                        outline: "none",
+                        textAlign: "right",
+                        background: F.card,
+                      }}
+                    />
+                    <select
+                      value={basicRow.calcType}
+                      onChange={(e) => handleUpdateEarning(basicRow.id, { calcType: e.target.value as CalcType })}
+                      style={{
+                        border: "none",
+                        borderLeft: `1px solid ${F.border}`,
+                        padding: "6px 8px",
+                        fontSize: 12,
+                        background: F.card,
+                        color: F.text1,
+                        outline: "none",
+                        cursor: "pointer",
+                      }}
+                    >
+                      <option value="percent_ctc">% of CTC</option>
+                      <option value="percent_basic">% of Basic</option>
+                      <option value="fixed">Fixed amount</option>
+                    </select>
+                  </div>
+                </div>
+                <div style={{ textAlign: "right" }}>
+                  <span
+                    style={{
+                      display: "inline-block",
+                      minWidth: 90,
+                      padding: "6px 10px",
+                      background: "#F8FAFC",
+                      border: `1px solid ${F.border}`,
+                      borderRadius: 4,
+                      fontSize: 13,
+                      color: F.text1,
+                      textAlign: "center",
+                    }}
+                  >
+                    {monthlyBasic.toLocaleString("en-IN")}
+                  </span>
+                </div>
+                <div style={{ textAlign: "right", fontSize: 13, color: F.text1 }}>
+                  {annualBasic.toLocaleString("en-IN")}
+                </div>
+                <div></div>
               </div>
-              <div style={{ color: F.text2, fontSize: 12, marginTop: 15 }}>Note: Any changes made to salary components take effect in the current pay run, provided it is not approved.</div>
-              <div style={{ display: "flex", gap: 8, marginTop: 20 }}><Btn onClick={savePayroll}>Save</Btn><Btn variant="secondary" onClick={() => setEditingPayroll(false)}>Cancel</Btn></div>
+
+              {/* Fixed Allowance Row */}
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "30% 28% 18% 18% 6%",
+                  alignItems: "center",
+                  padding: "4px 0",
+                }}
+              >
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: F.text1, display: "flex", alignItems: "center", gap: 6 }}>
+                    <span>Fixed Allowance</span>
+                    <span
+                      title="Monthly CTC - Sum of all other components"
+                      style={{
+                        fontSize: 11,
+                        color: F.text3,
+                        cursor: "help",
+                        border: `1px solid ${F.text3}`,
+                        borderRadius: "50%",
+                        width: 14,
+                        height: 14,
+                        display: "inline-flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                      }}
+                    >
+                      i
+                    </span>
+                  </div>
+                  <div style={{ fontSize: 11, color: F.text3, marginTop: 2 }}>
+                    Monthly CTC - Sum of all other components
+                  </div>
+                </div>
+                <div style={{ fontSize: 13, color: F.text2 }}>
+                  Fixed amount
+                </div>
+                <div style={{ textAlign: "right" }}>
+                  <span style={{ fontSize: 13, color: F.text1 }}>{monthlyFixed.toLocaleString("en-IN")}</span>
+                </div>
+                <div style={{ textAlign: "right" }}>
+                  <span style={{ fontSize: 13, color: F.text1 }}>{annualFixed.toLocaleString("en-IN")}</span>
+                </div>
+                <div></div>
+              </div>
+
+              {/* Dynamic Additional Earnings Rows (House Rent Allowance & Conveyance Allowance) */}
+              {calculatedEarnings
+                .filter((e) => !e.isBasic)
+                .map((earning) => (
+                  <div
+                    key={earning.id}
+                    onMouseEnter={() => setHoveredRowId(earning.id)}
+                    onMouseLeave={() => setHoveredRowId(null)}
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "30% 28% 18% 18% 6%",
+                      alignItems: "center",
+                      padding: "4px 0",
+                    }}
+                  >
+                    <div style={{ fontSize: 13, fontWeight: 600, color: F.text1 }}>
+                      {earning.name}
+                    </div>
+                    <div>
+                      {earning.calcType === "fixed" ? (
+                        <div style={{ fontSize: 13, color: F.text2 }}>Fixed amount</div>
+                      ) : (
+                        <div
+                          style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            border: `1px solid ${F.border}`,
+                            borderRadius: 4,
+                            overflow: "hidden",
+                            background: F.card,
+                          }}
+                        >
+                          <input
+                            type="number"
+                            min="0"
+                            value={earning.value}
+                            onChange={(e) => handleUpdateEarning(earning.id, { value: Number(e.target.value) || 0 })}
+                            style={{
+                              width: 65,
+                              border: "none",
+                              padding: "6px 8px",
+                              fontSize: 13,
+                              outline: "none",
+                              textAlign: "right",
+                              background: F.card,
+                            }}
+                          />
+                          <select
+                            value={earning.calcType}
+                            onChange={(e) => handleUpdateEarning(earning.id, { calcType: e.target.value as CalcType })}
+                            style={{
+                              border: "none",
+                              borderLeft: `1px solid ${F.border}`,
+                              padding: "6px 8px",
+                              fontSize: 12,
+                              background: F.card,
+                              color: F.text1,
+                              outline: "none",
+                              cursor: "pointer",
+                            }}
+                          >
+                            <option value="percent_basic">% of Basic</option>
+                            <option value="percent_ctc">% of CTC</option>
+                            <option value="fixed">Fixed amount</option>
+                          </select>
+                        </div>
+                      )}
+                    </div>
+                    <div style={{ textAlign: "right" }}>
+                      <input
+                        type="number"
+                        min="0"
+                        value={earning.monthly}
+                        onChange={(e) => {
+                          const val = Number(e.target.value) || 0
+                          if (earning.calcType === "fixed") {
+                            handleUpdateEarning(earning.id, { value: val })
+                          } else if (earning.calcType === "percent_basic") {
+                            handleUpdateEarning(earning.id, { value: monthlyBasic > 0 ? Number(((val / monthlyBasic) * 100).toFixed(2)) : 0 })
+                          } else {
+                            handleUpdateEarning(earning.id, { value: monthlyCTC > 0 ? Number(((val / monthlyCTC) * 100).toFixed(2)) : 0 })
+                          }
+                        }}
+                        style={{
+                          width: 90,
+                          padding: "6px 8px",
+                          borderRadius: 4,
+                          border: `1px solid ${F.border}`,
+                          fontSize: 13,
+                          textAlign: "center",
+                          outline: "none",
+                          background: F.card,
+                        }}
+                      />
+                    </div>
+                    <div style={{ textAlign: "right", fontSize: 13, color: F.text1 }}>
+                      <span>{earning.annual.toLocaleString("en-IN")}</span>
+                    </div>
+                    <div style={{ textAlign: "center" }}>
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveEarning(earning.id)}
+                        title="Remove component"
+                        style={{
+                          background: "none",
+                          border: "none",
+                          color: "#EF4444",
+                          cursor: "pointer",
+                          fontSize: 18,
+                          fontWeight: 700,
+                          padding: "0 4px",
+                          lineHeight: 1,
+                          opacity: hoveredRowId === earning.id ? 1 : 0,
+                          transition: "opacity 0.15s",
+                        }}
+                      >
+                        ×
+                      </button>
+                    </div>
+                  </div>
+                ))}
+
+              {/* Add Earning Button & Popover (Zoho Reference 1 & 2) */}
+              <div style={{ position: "relative", marginTop: 4 }}>
+                <button
+                  type="button"
+                  onClick={() => setShowAddEarningModal(!showAddEarningModal)}
+                  style={{
+                    background: "none",
+                    border: "none",
+                    color: F.brand,
+                    fontSize: 13,
+                    fontWeight: 700,
+                    cursor: "pointer",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 4,
+                    padding: "4px 0",
+                  }}
+                >
+                  + Add Earning
+                </button>
+
+                {showAddEarningModal && (
+                  <div
+                    style={{
+                      position: "absolute",
+                      top: 30,
+                      left: 0,
+                      background: F.card,
+                      border: `1px solid ${F.border}`,
+                      borderRadius: 6,
+                      boxShadow: "0 4px 16px rgba(0,0,0,0.12)",
+                      zIndex: 100,
+                      width: 220,
+                      overflow: "hidden",
+                    }}
+                  >
+                    {[
+                      { name: "House Rent Allowance", calcType: "percent_basic" as CalcType, defaultValue: 0.0 },
+                      { name: "Conveyance Allowance", calcType: "fixed" as CalcType, defaultValue: 0 },
+                    ]
+                      .filter(p => !earnings.some(e => e.name.toLowerCase() === p.name.toLowerCase()))
+                      .map((preset, index) => (
+                        <div
+                          key={preset.name}
+                          onClick={() => {
+                            handleAddEarning(preset)
+                            setShowAddEarningModal(false)
+                          }}
+                          style={{
+                            padding: "9px 14px",
+                            fontSize: 13,
+                            color: index === 0 ? "#FFFFFF" : F.text1,
+                            background: index === 0 ? F.brand : "transparent",
+                            cursor: "pointer",
+                            transition: "background 0.1s",
+                          }}
+                          onMouseEnter={(e) => {
+                            if (index !== 0) e.currentTarget.style.background = F.pageBg
+                          }}
+                          onMouseLeave={(e) => {
+                            if (index !== 0) e.currentTarget.style.background = "transparent"
+                          }}
+                        >
+                          {preset.name}
+                        </div>
+                      ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Benefits Section inside Salary Structure (Zoho Reference 3, 4, 5) */}
+            <div style={{ display: "flex", flexDirection: "column", gap: 14, marginTop: 6, borderTop: `1px solid ${F.border}`, paddingTop: 16 }}>
+              <div style={{ fontSize: 14, fontWeight: 800, color: F.text1 }}>
+                Benefits
+              </div>
+
+              {benefits
+                .filter((b) => b.enabled)
+                .map((benefit) => (
+                  <div
+                    key={benefit.id}
+                    onMouseEnter={() => setHoveredRowId(benefit.id)}
+                    onMouseLeave={() => setHoveredRowId(null)}
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "30% 28% 18% 18% 6%",
+                      alignItems: "flex-start",
+                      padding: "4px 0",
+                    }}
+                  >
+                    <div>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: F.text1 }}>
+                        {benefit.name}
+                      </div>
+
+                      {benefit.planType === "epf" && (
+                        <div style={{ marginTop: 6 }}>
+                          <div style={{ borderLeft: `2px solid ${F.border}`, paddingLeft: 10, marginBottom: 6 }}>
+                            <div style={{ fontSize: 12, fontWeight: 700, color: F.text1 }}>
+                              Employee Contribution
+                            </div>
+                            <div style={{ fontSize: 11, color: F.text3, marginTop: 2 }}>
+                              12% of Actual PF Wage
+                            </div>
+                          </div>
+                          <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: F.text1, cursor: "pointer", marginTop: 4 }}>
+                            <input
+                              type="checkbox"
+                              checked={benefit.epsEnabled}
+                              onChange={(e) => handleToggleBenefitEps(benefit.id, e.target.checked)}
+                            />
+                            <span>Contribute to Employee Pension Scheme</span>
+                          </label>
+
+                          {/* Secondary Checkbox when EPS is enabled (Screenshot 4) */}
+                          {benefit.epsEnabled && (
+                            <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: F.text1, cursor: "pointer", marginTop: 6, marginLeft: 20 }}>
+                              <input
+                                type="checkbox"
+                                checked={benefit.epsActualWages}
+                                onChange={(e) => handleToggleBenefitEpsActualWages(benefit.id, e.target.checked)}
+                              />
+                              <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                                Contribute EPS at actual PF Wages
+                                <span
+                                  title="Contribute EPS at actual PF wages without ceiling limits"
+                                  style={{
+                                    fontSize: 11,
+                                    color: F.text3,
+                                    border: `1px solid ${F.text3}`,
+                                    borderRadius: "50%",
+                                    width: 14,
+                                    height: 14,
+                                    display: "inline-flex",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                    cursor: "help",
+                                  }}
+                                >
+                                  i
+                                </span>
+                              </span>
+                            </label>
+                          )}
+                        </div>
+                      )}
+                    </div>
+
+                    <div style={{ paddingTop: 2 }}>
+                      <span style={{ fontSize: 13, color: F.text1, borderBottom: `1px dashed ${F.border}`, paddingBottom: 2 }}>
+                        {benefit.employerCalculationText}
+                      </span>
+                    </div>
+
+                    <div style={{ textAlign: "right", fontSize: 13, color: F.text3, paddingTop: 2 }}>
+                      System Calculated
+                    </div>
+
+                    <div style={{ textAlign: "right", fontSize: 13, color: F.text3, paddingTop: 2 }}>
+                      System Calculated
+                    </div>
+
+                    <div style={{ textAlign: "center", paddingTop: 2 }}>
+                      {benefit.planType !== "epf" && (
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveBenefit(benefit.id)}
+                          title="Remove benefit"
+                          style={{
+                            background: "none",
+                            border: "none",
+                            color: "#EF4444",
+                            cursor: "pointer",
+                            fontSize: 18,
+                            fontWeight: 700,
+                            padding: "0 4px",
+                            lineHeight: 1,
+                            opacity: hoveredRowId === benefit.id ? 1 : 0,
+                            transition: "opacity 0.15s",
+                          }}
+                        >
+                          ×
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+
+              {/* + Add Benefit Button inside Salary Structure (Screenshot 3 & 4) */}
+              {!benefits.find(b => b.planType === "esi")?.enabled && (
+                <div style={{ position: "relative", marginTop: 4 }}>
+                  <button
+                    type="button"
+                    onClick={() => setShowAddBenefitModal(!showAddBenefitModal)}
+                    style={{
+                      background: "none",
+                      border: "none",
+                      color: F.brand,
+                      fontSize: 13,
+                      fontWeight: 700,
+                      cursor: "pointer",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 4,
+                      padding: "4px 0",
+                    }}
+                  >
+                    + Add Benefit
+                  </button>
+
+                  {showAddBenefitModal && (
+                    <div
+                      style={{
+                        position: "absolute",
+                        top: 28,
+                        left: 0,
+                        background: F.card,
+                        border: `1px solid ${F.border}`,
+                        borderRadius: 6,
+                        boxShadow: "0 4px 16px rgba(0,0,0,0.12)",
+                        zIndex: 100,
+                        width: 240,
+                        overflow: "hidden",
+                      }}
+                    >
+                      <div
+                        onClick={() => {
+                          setBenefits(benefits.map(b => b.planType === "esi" ? { ...b, enabled: true } : b))
+                          setStatutory(prev => ({ ...prev, esi: true }))
+                          setShowAddBenefitModal(false)
+                          toast("Added ESI - Employer Contribution to benefits.", "success")
+                        }}
+                        style={{
+                          padding: "10px 14px",
+                          fontSize: 13,
+                          color: "#FFFFFF",
+                          background: F.brand,
+                          cursor: "pointer",
+                        }}
+                      >
+                        ESI - Employer Contribution
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* System Calculated Components' Total Banner (Screenshot 3, 4, 5) */}
+              <div
+                style={{
+                  background: "#F0F6FE",
+                  border: `1px solid #D6E8FB`,
+                  borderRadius: 4,
+                  padding: "10px 16px",
+                  display: "grid",
+                  gridTemplateColumns: "30% 28% 18% 18% 6%",
+                  alignItems: "center",
+                  marginTop: 6,
+                }}
+              >
+                <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, fontWeight: 600, color: F.brand }}>
+                  <span
+                    style={{
+                      width: 16,
+                      height: 16,
+                      borderRadius: "50%",
+                      background: F.brand,
+                      color: "#fff",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      fontSize: 11,
+                      fontWeight: 700,
+                    }}
+                  >
+                    i
+                  </span>
+                  <span>System Calculated Components' Total (Preview)</span>
+                </div>
+                <div></div>
+                <div style={{ textAlign: "right", fontSize: 13, fontWeight: 700, color: F.text1 }}>
+                  {monthlyFixed.toLocaleString("en-IN")}
+                </div>
+                <div style={{ textAlign: "right", fontSize: 13, fontWeight: 700, color: F.text1 }}>
+                  {annualFixed.toLocaleString("en-IN")}
+                </div>
+                <div></div>
+              </div>
+            </div>
+
+            {/* Cost to Company Bottom Bar (Screenshot 5) */}
+            <div
+              style={{
+                background: "#F0F6FE",
+                border: `1px solid #D6E8FB`,
+                borderRadius: 6,
+                padding: "14px 20px",
+                display: "grid",
+                gridTemplateColumns: "30% 28% 18% 18% 6%",
+                alignItems: "center",
+                fontWeight: 800,
+                marginTop: 12,
+              }}
+            >
+              <div style={{ fontSize: 14, color: F.text1 }}>Cost to Company</div>
+              <div></div>
+              <div style={{ textAlign: "right", fontSize: 15, color: F.text1, fontWeight: 800 }}>
+                ₹{monthlyCTC.toLocaleString("en-IN")}
+              </div>
+              <div style={{ textAlign: "right", fontSize: 15, color: F.text1, fontWeight: 800 }}>
+                ₹{annualCTC.toLocaleString("en-IN")}
+              </div>
+              <div></div>
             </div>
           </div>
-          <div style={{ display: "none", background: F.card, border: `1px solid ${F.border}`, borderRadius: 10, overflow: "hidden" }}>
-            <div style={{ padding: "16px 20px", borderBottom: `1px solid ${F.border}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <div><div style={{ fontWeight: 800 }}>Salary structure & benefits</div><div style={{ fontSize: 12, color: F.text2, marginTop: 3 }}>Manage compensation assigned to {emp.name}.</div></div>
-              <div style={{ display: "flex", gap: 8 }}>{editingPayroll && <Btn small variant="secondary" onClick={() => setEditingPayroll(false)}>Cancel</Btn>}<Btn small variant={editingPayroll ? "success" : "secondary"} onClick={() => editingPayroll ? savePayroll() : setEditingPayroll(true)}>{editingPayroll ? "Save payroll" : "Edit payroll"}</Btn></div>
+
+          {/* 3. Other Benefits Card (Zoho Reference 5) */}
+          <div
+            style={{
+              background: F.card,
+              border: `1px solid ${F.border}`,
+              borderRadius: 8,
+              padding: "24px 32px",
+              display: "flex",
+              flexDirection: "column",
+              gap: 16,
+            }}
+          >
+            <div>
+              <div style={{ fontSize: 16, fontWeight: 800, color: F.text1, marginBottom: 4 }}>
+                Other Benefits
+              </div>
+              <div style={{ fontSize: 13, color: F.text2 }}>
+                Optional Add-ons to Employee Salary Structure
+              </div>
             </div>
-            <div style={{ padding: 20 }}>
-              {editingPayroll ? <Fld label="Salary Structure"><select style={iSt} value={payroll.salaryStructure} onChange={(e) => setPayroll({ ...payroll, salaryStructure: e.target.value })}>{ss.map((item) => <option key={item.id}>{item.name}</option>)}</select></Fld> : <IR label="Assigned Salary Structure" value={payroll.salaryStructure} />}
-              <div style={{ marginTop: 14, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-                {([
-                  ["Basic pay", "basic", F.brand], ["House rent allowance", "hra", F.success],
-                  ["Fixed allowance", "fixedAllowance", F.warning], ["Special allowance", "specialAllowance", "#8A5CF6"],
-                ] as [string, "basic" | "hra" | "fixedAllowance" | "specialAllowance", string][]).map(([label, field, color]) => <div key={label} style={{ padding: 14, border: `1px solid ${F.border}`, borderRadius: 8, borderLeft: `4px solid ${color}` }}><div style={{ color: F.text2, fontSize: 12 }}>{label}</div>{editingPayroll ? <input type="number" min="0" style={{ ...iSt, marginTop: 7, fontWeight: 800 }} value={payroll[field]} onChange={(e) => setPayroll({ ...payroll, [field]: Number(e.target.value) })} /> : <div style={{ marginTop: 5, fontWeight: 800, fontSize: 17 }}>{inr(payroll[field])}</div>}<div style={{ color: F.text3, fontSize: 11, marginTop: 5 }}>Monthly</div></div>)}
+
+            {/* Table Header */}
+            <div
+              style={{
+                borderTop: `1px solid ${F.border}`,
+                borderBottom: `1px solid ${F.border}`,
+                padding: "10px 0",
+                display: "grid",
+                gridTemplateColumns: "50% 40% 10%",
+                fontSize: 11,
+                fontWeight: 700,
+                color: F.text3,
+                letterSpacing: "0.05em",
+                textTransform: "uppercase",
+              }}
+            >
+              <div>DEDUCTION NAME</div>
+              <div>CALCULATION TYPE</div>
+              <div style={{ textAlign: "center" }}>ACTIONS</div>
+            </div>
+
+            {/* Benefits Table Body */}
+            <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+              <div style={{ fontSize: 14, fontWeight: 800, color: F.text1, marginTop: 4 }}>
+                Benefits
+              </div>
+
+              {otherBenefits.map((b) => (
+                <div key={b.id} style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: F.text1 }}>
+                    {b.name}
+                  </div>
+                  {b.items.map((item, idx) => (
+                    <div
+                      key={idx}
+                      style={{
+                        display: "grid",
+                        gridTemplateColumns: "50% 40% 10%",
+                        alignItems: "center",
+                        paddingLeft: 16,
+                      }}
+                    >
+                      <div style={{ fontSize: 13, color: F.text2 }}>{item.title}</div>
+                      <div style={{ fontSize: 13, color: F.text1 }}>{item.calcText}</div>
+                      <div style={{ textAlign: "center" }}>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveOtherBenefit(b.id)}
+                          title="Remove benefit"
+                          style={{
+                            background: "none",
+                            border: "none",
+                            color: "#EF4444",
+                            cursor: "pointer",
+                            fontSize: 18,
+                            fontWeight: 700,
+                            padding: "0 4px",
+                          }}
+                        >
+                          ×
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ))}
+
+              <div>
+                <button
+                  type="button"
+                  onClick={() => setShowAddOtherBenefitModal(true)}
+                  style={{
+                    background: "none",
+                    border: "none",
+                    color: F.brand,
+                    fontSize: 13,
+                    fontWeight: 700,
+                    cursor: "pointer",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 4,
+                    padding: "4px 0",
+                  }}
+                >
+                  + Add Benefit
+                </button>
               </div>
             </div>
           </div>
-          <div style={{ display: "none", background: F.card, border: `1px solid ${F.border}`, borderRadius: 10, padding: 20 }}>
-            <div style={{ fontWeight: 800, marginBottom: 14 }}>Statutory & payment details</div>
-            {editingPayroll ? <div style={{ display: "flex", flexDirection: "column", gap: 10 }}><Fld label="EPF rate (%)"><input type="number" min="0" max="100" value={payroll.pfRate} onChange={(e) => setPayroll({ ...payroll, pfRate: Number(e.target.value) })} style={iSt} /></Fld><Fld label="TDS rate (%)"><input type="number" min="0" max="100" value={payroll.tdsRate} onChange={(e) => setPayroll({ ...payroll, tdsRate: Number(e.target.value) })} style={iSt} /></Fld><Fld label="Professional tax"><input type="number" min="0" value={payroll.professionalTax} onChange={(e) => setPayroll({ ...payroll, professionalTax: Number(e.target.value) })} style={iSt} /></Fld><Fld label="Payment method"><select value={payroll.paymentMethod} onChange={(e) => setPayroll({ ...payroll, paymentMethod: e.target.value })} style={iSt}><option>Bank transfer</option><option>Cheque</option><option>Cash</option></select></Fld><Fld label="Account ending"><input value={payroll.bankAccount} onChange={(e) => setPayroll({ ...payroll, bankAccount: e.target.value })} style={iSt} /></Fld><Fld label="IFSC code"><input value={payroll.ifsc} onChange={(e) => setPayroll({ ...payroll, ifsc: e.target.value.toUpperCase() })} style={iSt} /></Fld></div> : <><IR label="EPF contribution" value={`${inr(pf)} / month (${payroll.pfRate}%)`} /><IR label="Professional tax" value={`${inr(pt)} / month`} /><IR label="Income tax (estimated)" value={`${inr(tds)} / month (${payroll.tdsRate}%)`} /><IR label="Payment method" value={payroll.paymentMethod} /><IR label="Bank account" value={`•••• •••• ${payroll.bankAccount}`} /><IR label="IFSC" value={payroll.ifsc} /></>}
+
+          {/* Only 1 Save and Continue at bottom of whole Salary Details tab */}
+          <div style={{ display: "flex", gap: 10, marginTop: 8 }}>
+            <Btn onClick={saveSalaryDetails}>Save and Continue</Btn>
+            <Btn variant="secondary" onClick={() => setActiveTab("overview")}>Cancel</Btn>
           </div>
+
+          {/* Add Benefits Popup Modal (Zoho Reference 5) */}
+          <OtherBenefitsModal
+            isOpen={showAddOtherBenefitModal}
+            onClose={() => setShowAddOtherBenefitModal(false)}
+            onSave={(newBenefit) => {
+              setOtherBenefits(prev => [...prev, newBenefit])
+            }}
+          />
         </div>
       )}
 
       {activeTab === "payslips" && (
         <div style={{ background: F.card, border: `1px solid ${F.border}`, borderRadius: 10, overflow: "hidden" }}>
           <div style={{ padding: "16px 20px", borderBottom: `1px solid ${F.border}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}><div><div style={{ fontWeight: 800 }}>Payslips & tax forms</div><div style={{ fontSize: 12, color: F.text2, marginTop: 3 }}>{editingPayslips ? "Update the payroll values for each issued period." : "Payroll documents issued specifically to this employee."}</div></div><div style={{ display: "flex", gap: 8 }}>{editingPayslips && <Btn small variant="secondary" onClick={() => setEditingPayslips(false)}>Cancel</Btn>}<Btn small variant={editingPayslips ? "success" : "secondary"} onClick={() => { if (editingPayslips) toast("Payslip adjustments saved", "success"); setEditingPayslips(!editingPayslips) }}>{editingPayslips ? "Save changes" : "Edit figures"}</Btn></div></div>
-          <table style={{ width: "100%", borderCollapse: "collapse" }}><thead><tr><Th>Pay period</Th><Th>Gross earnings</Th><Th>Deductions</Th><Th>Net pay</Th><Th>Status</Th><Th>Action</Th></tr></thead><tbody>{payslipRows.map((row, i) => <TrH key={row.period}><Td><strong>{row.period}</strong><div style={{ fontSize: 11, color: F.text3 }}>Regular monthly payroll</div></Td><Td>{editingPayslips ? <input aria-label={`${row.period} gross`} type="number" min="0" style={{ ...iSt, width: 120 }} value={row.gross} onChange={(e) => setPayslipRows(payslipRows.map((item, index) => index === i ? { ...item, gross: Number(e.target.value) } : item))} /> : inr(row.gross)}</Td><Td>{editingPayslips ? <input aria-label={`${row.period} deductions`} type="number" min="0" style={{ ...iSt, width: 120 }} value={row.deductions} onChange={(e) => setPayslipRows(payslipRows.map((item, index) => index === i ? { ...item, deductions: Number(e.target.value) } : item))} /> : inr(row.deductions)}</Td><Td style={{ fontWeight: 800, color: F.success }}>{inr(row.gross - row.deductions)}</Td><Td>{editingPayslips ? <select aria-label={`${row.period} status`} style={{ ...iSt, width: 115 }} value={row.status} onChange={(e) => setPayslipRows(payslipRows.map((item, index) => index === i ? { ...item, status: e.target.value } : item))}><option>Available</option><option>Paid</option><option>On hold</option></select> : <Badge label={row.status} color={row.status === "On hold" ? F.warning : F.success} bg={row.status === "On hold" ? F.warningBg : F.successBg} />}</Td><Td><div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}><Btn small variant="secondary" onClick={() => toast(`${row.period} payslip opened`, "info")}>View</Btn><Btn small title={`Download PDF payslip for ${row.period}`} onClick={() => downloadPayslipPdf({ grossSalary: row.gross, totalEarnings: row.gross, pf: Math.round(row.gross * 0.12), tds: Math.max(0, row.deductions - Math.round(row.gross * 0.12) - (row.gross > 15000 ? 200 : 150)), profTax: row.gross > 15000 ? 200 : 150, totalDeductions: row.deductions, netSalary: row.gross - row.deductions }, { period: row.period, generatedOn: payslipGeneratedDate(row.period) }, emp)}><DownloadIcon />Download PDF</Btn></div></Td></TrH>)}</tbody></table>
+          <table style={{ width: "100%", borderCollapse: "collapse" }}><thead><tr><Th>Pay period</Th><Th>Gross earnings</Th><Th>Deductions</Th><Th>Net pay</Th><Th>Status</Th><Th>Action</Th></tr></thead><tbody>{payslipRows.map((row, i) => <TrH key={row.period}><Td><strong>{row.period}</strong><div style={{ fontSize: 11, color: F.text3 }}>Regular monthly payroll</div></Td><Td>{editingPayslips ? <input aria-label={`${row.period} gross`} type="number" min="0" style={{ ...iSt, width: 120 }} value={row.gross} onChange={(e) => setPayslipRows(payslipRows.map((item, index) => index === i ? { ...item, gross: Number(e.target.value) } : item))} /> : inr(row.gross)}</Td><Td>{editingPayslips ? <input aria-label={`${row.period} deductions`} type="number" min="0" style={{ ...iSt, width: 120 }} value={row.deductions} onChange={(e) => setPayslipRows(payslipRows.map((item, index) => index === i ? { ...item, deductions: Number(e.target.value) } : item))} /> : inr(row.deductions)}</Td><Td style={{ fontWeight: 800, color: F.success }}>{inr(row.gross - row.deductions)}</Td><Td>{editingPayslips ? <select aria-label={`${row.period} status`} style={{ ...iSt, width: 115 }} value={row.status} onChange={(e) => setPayslipRows(payslipRows.map((item, index) => index === i ? { ...item, status: e.target.value } : item))}><option>Available</option><option>Paid</option><option>On hold</option></select> : <Badge label={row.status} color={row.status === "On hold" ? F.warning : F.success} bg={row.status === "On hold" ? F.warningBg : F.successBg} />}</Td><Td><div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}><Btn small variant="secondary" onClick={() => setViewingPayslip({ period: row.period, gross: row.gross, deductions: row.deductions, net: row.gross - row.deductions, status: row.status })}>View</Btn><Btn small title={`Download PDF payslip for ${row.period}`} onClick={() => downloadPayslipPdf({ grossSalary: row.gross, totalEarnings: row.gross, pf: Math.round(row.gross * 0.12), tds: Math.max(0, row.deductions - Math.round(row.gross * 0.12) - (row.gross > 15000 ? 200 : 150)), profTax: row.gross > 15000 ? 200 : 150, totalDeductions: row.deductions, netSalary: row.gross - row.deductions }, { period: row.period, generatedOn: payslipGeneratedDate(row.period) }, emp)}><DownloadIcon />Download PDF</Btn></div></Td></TrH>)}</tbody></table>
         </div>
       )}
 
@@ -4631,11 +8692,50 @@ function EmployeeDetailPage({
       )}
 
       {activeTab === "loans" && (
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 14 }}>
-          <div style={{ gridColumn: "1 / -1", display: "flex", justifyContent: "flex-end", gap: 8 }}>{editingLeave && <Btn small variant="secondary" onClick={() => setEditingLeave(false)}>Cancel</Btn>}<Btn small variant={editingLeave ? "success" : "secondary"} onClick={() => { if (editingLeave) toast("Leave balances and attendance saved", "success"); setEditingLeave(!editingLeave) }}>{editingLeave ? "Save leave details" : "Edit leave details"}</Btn></div>
-          {[ ["Annual leave", "annualEntitlement", "annualUsed"], ["Sick leave", "sickEntitlement", "sickUsed"] ].map(([title, entitled, used]) => <div key={title} style={{ background: F.card, border: `1px solid ${F.border}`, borderRadius: 10, padding: 20 }}><div style={{ fontSize: 12, color: F.text2 }}>{title}</div>{editingLeave ? <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 9 }}><Fld label="Entitled"><input type="number" min="0" style={iSt} value={leaveBalances[entitled as "annualEntitlement" | "sickEntitlement"]} onChange={(e) => setLeaveBalances({ ...leaveBalances, [entitled]: Number(e.target.value) })} /></Fld><Fld label="Used"><input type="number" min="0" style={iSt} value={leaveBalances[used as "annualUsed" | "sickUsed"]} onChange={(e) => setLeaveBalances({ ...leaveBalances, [used]: Number(e.target.value) })} /></Fld></div> : <><div style={{ fontWeight: 850, fontSize: 26, marginTop: 8, color: F.brand }}>{leaveBalances[entitled as "annualEntitlement" | "sickEntitlement"] - leaveBalances[used as "annualUsed" | "sickUsed"]} days</div><div style={{ fontSize: 12, color: F.text3, marginTop: 5 }}>{leaveBalances[used as "annualUsed" | "sickUsed"]} used of {leaveBalances[entitled as "annualEntitlement" | "sickEntitlement"]}</div></>}</div>)}
-          <div style={{ background: F.card, border: `1px solid ${F.border}`, borderRadius: 10, padding: 20 }}><div style={{ fontSize: 12, color: F.text2 }}>Work attendance</div>{editingLeave ? <Fld label="Attendance percentage"><input type="number" min="0" max="100" style={{ ...iSt, marginTop: 8 }} value={leaveBalances.attendance} onChange={(e) => setLeaveBalances({ ...leaveBalances, attendance: Number(e.target.value) })} /></Fld> : <><div style={{ fontWeight: 850, fontSize: 26, marginTop: 8, color: F.brand }}>{leaveBalances.attendance}%</div><div style={{ fontSize: 12, color: F.text3, marginTop: 5 }}>This month</div></>}</div>
-          <div style={{ gridColumn: "1 / -1", background: F.card, border: `1px solid ${F.border}`, borderRadius: 10, overflow: "hidden" }}><div style={{ padding: "16px 20px", fontWeight: 800, borderBottom: `1px solid ${F.border}` }}>Recent requests</div><table style={{ width: "100%", borderCollapse: "collapse" }}><thead><tr><Th>Type</Th><Th>Dates</Th><Th>Duration</Th><Th>Status</Th><Th>Action</Th></tr></thead><tbody><TrH><Td>Annual leave</Td><Td>18–19 Sep 2026</Td><Td>2 days</Td><Td><Badge label="Approved" color={F.success} bg={F.successBg} /></Td><Td><Btn small variant="secondary" onClick={() => toast("Leave request opened", "info")}>Review</Btn></Td></TrH></tbody></table></div>
+        <div
+          style={{
+            background: F.card,
+            border: `1px solid ${F.border}`,
+            borderRadius: 10,
+            padding: "80px 24px",
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            minHeight: 380,
+            textAlign: "center",
+          }}
+        >
+          <div
+            style={{
+              fontSize: 22,
+              fontWeight: 500,
+              color: "#111827",
+              marginBottom: 24,
+            }}
+          >
+            This employee hasn't taken any loans yet.
+          </div>
+          <button
+            type="button"
+            onClick={() => toast("Redirecting to Create Loan page...", "info")}
+            style={{
+              background: "#3B82F6",
+              color: "#FFFFFF",
+              border: "none",
+              borderRadius: 8,
+              padding: "10px 24px",
+              fontSize: 15,
+              fontWeight: 600,
+              cursor: "pointer",
+              transition: "background 0.2s",
+              boxShadow: "0 1px 2px rgba(0,0,0,0.05)",
+            }}
+            onMouseOver={(e) => (e.currentTarget.style.background = "#2563EB")}
+            onMouseOut={(e) => (e.currentTarget.style.background = "#3B82F6")}
+          >
+            Create Loan
+          </button>
         </div>
       )}
 
@@ -4645,6 +8745,238 @@ function EmployeeDetailPage({
           {[ ["August 2026 payroll completed", `Net pay ${inr(net)} was released to bank account ending 4821.`, F.success], ["Salary structure reviewed", `${emp.salaryStructure} remains active for this employee.`, F.brand], ["Employment record updated", `${emp.designation} · ${emp.department}`, F.warning] ].map(([title, note, color]) => <div key={title as string} style={{ display: "grid", gridTemplateColumns: "14px 1fr", gap: 12, paddingBottom: 20 }}><div style={{ width: 10, height: 10, marginTop: 4, borderRadius: "50%", background: color as string, boxShadow: `0 0 0 4px ${color}22` }} /><div><div style={{ fontWeight: 750, fontSize: 14 }}>{title as string}</div><div style={{ color: F.text2, fontSize: 12, marginTop: 4 }}>{note as string}</div><div style={{ color: F.text3, fontSize: 11, marginTop: 5 }}>Recorded in this employee file</div></div></div>)}
         </div>
       )}
+
+      {/* Payslip View Modal */}
+      {viewingPayslip && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(15, 23, 42, 0.6)",
+            backdropFilter: "blur(4px)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 9999,
+            padding: 20,
+          }}
+        >
+          <div
+            style={{
+              background: "#FFFFFF",
+              borderRadius: 12,
+              width: "100%",
+              maxWidth: 720,
+              maxHeight: "90vh",
+              overflowY: "auto",
+              boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)",
+              border: `1px solid ${F.border}`,
+            }}
+          >
+            {/* Modal Header */}
+            <div
+              style={{
+                padding: "20px 24px",
+                borderBottom: `1px solid ${F.border}`,
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                background: "#F8FAFC",
+                borderRadius: "12px 12px 0 0",
+              }}
+            >
+              <div>
+                <div style={{ fontSize: 18, fontWeight: 700, color: "#0F172A" }}>
+                  Payslip for {viewingPayslip.period}
+                </div>
+                <div style={{ fontSize: 12, color: "#64748B", marginTop: 2 }}>
+                  Naxpayroll Platform · Issued on {payslipGeneratedDate(viewingPayslip.period)}
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setViewingPayslip(null)}
+                style={{
+                  background: "none",
+                  border: "none",
+                  fontSize: 20,
+                  color: "#64748B",
+                  cursor: "pointer",
+                  padding: "4px 8px",
+                  borderRadius: 6,
+                }}
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div style={{ padding: "24px" }}>
+              {/* Employee Summary Card */}
+              <div
+                style={{
+                  background: "#F8FAFC",
+                  border: `1px solid ${F.border}`,
+                  borderRadius: 8,
+                  padding: "16px 20px",
+                  marginBottom: 20,
+                  display: "grid",
+                  gridTemplateColumns: "1fr 1fr",
+                  gap: 12,
+                  fontSize: 13,
+                }}
+              >
+                <div>
+                  <div style={{ color: "#64748B" }}>Employee Name</div>
+                  <div style={{ fontWeight: 600, color: "#0F172A", marginTop: 2 }}>{emp.name}</div>
+                </div>
+                <div>
+                  <div style={{ color: "#64748B" }}>Employee ID</div>
+                  <div style={{ fontWeight: 600, color: "#0F172A", marginTop: 2 }}>{emp.code || emp.id}</div>
+                </div>
+                <div>
+                  <div style={{ color: "#64748B" }}>Designation & Dept</div>
+                  <div style={{ fontWeight: 600, color: "#0F172A", marginTop: 2 }}>{emp.designation} · {emp.department}</div>
+                </div>
+                <div>
+                  <div style={{ color: "#64748B" }}>Payment Method</div>
+                  <div style={{ fontWeight: 600, color: "#0F172A", marginTop: 2 }}>
+                    {payroll.paymentMethod} ({emp.bankAccount || "•••• 4821"})
+                  </div>
+                </div>
+              </div>
+
+              {/* Earnings & Deductions Breakdown Table */}
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 20 }}>
+                {/* Earnings */}
+                <div style={{ border: `1px solid ${F.border}`, borderRadius: 8, overflow: "hidden" }}>
+                  <div style={{ background: "#F1F5F9", padding: "10px 14px", fontWeight: 700, fontSize: 13, color: "#0F172A" }}>
+                    Earnings
+                  </div>
+                  <div style={{ padding: "12px 14px", display: "flex", flexDirection: "column", gap: 8, fontSize: 13 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between" }}>
+                      <span style={{ color: "#64748B" }}>Basic Pay</span>
+                      <span style={{ fontWeight: 600 }}>{inr(Math.round(viewingPayslip.gross * 0.5))}</span>
+                    </div>
+                    <div style={{ display: "flex", justifyContent: "space-between" }}>
+                      <span style={{ color: "#64748B" }}>House Rent Allowance</span>
+                      <span style={{ fontWeight: 600 }}>{inr(Math.round(viewingPayslip.gross * 0.2))}</span>
+                    </div>
+                    <div style={{ display: "flex", justifyContent: "space-between" }}>
+                      <span style={{ color: "#64748B" }}>Fixed Allowance</span>
+                      <span style={{ fontWeight: 600 }}>{inr(Math.round(viewingPayslip.gross * 0.15))}</span>
+                    </div>
+                    <div style={{ display: "flex", justifyContent: "space-between" }}>
+                      <span style={{ color: "#64748B" }}>Special Allowance</span>
+                      <span style={{ fontWeight: 600 }}>{inr(Math.round(viewingPayslip.gross * 0.15))}</span>
+                    </div>
+                    <div style={{ borderTop: `1px solid ${F.border}`, paddingTop: 8, marginTop: 4, display: "flex", justifyContent: "space-between", fontWeight: 700 }}>
+                      <span>Total Earnings</span>
+                      <span style={{ color: "#16A34A" }}>{inr(viewingPayslip.gross)}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Deductions */}
+                <div style={{ border: `1px solid ${F.border}`, borderRadius: 8, overflow: "hidden" }}>
+                  <div style={{ background: "#F1F5F9", padding: "10px 14px", fontWeight: 700, fontSize: 13, color: "#0F172A" }}>
+                    Deductions
+                  </div>
+                  <div style={{ padding: "12px 14px", display: "flex", flexDirection: "column", gap: 8, fontSize: 13 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between" }}>
+                      <span style={{ color: "#64748B" }}>Provident Fund (EPF)</span>
+                      <span style={{ fontWeight: 600 }}>{inr(Math.round(viewingPayslip.gross * 0.12))}</span>
+                    </div>
+                    <div style={{ display: "flex", justifyContent: "space-between" }}>
+                      <span style={{ color: "#64748B" }}>Professional Tax</span>
+                      <span style={{ fontWeight: 600 }}>{inr(viewingPayslip.gross > 15000 ? 200 : 150)}</span>
+                    </div>
+                    <div style={{ display: "flex", justifyContent: "space-between" }}>
+                      <span style={{ color: "#64748B" }}>Income Tax (TDS)</span>
+                      <span style={{ fontWeight: 600 }}>
+                        {inr(Math.max(0, viewingPayslip.deductions - Math.round(viewingPayslip.gross * 0.12) - (viewingPayslip.gross > 15000 ? 200 : 150)))}
+                      </span>
+                    </div>
+                    <div style={{ borderTop: `1px solid ${F.border}`, paddingTop: 8, marginTop: "auto", display: "flex", justifyContent: "space-between", fontWeight: 700 }}>
+                      <span>Total Deductions</span>
+                      <span style={{ color: "#DC2626" }}>{inr(viewingPayslip.deductions)}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Net Pay Highlight Banner */}
+              <div
+                style={{
+                  background: "#EFF6FF",
+                  border: "1px solid #BFDBFE",
+                  borderRadius: 8,
+                  padding: "16px 20px",
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                }}
+              >
+                <div>
+                  <div style={{ fontSize: 12, fontWeight: 600, color: "#1E40AF" }}>NET TAKE HOME PAY</div>
+                  <div style={{ fontSize: 24, fontWeight: 800, color: "#1D4ED8", marginTop: 2 }}>
+                    {inr(viewingPayslip.net)}
+                  </div>
+                </div>
+                <div>
+                  <Badge
+                    label={viewingPayslip.status}
+                    color={viewingPayslip.status === "On hold" ? F.warning : F.success}
+                    bg={viewingPayslip.status === "On hold" ? F.warningBg : F.successBg}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div
+              style={{
+                padding: "16px 24px",
+                borderTop: `1px solid ${F.border}`,
+                background: "#F8FAFC",
+                display: "flex",
+                justifyContent: "flex-end",
+                gap: 10,
+                borderRadius: "0 0 12px 12px",
+              }}
+            >
+              <Btn variant="secondary" onClick={() => setViewingPayslip(null)}>
+                Close
+              </Btn>
+              <Btn
+                onClick={() => {
+                  downloadPayslipPdf(
+                    {
+                      grossSalary: viewingPayslip.gross,
+                      totalEarnings: viewingPayslip.gross,
+                      pf: Math.round(viewingPayslip.gross * 0.12),
+                      tds: Math.max(
+                        0,
+                        viewingPayslip.deductions -
+                          Math.round(viewingPayslip.gross * 0.12) -
+                          (viewingPayslip.gross > 15000 ? 200 : 150),
+                      ),
+                      profTax: viewingPayslip.gross > 15000 ? 200 : 150,
+                      totalDeductions: viewingPayslip.deductions,
+                      netSalary: viewingPayslip.net,
+                    },
+                    { period: viewingPayslip.period, generatedOn: payslipGeneratedDate(viewingPayslip.period) },
+                    emp,
+                  )
+                }}
+              >
+                <DownloadIcon /> Download PDF
+              </Btn>
+            </div>
+          </div>
+        </div>
+      )}
+
       {confirm && (
         <Confirm
           msg={confirm.msg}
@@ -4689,15 +9021,103 @@ function AddEmployeeWizardPage({
     enablePortalAccess: true,
   })
 
-  // Step 2: Salary Details
+  // Step 2: Salary Details - Dynamic Earnings & Benefits Configuration
+  const [statutoryBonusCategory, setStatutoryBonusCategory] = useState("None")
   const [statutory, setStatutory] = useState({
-    epf: false,
+    epf: true,
     esi: false,
     pt: true,
     lwf: false,
   })
-  const [annualCTC, setAnnualCTC] = useState<number>(600000)
-  const [basicPct, setBasicPct] = useState<number>(50)
+  const [annualCTC, setAnnualCTC] = useState<number>(0)
+  const [hoveredRowId, setHoveredRowId] = useState<string | null>(null)
+
+  // Dynamic Earnings state
+  type CalcType = "percent_ctc" | "percent_basic" | "fixed"
+  interface EarningRow {
+    id: string
+    name: string
+    calcType: CalcType
+    value: number
+    isDeletable?: boolean
+    isBasic?: boolean
+  }
+
+  const [earnings, setEarnings] = useState<EarningRow[]>([
+    {
+      id: "basic",
+      name: "Basic",
+      calcType: "percent_ctc",
+      value: 50,
+      isBasic: true,
+      isDeletable: false,
+    },
+  ])
+
+  // Dynamic Benefits state
+  interface BenefitRow {
+    id: string
+    name: string
+    planType: "epf" | "esi" | "gratuity" | "insurance" | "food_coupon" | "custom"
+    employerCalculationText: string
+    employeeCalculationText: string
+    employerRate: number
+    employeeRate: number
+    calcType: "percent_pf_wages" | "percent_esi_wages" | "percent_basic" | "fixed"
+    epsEnabled?: boolean
+    epsActualWages?: boolean
+    enabled: boolean
+    isDeletable?: boolean
+  }
+
+  const [benefits, setBenefits] = useState<BenefitRow[]>([
+    {
+      id: "epf",
+      name: "EPF - Employer Contribution",
+      planType: "epf",
+      employerCalculationText: "12.00% of PF Wages",
+      employeeCalculationText: "12.00% of PF Wages",
+      employerRate: 12,
+      employeeRate: 12,
+      calcType: "percent_pf_wages",
+      epsEnabled: false,
+      epsActualWages: false,
+      enabled: true,
+      isDeletable: false,
+    },
+    {
+      id: "esi",
+      name: "ESI - Employer Contribution",
+      planType: "esi",
+      employerCalculationText: "3.25% of ESI Wages",
+      employeeCalculationText: "0.75% of ESI Wages",
+      employerRate: 3.25,
+      employeeRate: 0.75,
+      calcType: "percent_esi_wages",
+      epsEnabled: false,
+      epsActualWages: false,
+      enabled: false,
+      isDeletable: true,
+    },
+  ])
+
+  // Optional Add-on Other Benefits state (Card 3)
+  const [otherBenefits, setOtherBenefits] = useState<{ id: string; name: string; items: { title: string; calcText: string }[] }[]>([
+    {
+      id: "epf-contrib",
+      name: "EPF Contribution",
+      items: [
+        { title: "Employer's Contribution", calcText: "12.00% of PF Wages" },
+        { title: "Employee's Contribution", calcText: "12.00% of PF Wages" },
+      ],
+    },
+  ])
+  const [showAddOtherBenefitModal, setShowAddOtherBenefitModal] = useState(false)
+  const [selectedOtherBenefitPlan, setSelectedOtherBenefitPlan] = useState("")
+
+  // Modals / dropdowns for adding earnings & benefits
+  const [showAddEarningModal, setShowAddEarningModal] = useState(false)
+  const [showAddBenefitModal, setShowAddBenefitModal] = useState(false)
 
   // Step 3: Personal Details
   const [personal, setPersonal] = useState({
@@ -4715,17 +9135,234 @@ function AddEmployeeWizardPage({
   })
 
   // Step 4: Payment Information
-  const [paymentMethod, setPaymentMethod] =
-    useState<"direct_deposit" | "bank_transfer" | "cheque" | "cash">(
-      "bank_transfer",
-    )
+  const [paymentMethod, setPaymentMethod] = useState<
+    "direct_deposit" | "bank_transfer" | "cheque" | "cash" | ""
+  >("")
+  const [bankInfo, setBankInfo] = useState({
+    accountHolderName: "",
+    bankName: "",
+    accountNumber: "",
+    reAccountNumber: "",
+    ifsc: "",
+    accountType: "savings" as "current" | "savings",
+  })
 
-  // Calculations for Salary
+  // Calculations for Salary Engine
   const monthlyCTC = Math.round(annualCTC / 12)
-  const monthlyBasic = Math.round((monthlyCTC * basicPct) / 100)
+
+  // 1. Basic Calculation
+  const basicRow = earnings.find((e) => e.isBasic) || {
+    id: "basic",
+    name: "Basic",
+    calcType: "percent_ctc" as CalcType,
+    value: 50,
+  }
+  const monthlyBasic =
+    basicRow.calcType === "percent_ctc"
+      ? Math.round((monthlyCTC * basicRow.value) / 100)
+      : basicRow.calcType === "percent_basic"
+        ? Math.round((monthlyCTC * basicRow.value) / 100)
+        : Math.round(basicRow.value)
   const annualBasic = monthlyBasic * 12
-  const monthlyFixed = Math.max(0, monthlyCTC - monthlyBasic)
+
+  // 2. Other Earnings Calculations
+  const calculatedEarnings = earnings.map((e) => {
+    let monthly = 0
+    if (e.isBasic) {
+      monthly = monthlyBasic
+    } else if (e.calcType === "percent_basic") {
+      monthly = Math.round((monthlyBasic * e.value) / 100)
+    } else if (e.calcType === "percent_ctc") {
+      monthly = Math.round((monthlyCTC * e.value) / 100)
+    } else {
+      monthly = Math.round(e.value)
+    }
+    return {
+      ...e,
+      monthly,
+      annual: monthly * 12,
+    }
+  })
+
+  const otherEarningsSumMonthly = calculatedEarnings
+    .filter((e) => !e.isBasic)
+    .reduce((acc, curr) => acc + curr.monthly, 0)
+
+  // 3. Benefits Calculations (Employer & Employee)
+  // PF Wage: Actual basic salary
+  const pfWageMonthly = monthlyBasic
+  // ESI Wage: Gross earnings before deductions (Basic + Allowances)
+  const esiWageMonthly = monthlyBasic + otherEarningsSumMonthly
+
+  const calculatedBenefits = benefits.map((b) => {
+    let employerMonthly = 0
+    let employeeMonthly = 0
+
+    if (b.enabled) {
+      if (b.planType === "epf" && statutory.epf) {
+        employerMonthly = Math.round((pfWageMonthly * b.employerRate) / 100)
+        employeeMonthly = Math.round((pfWageMonthly * b.employeeRate) / 100)
+      } else if (b.planType === "esi" && statutory.esi) {
+        // ESI is applicable if gross <= 21,000 or if selected
+        employerMonthly = Math.round((esiWageMonthly * b.employerRate) / 100)
+        employeeMonthly = Math.round((esiWageMonthly * b.employeeRate) / 100)
+      } else if (b.calcType === "percent_basic") {
+        employerMonthly = Math.round((monthlyBasic * b.employerRate) / 100)
+        employeeMonthly = Math.round((monthlyBasic * b.employeeRate) / 100)
+      } else if (b.calcType === "fixed") {
+        employerMonthly = Math.round(b.employerRate)
+        employeeMonthly = Math.round(b.employeeRate)
+      }
+    }
+
+    return {
+      ...b,
+      employerMonthly,
+      employerAnnual: employerMonthly * 12,
+      employeeMonthly,
+      employeeAnnual: employeeMonthly * 12,
+    }
+  })
+
+  const totalEmployerBenefitsMonthly = calculatedBenefits.reduce(
+    (acc, curr) => acc + curr.employerMonthly,
+    0,
+  )
+  const totalEmployerBenefitsAnnual = totalEmployerBenefitsMonthly * 12
+
+  const totalEmployeeBenefitsMonthly = calculatedBenefits.reduce(
+    (acc, curr) => acc + curr.employeeMonthly,
+    0,
+  )
+
+  // 4. Fixed Allowance Calculation (Balancing CTC)
+  const monthlyFixed = Math.max(
+    0,
+    monthlyCTC -
+      monthlyBasic -
+      otherEarningsSumMonthly -
+      totalEmployerBenefitsMonthly,
+  )
   const annualFixed = monthlyFixed * 12
+
+  // 5. Total Gross Earnings & CTC
+  const totalGrossMonthly = monthlyBasic + otherEarningsSumMonthly + monthlyFixed
+  const totalGrossAnnual = totalGrossMonthly * 12
+
+  const calculatedCTCAnnual = totalGrossAnnual + totalEmployerBenefitsAnnual
+  const calculatedCTCMonthly = totalGrossMonthly + totalEmployerBenefitsMonthly
+
+  // Estimated Professional Tax
+  const estimatedPTMonthly = statutory.pt
+    ? totalGrossMonthly > 15000
+      ? 200
+      : 0
+    : 0
+  const estimatedTakeHomeMonthly = Math.max(
+    0,
+    totalGrossMonthly - totalEmployeeBenefitsMonthly - estimatedPTMonthly,
+  )
+
+  // Available Earning Presets for "+ Add Earning"
+  const earningPresets: {
+    name: string
+    calcType: CalcType
+    value: number
+  }[] = [
+    { name: "House Rent Allowance", calcType: "percent_basic", value: 0 },
+    { name: "Conveyance Allowance", calcType: "fixed", value: 0 },
+  ]
+
+  const handleAddEarning = (preset: {
+    name: string
+    calcType: CalcType
+    value: number
+  }) => {
+    const existing = earnings.find((e) => e.name.toLowerCase() === preset.name.toLowerCase())
+    if (existing) {
+      toast(`${preset.name} is already added in the salary structure.`, "warning")
+      return
+    }
+    const newId = `earning_${Date.now()}`
+    setEarnings([
+      ...earnings,
+      {
+        id: newId,
+        name: preset.name,
+        calcType: preset.calcType,
+        value: preset.value,
+        isDeletable: true,
+      },
+    ])
+    setShowAddEarningModal(false)
+    toast(`Added ${preset.name} to earnings.`, "success")
+  }
+
+  const handleRemoveEarning = (id: string) => {
+    const target = earnings.find((e) => e.id === id)
+    if (target?.isBasic) return
+    setEarnings(earnings.filter((e) => e.id !== id))
+    toast(`Removed ${target?.name || "earning component"}.`, "info")
+  }
+
+  const handleUpdateEarning = (
+    id: string,
+    updates: Partial<EarningRow>,
+  ) => {
+    setEarnings(
+      earnings.map((e) => (e.id === id ? { ...e, ...updates } : e)),
+    )
+  }
+
+  const handleRemoveBenefit = (id: string) => {
+    const target = benefits.find((b) => b.id === id)
+    setBenefits(
+      benefits.map((b) => (b.id === id ? { ...b, enabled: false } : b)),
+    )
+    if (id === "epf") {
+      setStatutory((prev) => ({ ...prev, epf: false }))
+    }
+    if (id === "esi") {
+      setStatutory((prev) => ({ ...prev, esi: false }))
+    }
+    toast(`Removed ${target?.name || "benefit"}.`, "info")
+  }
+
+  const handleToggleBenefitEps = (id: string, checked: boolean) => {
+    setBenefits(
+      benefits.map((b) => (b.id === id ? { ...b, epsEnabled: checked } : b)),
+    )
+  }
+
+  const handleToggleBenefitEpsActualWages = (id: string, checked: boolean) => {
+    setBenefits(
+      benefits.map((b) => (b.id === id ? { ...b, epsActualWages: checked } : b)),
+    )
+  }
+
+  const handleAddOtherBenefit = () => {
+    if (!selectedOtherBenefitPlan) {
+      toast("Please select a benefit plan.", "error")
+      return
+    }
+    const id = `other-benefit-${Date.now()}`
+    setOtherBenefits([
+      ...otherBenefits,
+      {
+        id,
+        name: selectedOtherBenefitPlan,
+        items: [{ title: `${selectedOtherBenefitPlan} Contribution`, calcText: "Applicable Slab" }],
+      },
+    ])
+    setShowAddOtherBenefitModal(false)
+    setSelectedOtherBenefitPlan("")
+    toast("Benefit plan added successfully.", "success")
+  }
+
+  const handleRemoveOtherBenefit = (id: string) => {
+    setOtherBenefits(otherBenefits.filter((b) => b.id !== id))
+    toast("Benefit removed from optional add-ons.", "info")
+  }
 
   const handleNextStep1 = () => {
     if (!basic.firstName.trim() || !basic.email.trim()) {
@@ -4736,6 +9373,29 @@ function AddEmployeeWizardPage({
   }
 
   const handleNextStep2 = () => {
+    if (annualCTC <= 0) {
+      toast("Annual CTC must be greater than 0.", "error")
+      return
+    }
+    for (const e of earnings) {
+      if (e.value < 0) {
+        toast(`Value for ${e.name} cannot be negative.`, "error")
+        return
+      }
+      if (
+        (e.calcType === "percent_basic" || e.calcType === "percent_ctc") &&
+        e.value > 100
+      ) {
+        toast(`Percentage for ${e.name} cannot exceed 100%.`, "error")
+        return
+      }
+    }
+    if (monthlyBasic + otherEarningsSumMonthly + totalEmployerBenefitsMonthly > monthlyCTC) {
+      toast(
+        "Warning: Total salary earnings and employer benefits exceed Annual CTC. Fixed Allowance adjusted to ₹0.",
+        "warning",
+      )
+    }
     setStep(3)
   }
 
@@ -4744,6 +9404,27 @@ function AddEmployeeWizardPage({
   }
 
   const handleFinish = () => {
+    if (!paymentMethod) {
+      toast("Please select a payment method (*)", "error")
+      return
+    }
+    if (paymentMethod === "direct_deposit" || paymentMethod === "bank_transfer") {
+      const holderName =
+        bankInfo.accountHolderName ||
+        `${basic.firstName} ${basic.middleName ? basic.middleName + " " : ""}${basic.lastName}`.trim()
+      if (!holderName || !bankInfo.bankName || !bankInfo.accountNumber) {
+        toast("Please fill in all mandatory bank details (*)", "error")
+        return
+      }
+      if (
+        bankInfo.reAccountNumber &&
+        bankInfo.accountNumber !== bankInfo.reAccountNumber
+      ) {
+        toast("Account numbers do not match.", "error")
+        return
+      }
+    }
+
     const fullName = `${basic.firstName} ${
       basic.middleName ? basic.middleName + " " : ""
     }${basic.lastName}`.trim()
@@ -4759,7 +9440,10 @@ function AddEmployeeWizardPage({
       location: basic.workLocation.split(" ")[0] || "Bangalore",
       salaryStructure: "Standard Engineer",
       status: "Active",
-      grossSalary: monthlyCTC,
+      grossSalary: totalGrossMonthly,
+      bankName: bankInfo.bankName,
+      bankAccount: bankInfo.accountNumber,
+      ifsc: bankInfo.ifsc,
     }
 
     setEmps([newEmp, ...emps])
@@ -4906,7 +9590,7 @@ function AddEmployeeWizardPage({
                       fontWeight: 700,
                     }}
                   >
-                    {isDone ? <UiIcon name="check" size={15} /> : s.num}
+                    {isDone ? "✓" : s.num}
                   </div>
                   <span
                     style={{
@@ -5201,165 +9885,144 @@ function AddEmployeeWizardPage({
         )}
 
         {step === 2 && (
-          <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
-            {/* Statutory Components Card */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+            {/* 1. Statutory Components Card (Zoho Reference 1) */}
             <div
               style={{
+                background: F.card,
                 border: `1px solid ${F.border}`,
                 borderRadius: 8,
-                padding: 20,
-                background: F.card,
+                padding: "24px 32px",
+                display: "flex",
+                flexDirection: "column",
+                gap: 16,
               }}
             >
-              <div
-                style={{
-                  fontSize: 16,
-                  fontWeight: 700,
-                  color: F.text1,
-                  marginBottom: 4,
-                }}
-              >
-                Statutory Components
-              </div>
-              <div style={{ fontSize: 12, color: F.text2, marginBottom: 16 }}>
-                Enable the necessary benefits and tax applicable for this
-                employee.
+              <div>
+                <div style={{ fontSize: 16, fontWeight: 800, color: F.text1, marginBottom: 4 }}>
+                  Statutory Components
+                </div>
+                <div style={{ fontSize: 13, color: F.text2 }}>
+                  Enable the necessary benefits and tax applicable for this employee.
+                </div>
               </div>
 
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "1fr 1fr",
-                  gap: 12,
-                }}
-              >
-                <label
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 8,
-                    fontSize: 13,
-                    color: F.text1,
-                    cursor: "pointer",
-                  }}
-                >
+              <div style={{ display: "flex", flexDirection: "column", gap: 12, marginTop: 4 }}>
+                <label style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 13, color: F.text1, cursor: "pointer" }}>
                   <input
                     type="checkbox"
                     checked={statutory.epf}
-                    onChange={(e) =>
+                    onChange={(e) => {
                       setStatutory({ ...statutory, epf: e.target.checked })
-                    }
+                      setBenefits(benefits.map(b => b.planType === "epf" ? { ...b, enabled: e.target.checked } : b))
+                    }}
                   />
                   <span>Employees' Provident Fund</span>
                 </label>
-                <label
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 8,
-                    fontSize: 13,
-                    color: F.text1,
-                    cursor: "pointer",
-                  }}
-                >
+                <label style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 13, color: F.text1, cursor: "pointer" }}>
                   <input
                     type="checkbox"
                     checked={statutory.esi}
-                    onChange={(e) =>
+                    onChange={(e) => {
                       setStatutory({ ...statutory, esi: e.target.checked })
-                    }
+                      setBenefits(benefits.map(b => b.planType === "esi" ? { ...b, enabled: e.target.checked } : b))
+                    }}
                   />
                   <span>Employees' State Insurance</span>
                 </label>
-                <label
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 8,
-                    fontSize: 13,
-                    color: F.text1,
-                    cursor: "pointer",
-                  }}
-                >
+                <label style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 13, color: F.text1, cursor: "pointer" }}>
                   <input
                     type="checkbox"
                     checked={statutory.pt}
-                    onChange={(e) =>
-                      setStatutory({ ...statutory, pt: e.target.checked })
-                    }
+                    onChange={(e) => setStatutory({ ...statutory, pt: e.target.checked })}
                   />
                   <span>Professional Tax</span>
                 </label>
-                <label
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 8,
-                    fontSize: 13,
-                    color: F.text1,
-                    cursor: "pointer",
-                  }}
-                >
+                <label style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 13, color: F.text1, cursor: "pointer" }}>
                   <input
                     type="checkbox"
                     checked={statutory.lwf}
-                    onChange={(e) =>
-                      setStatutory({ ...statutory, lwf: e.target.checked })
-                    }
+                    onChange={(e) => setStatutory({ ...statutory, lwf: e.target.checked })}
                   />
                   <span>Labour Welfare Fund</span>
                 </label>
               </div>
+
+              <div style={{ marginTop: 8 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 600, color: F.text1, marginBottom: 6 }}>
+                  <span>Statutory Bonus</span>
+                  <span
+                    title="Enable statutory bonus category for eligible employees"
+                    style={{
+                      fontSize: 11,
+                      color: F.text3,
+                      border: `1px solid ${F.text3}`,
+                      borderRadius: "50%",
+                      width: 14,
+                      height: 14,
+                      display: "inline-flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      cursor: "help",
+                    }}
+                  >
+                    i
+                  </span>
+                </div>
+                <div style={{ width: 280 }}>
+                  <div style={{ fontSize: 12, color: F.text2, marginBottom: 4 }}>Employment category</div>
+                  <select
+                    value={statutoryBonusCategory}
+                    onChange={(e) => setStatutoryBonusCategory(e.target.value)}
+                    style={{ ...iSt, width: "100%", background: F.card }}
+                  >
+                    <option>None</option>
+                    <option>Covered under Statutory Bonus</option>
+                  </select>
+                </div>
+              </div>
             </div>
 
-            {/* Salary Structure Card */}
+            {/* 2. Salary Structure Card (Zoho Reference 2, 3, 4, 5) */}
             <div
               style={{
+                background: F.card,
                 border: `1px solid ${F.border}`,
                 borderRadius: 8,
-                padding: 20,
-                background: F.card,
+                padding: "24px 32px",
+                display: "flex",
+                flexDirection: "column",
+                gap: 20,
               }}
             >
-              <div
-                style={{
-                  fontSize: 16,
-                  fontWeight: 700,
-                  color: F.text1,
-                  marginBottom: 4,
-                }}
-              >
-                Salary Structure
-              </div>
-              <div style={{ fontSize: 12, color: F.text2, marginBottom: 16 }}>
-                Set how the employee's salary is divided for accurate pay
-                calculation.
+              <div>
+                <div style={{ fontSize: 16, fontWeight: 800, color: F.text1, marginBottom: 4 }}>
+                  Salary Structure
+                </div>
+                <div style={{ fontSize: 13, color: F.text2 }}>
+                  Set how the employee's salary is divided for accurate pay calculation.
+                </div>
               </div>
 
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 12,
-                  marginBottom: 20,
-                }}
-              >
-                <span style={{ fontSize: 13, fontWeight: 600, color: F.text1 }}>
-                  Annual CTC *
-                </span>
+              {/* Annual CTC Row */}
+              <div style={{ display: "flex", alignItems: "center", gap: 24, margin: "6px 0 12px 0" }}>
+                <div style={{ width: 140, fontSize: 13, fontWeight: 700, color: F.text1 }}>
+                  Annual CTC <span style={{ color: F.error }}>*</span>
+                </div>
                 <div
                   style={{
                     display: "flex",
                     alignItems: "center",
                     border: `1px solid ${F.border}`,
-                    borderRadius: 6,
+                    borderRadius: 4,
                     overflow: "hidden",
-                    width: 220,
+                    background: F.card,
+                    width: 280,
                   }}
                 >
                   <span
                     style={{
-                      padding: "8px 12px",
+                      padding: "6px 12px",
                       background: F.pageBg,
                       color: F.text2,
                       fontSize: 13,
@@ -5370,179 +10033,748 @@ function AddEmployeeWizardPage({
                   </span>
                   <input
                     type="number"
+                    min="0"
                     style={{
                       border: "none",
-                      padding: "8px 10px",
+                      padding: "6px 10px",
                       width: "100%",
                       fontSize: 13,
                       outline: "none",
+                      fontWeight: 700,
+                      color: F.text1,
+                      background: F.card,
                     }}
-                    value={annualCTC}
-                    onChange={(e) => setAnnualCTC(Number(e.target.value) || 0)}
+                    value={annualCTC || ""}
+                    placeholder="0"
+                    onChange={(e) => setAnnualCTC(Math.max(0, Number(e.target.value) || 0))}
                   />
+                  <span style={{ padding: "6px 12px", color: F.text3, fontSize: 12, whiteSpace: "nowrap" }}>
+                    per year
+                  </span>
                 </div>
-                <span style={{ fontSize: 12, color: F.text3 }}>per year</span>
               </div>
 
-              {/* Salary Components Table */}
-              <table
-                style={{
-                  width: "100%",
-                  borderCollapse: "collapse",
-                  fontSize: 13,
-                }}
-              >
-                <thead>
-                  <tr
-                    style={{
-                      background: F.pageBg,
-                      borderBottom: `1px solid ${F.border}`,
-                    }}
-                  >
-                    <th
-                      style={{
-                        textAlign: "left",
-                        padding: "8px 12px",
-                        color: F.text2,
-                        fontSize: 11,
-                        fontWeight: 700,
-                      }}
-                    >
-                      SALARY COMPONENTS
-                    </th>
-                    <th
-                      style={{
-                        textAlign: "left",
-                        padding: "8px 12px",
-                        color: F.text2,
-                        fontSize: 11,
-                        fontWeight: 700,
-                      }}
-                    >
-                      CALCULATION TYPE
-                    </th>
-                    <th
-                      style={{
-                        textAlign: "right",
-                        padding: "8px 12px",
-                        color: F.text2,
-                        fontSize: 11,
-                        fontWeight: 700,
-                      }}
-                    >
-                      MONTHLY AMOUNT
-                    </th>
-                    <th
-                      style={{
-                        textAlign: "right",
-                        padding: "8px 12px",
-                        color: F.text2,
-                        fontSize: 11,
-                        fontWeight: 700,
-                      }}
-                    >
-                      ANNUAL AMOUNT
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr style={{ borderBottom: `1px solid ${F.border}` }}>
-                    <td style={{ padding: 12, fontWeight: 600 }}>Basic</td>
-                    <td style={{ padding: 12 }}>
-                      <div
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: 6,
-                        }}
-                      >
-                        <input
-                          type="number"
-                          value={basicPct}
-                          onChange={(e) =>
-                            setBasicPct(Number(e.target.value) || 0)
-                          }
-                          style={{
-                            width: 60,
-                            padding: 4,
-                            borderRadius: 4,
-                            border: `1px solid ${F.border}`,
-                          }}
-                        />
-                        <span style={{ color: F.text2, fontSize: 12 }}>
-                          % of CTC
-                        </span>
-                      </div>
-                    </td>
-                    <td style={{ padding: 12, textAlign: "right" }}>
-                      ₹{monthlyBasic.toLocaleString("en-IN")}
-                    </td>
-                    <td style={{ padding: 12, textAlign: "right" }}>
-                      ₹{annualBasic.toLocaleString("en-IN")}
-                    </td>
-                  </tr>
-                  <tr style={{ borderBottom: `1px solid ${F.border}` }}>
-                    <td style={{ padding: 12 }}>
-                      <div style={{ fontWeight: 600 }}>Fixed Allowance</div>
-                      <div style={{ fontSize: 11, color: F.text3 }}>
-                        Monthly CTC - Sum of all other components
-                      </div>
-                    </td>
-                    <td style={{ padding: 12, color: F.text2 }}>
-                      Fixed amount
-                    </td>
-                    <td style={{ padding: 12, textAlign: "right" }}>
-                      ₹{monthlyFixed.toLocaleString("en-IN")}
-                    </td>
-                    <td style={{ padding: 12, textAlign: "right" }}>
-                      ₹{annualFixed.toLocaleString("en-IN")}
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-
+              {/* Table Column Headers */}
               <div
                 style={{
-                  background: F.infoBg,
-                  borderRadius: 6,
-                  padding: "12px 16px",
-                  display: "flex",
-                  justifyContent: "space-between",
-                  marginTop: 16,
+                  borderTop: `1px solid ${F.border}`,
+                  borderBottom: `1px solid ${F.border}`,
+                  padding: "10px 0",
+                  display: "grid",
+                  gridTemplateColumns: "30% 28% 18% 18% 6%",
+                  fontSize: 11,
                   fontWeight: 700,
+                  color: F.text3,
+                  letterSpacing: "0.05em",
+                  textTransform: "uppercase",
                 }}
               >
-                <span>Cost to Company</span>
-                <div style={{ display: "flex", gap: 32 }}>
-                  <span>₹{monthlyCTC.toLocaleString("en-IN")}</span>
-                  <span>₹{annualCTC.toLocaleString("en-IN")}</span>
+                <div>SALARY COMPONENTS</div>
+                <div>CALCULATION TYPE</div>
+                <div style={{ textAlign: "right" }}>MONTHLY AMOUNT</div>
+                <div style={{ textAlign: "right" }}>ANNUAL AMOUNT</div>
+                <div></div>
+              </div>
+
+              {/* Earnings Section */}
+              <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                <div style={{ fontSize: 14, fontWeight: 800, color: F.text1, marginTop: 4 }}>
+                  Earnings
+                </div>
+
+                {/* Basic Row */}
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "30% 28% 18% 18% 6%",
+                    alignItems: "center",
+                    padding: "4px 0",
+                  }}
+                >
+                  <div style={{ fontSize: 13, fontWeight: 600, color: F.text1 }}>
+                    Basic
+                  </div>
+                  <div>
+                    <div
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        border: `1px solid ${F.border}`,
+                        borderRadius: 4,
+                        overflow: "hidden",
+                        background: F.card,
+                      }}
+                    >
+                      <input
+                        type="number"
+                        min="0"
+                        value={basicRow.value}
+                        onChange={(e) => handleUpdateEarning(basicRow.id, { value: Number(e.target.value) || 0 })}
+                        style={{
+                          width: 65,
+                          border: "none",
+                          padding: "6px 8px",
+                          fontSize: 13,
+                          outline: "none",
+                          textAlign: "right",
+                          background: F.card,
+                        }}
+                      />
+                      <select
+                        value={basicRow.calcType}
+                        onChange={(e) => handleUpdateEarning(basicRow.id, { calcType: e.target.value as CalcType })}
+                        style={{
+                          border: "none",
+                          borderLeft: `1px solid ${F.border}`,
+                          padding: "6px 8px",
+                          fontSize: 12,
+                          background: F.card,
+                          color: F.text1,
+                          outline: "none",
+                          cursor: "pointer",
+                        }}
+                      >
+                        <option value="percent_ctc">% of CTC</option>
+                        <option value="percent_basic">% of Basic</option>
+                        <option value="fixed">Fixed amount</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div style={{ textAlign: "right" }}>
+                    <span
+                      style={{
+                        display: "inline-block",
+                        minWidth: 90,
+                        padding: "6px 10px",
+                        background: "#F8FAFC",
+                        border: `1px solid ${F.border}`,
+                        borderRadius: 4,
+                        fontSize: 13,
+                        color: F.text1,
+                        textAlign: "center",
+                      }}
+                    >
+                      {monthlyBasic.toLocaleString("en-IN")}
+                    </span>
+                  </div>
+                  <div style={{ textAlign: "right", fontSize: 13, color: F.text1 }}>
+                    {annualBasic.toLocaleString("en-IN")}
+                  </div>
+                  <div></div>
+                </div>
+
+                {/* Fixed Allowance Row */}
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "30% 28% 18% 18% 6%",
+                    alignItems: "center",
+                    padding: "4px 0",
+                  }}
+                >
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: F.text1, display: "flex", alignItems: "center", gap: 6 }}>
+                      <span>Fixed Allowance</span>
+                      <span
+                        title="Monthly CTC - Sum of all other components"
+                        style={{
+                          fontSize: 11,
+                          color: F.text3,
+                          cursor: "help",
+                          border: `1px solid ${F.text3}`,
+                          borderRadius: "50%",
+                          width: 14,
+                          height: 14,
+                          display: "inline-flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                        }}
+                      >
+                        i
+                      </span>
+                    </div>
+                    <div style={{ fontSize: 11, color: F.text3, marginTop: 2 }}>
+                      Monthly CTC - Sum of all other components
+                    </div>
+                  </div>
+                  <div style={{ fontSize: 13, color: F.text2 }}>
+                    Fixed amount
+                  </div>
+                  <div style={{ textAlign: "right" }}>
+                    <span style={{ fontSize: 13, color: F.text1 }}>{monthlyFixed.toLocaleString("en-IN")}</span>
+                  </div>
+                  <div style={{ textAlign: "right" }}>
+                    <span style={{ fontSize: 13, color: F.text1 }}>{annualFixed.toLocaleString("en-IN")}</span>
+                  </div>
+                  <div></div>
+                </div>
+
+                {/* Dynamic Additional Earnings Rows (House Rent Allowance & Conveyance Allowance) */}
+                {calculatedEarnings
+                  .filter((e) => !e.isBasic)
+                  .map((earning) => (
+                    <div
+                      key={earning.id}
+                      onMouseEnter={() => setHoveredRowId(earning.id)}
+                      onMouseLeave={() => setHoveredRowId(null)}
+                      style={{
+                        display: "grid",
+                        gridTemplateColumns: "30% 28% 18% 18% 6%",
+                        alignItems: "center",
+                        padding: "4px 0",
+                      }}
+                    >
+                      <div style={{ fontSize: 13, fontWeight: 600, color: F.text1 }}>
+                        {earning.name}
+                      </div>
+                      <div>
+                        {earning.calcType === "fixed" ? (
+                          <div style={{ fontSize: 13, color: F.text2 }}>Fixed amount</div>
+                        ) : (
+                          <div
+                            style={{
+                              display: "inline-flex",
+                              alignItems: "center",
+                              border: `1px solid ${F.border}`,
+                              borderRadius: 4,
+                              overflow: "hidden",
+                              background: F.card,
+                            }}
+                          >
+                            <input
+                              type="number"
+                              min="0"
+                              value={earning.value}
+                              onChange={(e) => handleUpdateEarning(earning.id, { value: Number(e.target.value) || 0 })}
+                              style={{
+                                width: 65,
+                                border: "none",
+                                padding: "6px 8px",
+                                fontSize: 13,
+                                outline: "none",
+                                textAlign: "right",
+                                background: F.card,
+                              }}
+                            />
+                            <select
+                              value={earning.calcType}
+                              onChange={(e) => handleUpdateEarning(earning.id, { calcType: e.target.value as CalcType })}
+                              style={{
+                                border: "none",
+                                borderLeft: `1px solid ${F.border}`,
+                                padding: "6px 8px",
+                                fontSize: 12,
+                                background: F.card,
+                                color: F.text1,
+                                outline: "none",
+                                cursor: "pointer",
+                              }}
+                            >
+                              <option value="percent_basic">% of Basic</option>
+                              <option value="percent_ctc">% of CTC</option>
+                              <option value="fixed">Fixed amount</option>
+                            </select>
+                          </div>
+                        )}
+                      </div>
+                      <div style={{ textAlign: "right" }}>
+                        <input
+                          type="number"
+                          min="0"
+                          value={earning.monthly}
+                          onChange={(e) => {
+                            const val = Number(e.target.value) || 0
+                            if (earning.calcType === "fixed") {
+                              handleUpdateEarning(earning.id, { value: val })
+                            } else if (earning.calcType === "percent_basic") {
+                              handleUpdateEarning(earning.id, { value: monthlyBasic > 0 ? Number(((val / monthlyBasic) * 100).toFixed(2)) : 0 })
+                            } else {
+                              handleUpdateEarning(earning.id, { value: monthlyCTC > 0 ? Number(((val / monthlyCTC) * 100).toFixed(2)) : 0 })
+                            }
+                          }}
+                          style={{
+                            width: 90,
+                            padding: "6px 8px",
+                            borderRadius: 4,
+                            border: `1px solid ${F.border}`,
+                            fontSize: 13,
+                            textAlign: "center",
+                            outline: "none",
+                            background: F.card,
+                          }}
+                        />
+                      </div>
+                      <div style={{ textAlign: "right", fontSize: 13, color: F.text1 }}>
+                        <span>{earning.annual.toLocaleString("en-IN")}</span>
+                      </div>
+                      <div style={{ textAlign: "center" }}>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveEarning(earning.id)}
+                          title="Remove component"
+                          style={{
+                            background: "none",
+                            border: "none",
+                            color: "#EF4444",
+                            cursor: "pointer",
+                            fontSize: 18,
+                            fontWeight: 700,
+                            padding: "0 4px",
+                            lineHeight: 1,
+                            opacity: hoveredRowId === earning.id ? 1 : 0,
+                            transition: "opacity 0.15s",
+                          }}
+                        >
+                          ×
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+
+                {/* Add Earning Button & Popover (Zoho Reference 1 & 2) */}
+                <div style={{ position: "relative", marginTop: 4 }}>
+                  <button
+                    type="button"
+                    onClick={() => setShowAddEarningModal(!showAddEarningModal)}
+                    style={{
+                      background: "none",
+                      border: "none",
+                      color: F.brand,
+                      fontSize: 13,
+                      fontWeight: 700,
+                      cursor: "pointer",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 4,
+                      padding: "4px 0",
+                    }}
+                  >
+                    + Add Earning
+                  </button>
+
+                  {showAddEarningModal && (
+                    <div
+                      style={{
+                        position: "absolute",
+                        top: 30,
+                        left: 0,
+                        background: F.card,
+                        border: `1px solid ${F.border}`,
+                        borderRadius: 6,
+                        boxShadow: "0 4px 16px rgba(0,0,0,0.12)",
+                        zIndex: 100,
+                        width: 220,
+                        overflow: "hidden",
+                      }}
+                    >
+                      {[
+                        { name: "House Rent Allowance", calcType: "percent_basic" as CalcType, value: 0 },
+                        { name: "Conveyance Allowance", calcType: "fixed" as CalcType, value: 0 },
+                      ]
+                        .filter(p => !earnings.some(e => e.name.toLowerCase() === p.name.toLowerCase()))
+                        .map((preset, index) => (
+                          <div
+                            key={preset.name}
+                            onClick={() => {
+                              handleAddEarning(preset)
+                              setShowAddEarningModal(false)
+                            }}
+                            style={{
+                              padding: "9px 14px",
+                              fontSize: 13,
+                              color: index === 0 ? "#FFFFFF" : F.text1,
+                              background: index === 0 ? F.brand : "transparent",
+                              cursor: "pointer",
+                              transition: "background 0.1s",
+                            }}
+                            onMouseEnter={(e) => {
+                              if (index !== 0) e.currentTarget.style.background = F.pageBg
+                            }}
+                            onMouseLeave={(e) => {
+                              if (index !== 0) e.currentTarget.style.background = "transparent"
+                            }}
+                          >
+                            {preset.name}
+                          </div>
+                        ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Benefits Section inside Salary Structure (Zoho Reference 3, 4, 5) */}
+              <div style={{ display: "flex", flexDirection: "column", gap: 14, marginTop: 6, borderTop: `1px solid ${F.border}`, paddingTop: 16 }}>
+                <div style={{ fontSize: 14, fontWeight: 800, color: F.text1 }}>
+                  Benefits
+                </div>
+
+                {benefits
+                  .filter((b) => b.enabled)
+                  .map((benefit) => (
+                    <div
+                      key={benefit.id}
+                      onMouseEnter={() => setHoveredRowId(benefit.id)}
+                      onMouseLeave={() => setHoveredRowId(null)}
+                      style={{
+                        display: "grid",
+                        gridTemplateColumns: "30% 28% 18% 18% 6%",
+                        alignItems: "flex-start",
+                        padding: "4px 0",
+                      }}
+                    >
+                      <div>
+                        <div style={{ fontSize: 13, fontWeight: 700, color: F.text1 }}>
+                          {benefit.name}
+                        </div>
+
+                        {benefit.planType === "epf" && (
+                          <div style={{ marginTop: 6 }}>
+                            <div style={{ borderLeft: `2px solid ${F.border}`, paddingLeft: 10, marginBottom: 6 }}>
+                              <div style={{ fontSize: 12, fontWeight: 700, color: F.text1 }}>
+                                Employee Contribution
+                              </div>
+                              <div style={{ fontSize: 11, color: F.text3, marginTop: 2 }}>
+                                12% of Actual PF Wage
+                              </div>
+                            </div>
+                            <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: F.text1, cursor: "pointer", marginTop: 4 }}>
+                              <input
+                                type="checkbox"
+                                checked={benefit.epsEnabled}
+                                onChange={(e) => handleToggleBenefitEps(benefit.id, e.target.checked)}
+                              />
+                              <span>Contribute to Employee Pension Scheme</span>
+                            </label>
+
+                            {/* Secondary Checkbox when EPS is enabled (Screenshot 4) */}
+                            {benefit.epsEnabled && (
+                              <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: F.text1, cursor: "pointer", marginTop: 6, marginLeft: 20 }}>
+                                <input
+                                  type="checkbox"
+                                  checked={benefit.epsActualWages}
+                                  onChange={(e) => handleToggleBenefitEpsActualWages(benefit.id, e.target.checked)}
+                                />
+                                <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                                  Contribute EPS at actual PF Wages
+                                  <span
+                                    title="Contribute EPS at actual PF wages without ceiling limits"
+                                    style={{
+                                      fontSize: 11,
+                                      color: F.text3,
+                                      border: `1px solid ${F.text3}`,
+                                      borderRadius: "50%",
+                                      width: 14,
+                                      height: 14,
+                                      display: "inline-flex",
+                                      alignItems: "center",
+                                      justifyContent: "center",
+                                      cursor: "help",
+                                    }}
+                                  >
+                                    i
+                                  </span>
+                                </span>
+                              </label>
+                            )}
+                          </div>
+                        )}
+                      </div>
+
+                      <div style={{ paddingTop: 2 }}>
+                        <span style={{ fontSize: 13, color: F.text1, borderBottom: `1px dashed ${F.border}`, paddingBottom: 2 }}>
+                          {benefit.employerCalculationText}
+                        </span>
+                      </div>
+
+                      <div style={{ textAlign: "right", fontSize: 13, color: F.text3, paddingTop: 2 }}>
+                        System Calculated
+                      </div>
+
+                      <div style={{ textAlign: "right", fontSize: 13, color: F.text3, paddingTop: 2 }}>
+                        System Calculated
+                      </div>
+
+                      <div style={{ textAlign: "center", paddingTop: 2 }}>
+                        {benefit.planType !== "epf" && (
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveBenefit(benefit.id)}
+                            title="Remove benefit"
+                            style={{
+                              background: "none",
+                              border: "none",
+                              color: "#EF4444",
+                              cursor: "pointer",
+                              fontSize: 18,
+                              fontWeight: 700,
+                              padding: "0 4px",
+                              lineHeight: 1,
+                              opacity: hoveredRowId === benefit.id ? 1 : 0,
+                              transition: "opacity 0.15s",
+                            }}
+                          >
+                            ×
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+
+                {/* + Add Benefit Button inside Salary Structure (Screenshot 3 & 4) */}
+                {!benefits.find(b => b.planType === "esi")?.enabled && (
+                  <div style={{ position: "relative", marginTop: 4 }}>
+                    <button
+                      type="button"
+                      onClick={() => setShowAddBenefitModal(!showAddBenefitModal)}
+                      style={{
+                        background: "none",
+                        border: "none",
+                        color: F.brand,
+                        fontSize: 13,
+                        fontWeight: 700,
+                        cursor: "pointer",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: 4,
+                        padding: "4px 0",
+                      }}
+                    >
+                      + Add Benefit
+                    </button>
+
+                    {showAddBenefitModal && (
+                      <div
+                        style={{
+                          position: "absolute",
+                          top: 28,
+                          left: 0,
+                          background: F.card,
+                          border: `1px solid ${F.border}`,
+                          borderRadius: 6,
+                          boxShadow: "0 4px 16px rgba(0,0,0,0.12)",
+                          zIndex: 100,
+                          width: 240,
+                          overflow: "hidden",
+                        }}
+                      >
+                        <div
+                          onClick={() => {
+                            setBenefits(benefits.map(b => b.planType === "esi" ? { ...b, enabled: true } : b))
+                            setStatutory(prev => ({ ...prev, esi: true }))
+                            setShowAddBenefitModal(false)
+                            toast("Added ESI - Employer Contribution to benefits.", "success")
+                          }}
+                          style={{
+                            padding: "10px 14px",
+                            fontSize: 13,
+                            color: "#FFFFFF",
+                            background: F.brand,
+                            cursor: "pointer",
+                          }}
+                        >
+                          ESI - Employer Contribution
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* System Calculated Components' Total Banner (Screenshot 3, 4, 5) */}
+                <div
+                  style={{
+                    background: "#F0F6FE",
+                    border: `1px solid #D6E8FB`,
+                    borderRadius: 4,
+                    padding: "10px 16px",
+                    display: "grid",
+                    gridTemplateColumns: "30% 28% 18% 18% 6%",
+                    alignItems: "center",
+                    marginTop: 6,
+                  }}
+                >
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, fontWeight: 600, color: F.brand }}>
+                    <span
+                      style={{
+                        width: 16,
+                        height: 16,
+                        borderRadius: "50%",
+                        background: F.brand,
+                        color: "#fff",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        fontSize: 11,
+                        fontWeight: 700,
+                      }}
+                    >
+                      i
+                    </span>
+                    <span>System Calculated Components' Total (Preview)</span>
+                  </div>
+                  <div></div>
+                  <div style={{ textAlign: "right", fontSize: 13, fontWeight: 700, color: F.text1 }}>
+                    {monthlyFixed.toLocaleString("en-IN")}
+                  </div>
+                  <div style={{ textAlign: "right", fontSize: 13, fontWeight: 700, color: F.text1 }}>
+                    {annualFixed.toLocaleString("en-IN")}
+                  </div>
+                  <div></div>
+                </div>
+              </div>
+
+              {/* Cost to Company Bottom Bar (Screenshot 5) */}
+              <div
+                style={{
+                  background: "#F0F6FE",
+                  border: `1px solid #D6E8FB`,
+                  borderRadius: 6,
+                  padding: "14px 20px",
+                  display: "grid",
+                  gridTemplateColumns: "30% 28% 18% 18% 6%",
+                  alignItems: "center",
+                  fontWeight: 800,
+                  marginTop: 12,
+                }}
+              >
+                <div style={{ fontSize: 14, color: F.text1 }}>Cost to Company</div>
+                <div></div>
+                <div style={{ textAlign: "right", fontSize: 15, color: F.text1, fontWeight: 800 }}>
+                  ₹{monthlyCTC.toLocaleString("en-IN")}
+                </div>
+                <div style={{ textAlign: "right", fontSize: 15, color: F.text1, fontWeight: 800 }}>
+                  ₹{annualCTC.toLocaleString("en-IN")}
+                </div>
+                <div></div>
+              </div>
+            </div>
+
+            {/* 3. Other Benefits Card (Zoho Reference 5) */}
+            <div
+              style={{
+                background: F.card,
+                border: `1px solid ${F.border}`,
+                borderRadius: 8,
+                padding: "24px 32px",
+                display: "flex",
+                flexDirection: "column",
+                gap: 16,
+              }}
+            >
+              <div>
+                <div style={{ fontSize: 16, fontWeight: 800, color: F.text1, marginBottom: 4 }}>
+                  Other Benefits
+                </div>
+                <div style={{ fontSize: 13, color: F.text2 }}>
+                  Optional Add-ons to Employee Salary Structure
+                </div>
+              </div>
+
+              {/* Table Header */}
+              <div
+                style={{
+                  borderTop: `1px solid ${F.border}`,
+                  borderBottom: `1px solid ${F.border}`,
+                  padding: "10px 0",
+                  display: "grid",
+                  gridTemplateColumns: "50% 40% 10%",
+                  fontSize: 11,
+                  fontWeight: 700,
+                  color: F.text3,
+                  letterSpacing: "0.05em",
+                  textTransform: "uppercase",
+                }}
+              >
+                <div>DEDUCTION NAME</div>
+                <div>CALCULATION TYPE</div>
+                <div style={{ textAlign: "center" }}>ACTIONS</div>
+              </div>
+
+              {/* Benefits Table Body */}
+              <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                <div style={{ fontSize: 14, fontWeight: 800, color: F.text1, marginTop: 4 }}>
+                  Benefits
+                </div>
+
+                {otherBenefits.map((b) => (
+                  <div key={b.id} style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: F.text1 }}>
+                      {b.name}
+                    </div>
+                    {b.items.map((item, idx) => (
+                      <div
+                        key={idx}
+                        style={{
+                          display: "grid",
+                          gridTemplateColumns: "50% 40% 10%",
+                          alignItems: "center",
+                          paddingLeft: 16,
+                        }}
+                      >
+                        <div style={{ fontSize: 13, color: F.text2 }}>{item.title}</div>
+                        <div style={{ fontSize: 13, color: F.text1 }}>{item.calcText}</div>
+                        <div style={{ textAlign: "center" }}>
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveOtherBenefit(b.id)}
+                            title="Remove benefit"
+                            style={{
+                              background: "none",
+                              border: "none",
+                              color: "#EF4444",
+                              cursor: "pointer",
+                              fontSize: 18,
+                              fontWeight: 700,
+                              padding: "0 4px",
+                            }}
+                          >
+                            ×
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ))}
+
+                <div>
+                  <button
+                    type="button"
+                    onClick={() => setShowAddOtherBenefitModal(true)}
+                    style={{
+                      background: "none",
+                      border: "none",
+                      color: F.brand,
+                      fontSize: 13,
+                      fontWeight: 700,
+                      cursor: "pointer",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 4,
+                      padding: "4px 0",
+                    }}
+                  >
+                    + Add Benefit
+                  </button>
                 </div>
               </div>
             </div>
 
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                paddingTop: 16,
-                borderTop: `1px solid ${F.border}`,
-              }}
-            >
-              <Btn variant="secondary" onClick={() => setStep(1)}>
-                Previous
-              </Btn>
-              <div style={{ display: "flex", gap: 8 }}>
-                <Btn variant="secondary" onClick={onBack}>
-                  Cancel
-                </Btn>
-                <Btn onClick={handleNextStep2}>Save and Continue</Btn>
-              </div>
+            {/* Only 1 Save and Continue at bottom of whole Salary Details tab */}
+            <div style={{ display: "flex", gap: 10, marginTop: 8 }}>
+              <Btn onClick={handleNextStep2}>Save and Continue</Btn>
+              <Btn variant="secondary" onClick={onBack}>Cancel</Btn>
             </div>
+
+            {/* Add Benefits Popup Modal (Zoho Reference 5) */}
+            <OtherBenefitsModal
+              isOpen={showAddOtherBenefitModal}
+              onClose={() => setShowAddOtherBenefitModal(false)}
+              onSave={(newBenefit) => {
+                setOtherBenefits(prev => [...prev, newBenefit])
+              }}
+            />
           </div>
         )}
-
-        {step === 3 && (
+{step === 3 && (
           <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
             <div
               style={{
@@ -5625,6 +10857,7 @@ function AddEmployeeWizardPage({
                   <option>Visual Impairment</option>
                   <option>Hearing Impairment</option>
                   <option>Locomotor</option>
+                  <option>Other</option>
                 </select>
               </Fld>
               <Fld label="Personal Email Address">
@@ -5689,11 +10922,42 @@ function AddEmployeeWizardPage({
                     setPersonal({ ...personal, state: e.target.value })
                   }
                 >
-                  <option>Karnataka</option>
-                  <option>Maharashtra</option>
-                  <option>Telangana</option>
-                  <option>Tamil Nadu</option>
+                  <option>Andaman and Nicobar Islands</option>
+                  <option>Andhra Pradesh</option>
+                  <option>Arunachal Pradesh</option>
+                  <option>Assam</option>
+                  <option>Bihar</option>
+                  <option>Chandigarh</option>
+                  <option>Chhattisgarh</option>
+                  <option>Dadra and Nagar Haveli and Daman and Diu</option>
                   <option>Delhi</option>
+                  <option>Goa</option>
+                  <option>Gujarat</option>
+                  <option>Haryana</option>
+                  <option>Himachal Pradesh</option>
+                  <option>Jammu and Kashmir</option>
+                  <option>Jharkhand</option>
+                  <option>Karnataka</option>
+                  <option>Kerala</option>
+                  <option>Ladakh</option>
+                  <option>Lakshadweep</option>
+                  <option>Madhya Pradesh</option>
+                  <option>Maharashtra</option>
+                  <option>Manipur</option>
+                  <option>Meghalaya</option>
+                  <option>Mizoram</option>
+                  <option>Nagaland</option>
+                  <option>Odisha</option>
+                  <option>Puducherry</option>
+                  <option>Punjab</option>
+                  <option>Rajasthan</option>
+                  <option>Sikkim</option>
+                  <option>Tamil Nadu</option>
+                  <option>Telangana</option>
+                  <option>Tripura</option>
+                  <option>Uttar Pradesh</option>
+                  <option>Uttarakhand</option>
+                  <option>West Bengal</option>
                 </select>
                 <input
                   style={iSt}
@@ -5739,20 +11003,83 @@ function AddEmployeeWizardPage({
                 marginBottom: 4,
               }}
             >
-              How would you like to pay this employee? *
+              How would you like to pay this employee? <span style={{ color: "#EF4444", fontWeight: 700 }}>*</span>
             </div>
 
-            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
               {[
                 {
                   id: "direct_deposit",
                   title: "Direct Deposit (Automated Process)",
                   desc: "Transfer the Employee's pay directly to their bank account.",
+                  icon: (
+                    <div
+                      style={{
+                        width: 38,
+                        height: 38,
+                        borderRadius: "50%",
+                        border: `1px solid ${F.border}`,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        background: "#F8FAFC",
+                        flexShrink: 0,
+                      }}
+                    >
+                      <svg
+                        width="18"
+                        height="18"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="#64748B"
+                        strokeWidth="1.8"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <rect x="3" y="4" width="18" height="16" rx="2" />
+                        <line x1="7" y1="12" x2="15" y2="12" />
+                        <polyline points="12 9 15 12 12 15" />
+                      </svg>
+                    </div>
+                  ),
                 },
                 {
                   id: "bank_transfer",
                   title: "Bank Transfer (Manual Process)",
                   desc: "Download Bank Advice and process the payment through your bank's website",
+                  icon: (
+                    <div
+                      style={{
+                        width: 38,
+                        height: 38,
+                        borderRadius: "50%",
+                        border: `1px solid ${F.border}`,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        background: "#F8FAFC",
+                        flexShrink: 0,
+                      }}
+                    >
+                      <svg
+                        width="18"
+                        height="18"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="#64748B"
+                        strokeWidth="1.8"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <path d="M3 9.5L12 4l9 5.5v2H3v-2z" />
+                        <path d="M5 11.5v7" />
+                        <path d="M9 11.5v7" />
+                        <path d="M15 11.5v7" />
+                        <path d="M19 11.5v7" />
+                        <path d="M3 18.5h18v2H3v-2z" />
+                      </svg>
+                    </div>
+                  ),
                 },
                 {
                   id: "cheque",
@@ -5766,60 +11093,287 @@ function AddEmployeeWizardPage({
                 },
               ].map((method) => {
                 const selected = paymentMethod === method.id
+                const isBankMethod =
+                  method.id === "direct_deposit" || method.id === "bank_transfer"
+
                 return (
                   <div
                     key={method.id}
-                    onClick={() => setPaymentMethod(method.id as any)}
                     style={{
-                      border: `1px solid ${selected ? F.brand : F.border}`,
-                      background: selected ? F.infoBg : F.card,
+                      border: `1px solid ${selected ? (isBankMethod ? F.border : F.brand) : F.border}`,
+                      background: selected && !isBankMethod ? F.infoBg : F.card,
                       borderRadius: 8,
-                      padding: "16px 20px",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "space-between",
-                      cursor: "pointer",
+                      overflow: "hidden",
                       transition: "all 0.15s ease",
                     }}
                   >
-                    <div>
-                      <div
-                        style={{
-                          fontWeight: 700,
-                          fontSize: 14,
-                          color: F.text1,
-                        }}
-                      >
-                        {method.title}
-                      </div>
-                      <div
-                        style={{ fontSize: 12, color: F.text2, marginTop: 2 }}
-                      >
-                        {method.desc}
-                      </div>
-                    </div>
                     <div
+                      onClick={() => setPaymentMethod(method.id as any)}
                       style={{
-                        width: 20,
-                        height: 20,
-                        borderRadius: "50%",
-                        border: `2px solid ${selected ? F.brand : F.text3}`,
+                        padding: "16px 20px",
                         display: "flex",
                         alignItems: "center",
-                        justifyContent: "center",
+                        justifyContent: "space-between",
+                        cursor: "pointer",
                       }}
                     >
-                      {selected && (
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 14,
+                        }}
+                      >
+                        {method.icon}
+                        <div>
+                          <div
+                            style={{
+                              fontWeight: 600,
+                              fontSize: 14,
+                              color: F.text1,
+                            }}
+                          >
+                            {method.title}
+                          </div>
+                          <div
+                            style={{
+                              fontSize: 12,
+                              color: F.text2,
+                              marginTop: 2,
+                            }}
+                          >
+                            {method.desc}
+                          </div>
+                        </div>
+                      </div>
+
+                      {selected && isBankMethod ? (
                         <div
                           style={{
-                            width: 10,
-                            height: 10,
+                            width: 22,
+                            height: 22,
                             borderRadius: "50%",
-                            background: F.brand,
+                            background: "#3B82F6",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            color: "#FFFFFF",
+                            flexShrink: 0,
                           }}
-                        />
+                        >
+                          <svg
+                            width="13"
+                            height="13"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="3"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          >
+                            <polyline points="20 6 9 17 4 12" />
+                          </svg>
+                        </div>
+                      ) : (
+                        <div
+                          style={{
+                            width: 20,
+                            height: 20,
+                            borderRadius: "50%",
+                            border: `2px solid ${selected ? F.brand : F.text3}`,
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            flexShrink: 0,
+                          }}
+                        >
+                          {selected && (
+                            <div
+                              style={{
+                                width: 10,
+                                height: 10,
+                                borderRadius: "50%",
+                                background: F.brand,
+                              }}
+                            />
+                          )}
+                        </div>
                       )}
                     </div>
+
+                    {/* Bank Details Form for Direct Deposit & Bank Transfer (Image 2 & 3) */}
+                    {selected && isBankMethod && (
+                      <div
+                        style={{
+                          padding: "8px 20px 24px",
+                          display: "flex",
+                          flexDirection: "column",
+                          gap: 16,
+                          borderTop: `1px solid ${F.border}`,
+                        }}
+                      >
+                        <Fld label="Account Holder Name *">
+                          <input
+                            style={iSt}
+                            value={
+                              bankInfo.accountHolderName !== ""
+                                ? bankInfo.accountHolderName
+                                : `${basic.firstName} ${
+                                    basic.middleName
+                                      ? basic.middleName + " "
+                                      : ""
+                                  }${basic.lastName}`
+                                    .trim()
+                                    .toUpperCase() ||
+                                  "POLAVARAPU GANAPATI VARA PRASAD"
+                            }
+                            onChange={(e) =>
+                              setBankInfo({
+                                ...bankInfo,
+                                accountHolderName: e.target.value,
+                              })
+                            }
+                          />
+                        </Fld>
+
+                        <Fld label="Bank Name *">
+                          <input
+                            style={iSt}
+                            value={bankInfo.bankName}
+                            onChange={(e) =>
+                              setBankInfo({
+                                ...bankInfo,
+                                bankName: e.target.value,
+                              })
+                            }
+                          />
+                        </Fld>
+
+                        <div
+                          style={{
+                            display: "grid",
+                            gridTemplateColumns: "1fr 1fr",
+                            gap: 14,
+                          }}
+                        >
+                          <Fld label="Account Number *">
+                            <input
+                              style={iSt}
+                              value={bankInfo.accountNumber}
+                              onChange={(e) =>
+                                setBankInfo({
+                                  ...bankInfo,
+                                  accountNumber: e.target.value,
+                                })
+                              }
+                            />
+                          </Fld>
+                          <Fld label="Re-enter Account Number *">
+                            <input
+                              style={iSt}
+                              value={bankInfo.reAccountNumber}
+                              onChange={(e) =>
+                                setBankInfo({
+                                  ...bankInfo,
+                                  reAccountNumber: e.target.value,
+                                })
+                              }
+                            />
+                          </Fld>
+                        </div>
+
+                        <div
+                          style={{
+                            display: "grid",
+                            gridTemplateColumns: "1fr 1fr",
+                            gap: 14,
+                            alignItems: "end",
+                          }}
+                        >
+                          <Fld label="IFSC *">
+                            <input
+                              style={iSt}
+                              placeholder="AAAA0000000"
+                              value={bankInfo.ifsc}
+                              onChange={(e) =>
+                                setBankInfo({
+                                  ...bankInfo,
+                                  ifsc: e.target.value.toUpperCase(),
+                                })
+                              }
+                            />
+                          </Fld>
+
+                          <div>
+                            <div
+                              style={{
+                                fontSize: 13,
+                                fontWeight: 500,
+                                color: F.text1,
+                                marginBottom: 8,
+                              }}
+                            >
+                              Account Type<span style={{ color: "#EF4444" }}>*</span>
+                            </div>
+                            <div
+                              style={{
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 24,
+                                height: 38,
+                              }}
+                            >
+                              <label
+                                style={{
+                                  display: "inline-flex",
+                                  alignItems: "center",
+                                  gap: 6,
+                                  cursor: "pointer",
+                                  fontSize: 13,
+                                  color: F.text1,
+                                }}
+                              >
+                                <input
+                                  type="radio"
+                                  name={`accountType-${method.id}`}
+                                  checked={bankInfo.accountType === "current"}
+                                  onChange={() =>
+                                    setBankInfo({
+                                      ...bankInfo,
+                                      accountType: "current",
+                                    })
+                                  }
+                                />
+                                <span>Current</span>
+                              </label>
+                              <label
+                                style={{
+                                  display: "inline-flex",
+                                  alignItems: "center",
+                                  gap: 6,
+                                  cursor: "pointer",
+                                  fontSize: 13,
+                                  color: F.text1,
+                                }}
+                              >
+                                <input
+                                  type="radio"
+                                  name={`accountType-${method.id}`}
+                                  checked={bankInfo.accountType === "savings"}
+                                  onChange={() =>
+                                    setBankInfo({
+                                      ...bankInfo,
+                                      accountType: "savings",
+                                    })
+                                  }
+                                />
+                                <span>Savings</span>
+                              </label>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )
               })}
@@ -5853,304 +11407,601 @@ function AddEmployeeWizardPage({
 }
 
 // ── Bulk Upload Page ──────────────────────────────────────────────────────────
+// ── Option-Specific Bulk Import Schemas & Parser ─────────────────────────────
+interface ImportColumnDef {
+  key: string
+  label: string
+  mandatory?: boolean
+  aliases: string[]
+}
+
+interface ImportOptionSchema {
+  option: string
+  filename: string
+  columns: ImportColumnDef[]
+  sampleRows: string[][]
+}
+
+const IMPORT_SCHEMAS: Record<string, ImportOptionSchema> = {
+  "Employee Basic Details": {
+    option: "Employee Basic Details",
+    filename: "employee_basic_details_template",
+    columns: [
+      { key: "empId", label: "Employee ID", mandatory: true, aliases: ["employee id", "empid", "id"] },
+      { key: "firstName", label: "First Name", mandatory: true, aliases: ["first name", "firstname"] },
+      { key: "middleName", label: "Middle Name", mandatory: false, aliases: ["middle name", "middlename"] },
+      { key: "lastName", label: "Last Name", mandatory: false, aliases: ["last name", "lastname"] },
+      { key: "email", label: "Work Email", mandatory: true, aliases: ["work email", "email", "mail"] },
+      { key: "mobile", label: "Mobile Number", mandatory: true, aliases: ["mobile number", "mobile", "phone"] },
+      { key: "gender", label: "Gender", mandatory: true, aliases: ["gender", "sex"] },
+      { key: "doj", label: "Date of Joining", mandatory: true, aliases: ["date of joining", "doj", "joining date"] },
+      { key: "location", label: "Work Location", mandatory: true, aliases: ["work location", "location", "branch"] },
+      { key: "designation", label: "Designation", mandatory: true, aliases: ["designation", "role", "position"] },
+      { key: "department", label: "Department", mandatory: true, aliases: ["department", "dept"] },
+      { key: "empType", label: "Employment Type", mandatory: false, aliases: ["employment type", "type"] },
+    ],
+    sampleRows: [
+      ["EMP-011", "Aarav", "", "Sharma", "aarav.sharma@naxrita.in", "9876543210", "Male", "2026-09-01", "Head Office (Swamy Ayyapa)", "Packaged App Development Associate", "AI/ML", "Full-Time"],
+      ["EMP-012", "Priya", "", "Nair", "priya.nair@naxrita.in", "9876543211", "Female", "2026-09-01", "Bangalore SEZ", "HR Specialist", "HR", "Full-Time"],
+      ["EMP-013", "Rohan", "", "Gupta", "rohan.gupta@naxrita.in", "9876543212", "Male", "2026-09-01", "Hyderabad Tech Park", "Senior Frontend Engineer", "Engineering", "Full-Time"],
+    ],
+  },
+  "Employee Statutory Details": {
+    option: "Employee Statutory Details",
+    filename: "employee_statutory_details_template",
+    columns: [
+      { key: "empId", label: "Employee ID", mandatory: true, aliases: ["employee id", "empid", "id"] },
+      { key: "email", label: "Work Email", mandatory: true, aliases: ["work email", "email", "mail"] },
+      { key: "pan", label: "PAN Number", mandatory: true, aliases: ["pan number", "pan"] },
+      { key: "aadhaar", label: "Aadhaar Number", mandatory: false, aliases: ["aadhaar number", "aadhaar", "uid"] },
+      { key: "epfEnabled", label: "EPF Enabled (Yes/No)", mandatory: true, aliases: ["epf enabled", "epf", "pf enabled"] },
+      { key: "pfNumber", label: "PF Account Number", mandatory: false, aliases: ["pf account number", "pf number", "pf no"] },
+      { key: "uan", label: "Universal Account Number (UAN)", mandatory: false, aliases: ["uan", "universal account number"] },
+      { key: "esiEnabled", label: "ESI Enabled (Yes/No)", mandatory: true, aliases: ["esi enabled", "esi"] },
+      { key: "esiNumber", label: "ESI Insurance Number", mandatory: false, aliases: ["esi insurance number", "esi number", "esi no"] },
+      { key: "ptEnabled", label: "Professional Tax Enabled (Yes/No)", mandatory: true, aliases: ["pt enabled", "professional tax", "pt"] },
+      { key: "lwfEnabled", label: "LWF Enabled (Yes/No)", mandatory: false, aliases: ["lwf enabled", "lwf"] },
+    ],
+    sampleRows: [
+      ["EMP-001", "aditi.sharma@naxrita.in", "ABCDE1234F", "123456789012", "Yes", "MH/BAN/0012345/000/0001", "100904567890", "Yes", "31000987654321", "Yes", "Yes"],
+      ["EMP-002", "vikram.singh@naxrita.in", "BCDEF2345G", "234567890123", "Yes", "MH/BAN/0012345/000/0002", "100904567891", "No", "", "Yes", "Yes"],
+      ["EMP-003", "priya.patel@naxrita.in", "CDEFG3456H", "345678901234", "Yes", "MH/BAN/0012345/000/0003", "100904567892", "Yes", "31000987654322", "Yes", "No"],
+    ],
+  },
+  "Employees Payment Information": {
+    option: "Employees Payment Information",
+    filename: "employees_payment_information_template",
+    columns: [
+      { key: "empId", label: "Employee ID", mandatory: true, aliases: ["employee id", "empid", "id"] },
+      { key: "email", label: "Work Email", mandatory: true, aliases: ["work email", "email", "mail"] },
+      { key: "paymentMode", label: "Payment Mode (Bank Transfer/Cheque/Cash)", mandatory: true, aliases: ["payment mode", "mode"] },
+      { key: "bankName", label: "Bank Name", mandatory: true, aliases: ["bank name", "bank"] },
+      { key: "holderName", label: "Account Holder Name", mandatory: true, aliases: ["account holder name", "holder name", "name as per bank"] },
+      { key: "accountNumber", label: "Account Number", mandatory: true, aliases: ["account number", "account no", "acc no"] },
+      { key: "ifscCode", label: "IFSC Code", mandatory: true, aliases: ["ifsc code", "ifsc"] },
+      { key: "accountType", label: "Account Type (Savings/Current)", mandatory: false, aliases: ["account type", "type"] },
+    ],
+    sampleRows: [
+      ["EMP-001", "aditi.sharma@naxrita.in", "Bank Transfer", "HDFC Bank", "Aditi Sharma", "50100456789012", "HDFC0000123", "Savings"],
+      ["EMP-002", "vikram.singh@naxrita.in", "Bank Transfer", "ICICI Bank", "Vikram Singh", "001101567890", "ICIC0000011", "Savings"],
+      ["EMP-003", "priya.patel@naxrita.in", "Bank Transfer", "State Bank of India", "Priya Patel", "30987654321", "SBIN0001234", "Savings"],
+    ],
+  },
+  "Employee Salary Details": {
+    option: "Employee Salary Details",
+    filename: "employee_salary_details_template",
+    columns: [
+      { key: "empId", label: "Employee ID", mandatory: true, aliases: ["employee id", "empid", "id"] },
+      { key: "email", label: "Work Email", mandatory: true, aliases: ["work email", "email", "mail"] },
+      { key: "annualCTC", label: "Annual CTC", mandatory: true, aliases: ["annual ctc", "ctc", "salary"] },
+      { key: "basicPct", label: "Basic Percentage", mandatory: true, aliases: ["basic percentage", "basic pct", "basic %"] },
+      { key: "effectiveDate", label: "Effective From Date", mandatory: true, aliases: ["effective from date", "effective date", "start date"] },
+      { key: "salaryStructure", label: "Salary Structure", mandatory: true, aliases: ["salary structure", "structure"] },
+      { key: "basicMonthly", label: "Basic Monthly", mandatory: false, aliases: ["basic monthly", "basic"] },
+      { key: "hraMonthly", label: "HRA Monthly", mandatory: false, aliases: ["hra monthly", "hra"] },
+      { key: "conveyanceMonthly", label: "Conveyance Monthly", mandatory: false, aliases: ["conveyance monthly", "conveyance"] },
+      { key: "specialAllowanceMonthly", label: "Special Allowance Monthly", mandatory: false, aliases: ["special allowance monthly", "special allowance"] },
+    ],
+    sampleRows: [
+      ["EMP-001", "aditi.sharma@naxrita.in", "720000", "50", "2026-09-01", "Senior Engineer", "30000", "15000", "3000", "12000"],
+      ["EMP-002", "vikram.singh@naxrita.in", "600000", "50", "2026-09-01", "Associate", "25000", "12500", "2500", "10000"],
+      ["EMP-003", "priya.patel@naxrita.in", "960000", "50", "2026-09-01", "Lead Developer", "40000", "20000", "4000", "16000"],
+    ],
+  },
+  "Salary Revision": {
+    option: "Salary Revision",
+    filename: "salary_revision_template",
+    columns: [
+      { key: "empId", label: "Employee ID", mandatory: true, aliases: ["employee id", "empid", "id"] },
+      { key: "email", label: "Work Email", mandatory: true, aliases: ["work email", "email", "mail"] },
+      { key: "effectiveDate", label: "Effective Date", mandatory: true, aliases: ["effective date", "date"] },
+      { key: "revisedCTC", label: "Revised Annual CTC", mandatory: true, aliases: ["revised annual ctc", "revised ctc", "new ctc"] },
+      { key: "incrementPct", label: "Increment Percentage", mandatory: false, aliases: ["increment percentage", "increment %", "hike %"] },
+      { key: "reason", label: "Revision Reason (Promotion/Annual Appraisal/Market Correction)", mandatory: true, aliases: ["revision reason", "reason"] },
+      { key: "payoutMonth", label: "Payout Month", mandatory: false, aliases: ["payout month", "month"] },
+    ],
+    sampleRows: [
+      ["EMP-001", "aditi.sharma@naxrita.in", "2026-10-01", "840000", "16.67", "Annual Appraisal", "October 2026"],
+      ["EMP-002", "vikram.singh@naxrita.in", "2026-10-01", "720000", "20.00", "Promotion", "October 2026"],
+      ["EMP-003", "priya.patel@naxrita.in", "2026-10-01", "1080000", "12.50", "Market Correction", "October 2026"],
+    ],
+  },
+  "Employee Scheduled Earnings": {
+    option: "Employee Scheduled Earnings",
+    filename: "employee_scheduled_earnings_template",
+    columns: [
+      { key: "empId", label: "Employee ID", mandatory: true, aliases: ["employee id", "empid", "id"] },
+      { key: "email", label: "Work Email", mandatory: true, aliases: ["work email", "email", "mail"] },
+      { key: "earningName", label: "Earning Name", mandatory: true, aliases: ["earning name", "name", "component"] },
+      { key: "earningType", label: "Earning Type (Bonus/Incentive/Allowance)", mandatory: true, aliases: ["earning type", "type"] },
+      { key: "amount", label: "Amount", mandatory: true, aliases: ["amount", "value"] },
+      { key: "calcType", label: "Calculation Type (Flat Amount/Percentage of Basic)", mandatory: false, aliases: ["calculation type", "calc type"] },
+      { key: "startDate", label: "Start Date", mandatory: true, aliases: ["start date", "effective date", "from date"] },
+      { key: "endDate", label: "End Date", mandatory: false, aliases: ["end date", "to date"] },
+      { key: "frequency", label: "Payout Frequency (One-time/Monthly/Quarterly)", mandatory: false, aliases: ["payout frequency", "frequency"] },
+    ],
+    sampleRows: [
+      ["EMP-001", "aditi.sharma@naxrita.in", "Q3 Performance Bonus", "Bonus", "25000", "Flat Amount", "2026-10-01", "2026-10-31", "One-time"],
+      ["EMP-002", "vikram.singh@naxrita.in", "Project Alpha Delivery Incentive", "Incentive", "15000", "Flat Amount", "2026-10-01", "2026-10-31", "One-time"],
+      ["EMP-003", "priya.patel@naxrita.in", "Retention Pay", "Allowance", "20000", "Flat Amount", "2026-10-01", "2027-03-31", "Monthly"],
+    ],
+  },
+  "Employee Benefit Details": {
+    option: "Employee Benefit Details",
+    filename: "employee_benefit_details_template",
+    columns: [
+      { key: "empId", label: "Employee ID", mandatory: true, aliases: ["employee id", "empid", "id"] },
+      { key: "email", label: "Work Email", mandatory: true, aliases: ["work email", "email", "mail"] },
+      { key: "benefitName", label: "Benefit Name", mandatory: true, aliases: ["benefit name", "name"] },
+      { key: "benefitPlan", label: "Benefit Plan Name", mandatory: true, aliases: ["benefit plan name", "plan name", "plan"] },
+      { key: "employerContribution", label: "Employer Contribution Amount/%", mandatory: false, aliases: ["employer contribution amount/%", "employer contribution"] },
+      { key: "employeeContribution", label: "Employee Contribution Amount/%", mandatory: false, aliases: ["employee contribution amount/%", "employee contribution"] },
+      { key: "effectiveDate", label: "Effective Date", mandatory: true, aliases: ["effective date", "date", "start date"] },
+      { key: "frequency", label: "Deduction Frequency (Monthly/Never Ends)", mandatory: false, aliases: ["deduction frequency", "frequency"] },
+    ],
+    sampleRows: [
+      ["EMP-001", "aditi.sharma@naxrita.in", "Voluntary Provident Fund (VPF)", "Standard VPF Plan", "0.00", "10.00% of Basic", "2026-09-01", "Never ends"],
+      ["EMP-002", "vikram.singh@naxrita.in", "National Pension Scheme (NPS)", "Corporate NPS Tier I", "10.00% of Basic", "10.00% of Basic", "2026-09-01", "Never ends"],
+      ["EMP-003", "priya.patel@naxrita.in", "Executive Medical Cover", "Family Floater 10L", "5000.00", "0.00", "2026-09-01", "Never ends"],
+    ],
+  },
+  "Employee Deduction Details": {
+    option: "Employee Deduction Details",
+    filename: "employee_deduction_details_template",
+    columns: [
+      { key: "empId", label: "Employee ID", mandatory: true, aliases: ["employee id", "empid", "id"] },
+      { key: "email", label: "Work Email", mandatory: true, aliases: ["work email", "email", "mail"] },
+      { key: "deductionName", label: "Deduction Name", mandatory: true, aliases: ["deduction name", "name"] },
+      { key: "deductionType", label: "Deduction Type (Pre-Tax/Post-Tax)", mandatory: true, aliases: ["deduction type", "type"] },
+      { key: "amount", label: "Deduction Amount", mandatory: true, aliases: ["deduction amount", "amount"] },
+      { key: "startDate", label: "Start Date", mandatory: true, aliases: ["start date", "effective date", "from date"] },
+      { key: "endDate", label: "End Date", mandatory: false, aliases: ["end date", "to date"] },
+      { key: "frequency", label: "Deduction Frequency (Monthly/One-time)", mandatory: false, aliases: ["deduction frequency", "frequency"] },
+      { key: "totalRepayment", label: "Total Repayment Amount", mandatory: false, aliases: ["total repayment amount", "total repayment", "total loan"] },
+    ],
+    sampleRows: [
+      ["EMP-001", "aditi.sharma@naxrita.in", "Company Laptop EMI", "Post-Tax", "4500", "2026-09-01", "2027-02-28", "Monthly", "27000"],
+      ["EMP-002", "vikram.singh@naxrita.in", "Salary Advance Recovery", "Post-Tax", "10000", "2026-10-01", "2026-10-31", "One-time", "10000"],
+      ["EMP-003", "priya.patel@naxrita.in", "Gym & Fitness Club", "Post-Tax", "1500", "2026-09-01", "2027-08-31", "Monthly", "18000"],
+    ],
+  },
+  "Perquisites": {
+    option: "Perquisites",
+    filename: "perquisites_template",
+    columns: [
+      { key: "empId", label: "Employee ID", mandatory: true, aliases: ["employee id", "empid", "id"] },
+      { key: "email", label: "Work Email", mandatory: true, aliases: ["work email", "email", "mail"] },
+      { key: "perquisiteName", label: "Perquisite Name", mandatory: true, aliases: ["perquisite name", "name"] },
+      { key: "category", label: "Perquisite Category (Vehicle/Accommodation/Sweat Equity/Club/Other)", mandatory: true, aliases: ["perquisite category", "category"] },
+      { key: "annualValue", label: "Annual Taxable Value", mandatory: true, aliases: ["annual taxable value", "taxable value", "value"] },
+      { key: "effectiveDate", label: "Effective Date", mandatory: true, aliases: ["effective date", "date"] },
+      { key: "description", label: "Description", mandatory: false, aliases: ["description", "notes"] },
+    ],
+    sampleRows: [
+      ["EMP-001", "aditi.sharma@naxrita.in", "Executive Company Car", "Vehicle", "28800", "2026-09-01", "Four-wheeler engine capacity above 1.6L with driver"],
+      ["EMP-002", "vikram.singh@naxrita.in", "Leased Company Accommodation", "Accommodation", "72000", "2026-09-01", "Furnished 2BHK flat in Bangalore"],
+      ["EMP-003", "priya.patel@naxrita.in", "Corporate Club Membership", "Club", "15000", "2026-09-01", "Golf & Country Club annual subscription"],
+    ],
+  },
+  "Employee Vehicle Details": {
+    option: "Employee Vehicle Details",
+    filename: "employee_vehicle_details_template",
+    columns: [
+      { key: "empId", label: "Employee ID", mandatory: true, aliases: ["employee id", "empid", "id"] },
+      { key: "email", label: "Work Email", mandatory: true, aliases: ["work email", "email", "mail"] },
+      { key: "vehicleType", label: "Vehicle Type (Four Wheeler/Two Wheeler)", mandatory: true, aliases: ["vehicle type", "type"] },
+      { key: "regNumber", label: "Vehicle Registration Number", mandatory: true, aliases: ["vehicle registration number", "registration number", "reg number", "plate no"] },
+      { key: "model", label: "Vehicle Model", mandatory: false, aliases: ["vehicle model", "model"] },
+      { key: "engineCapacity", label: "Engine Capacity (Below 1600cc / Above 1600cc)", mandatory: true, aliases: ["engine capacity", "capacity", "cc"] },
+      { key: "chauffeurProvided", label: "Chauffeur Provided (Yes/No)", mandatory: true, aliases: ["chauffeur provided", "driver provided", "chauffeur"] },
+      { key: "fuelAllowance", label: "Monthly Fuel Allowance", mandatory: false, aliases: ["monthly fuel allowance", "fuel allowance"] },
+    ],
+    sampleRows: [
+      ["EMP-001", "aditi.sharma@naxrita.in", "Four Wheeler", "KA-01-MJ-5678", "Hyundai Creta SX", "Above 1600cc", "Yes", "15000"],
+      ["EMP-002", "vikram.singh@naxrita.in", "Four Wheeler", "MH-02-DN-1234", "Honda City ZX", "Below 1600cc", "No", "10000"],
+      ["EMP-003", "priya.patel@naxrita.in", "Two Wheeler", "TS-09-EA-9876", "Royal Enfield Classic", "Below 1600cc", "No", "3500"],
+    ],
+  },
+  "Employee Details": {
+    option: "Employee Details",
+    filename: "complete_employee_details_template",
+    columns: [
+      { key: "empId", label: "Employee ID", mandatory: true, aliases: ["employee id", "empid", "id"] },
+      { key: "firstName", label: "First Name", mandatory: true, aliases: ["first name", "firstname"] },
+      { key: "lastName", label: "Last Name", mandatory: false, aliases: ["last name", "lastname"] },
+      { key: "email", label: "Work Email", mandatory: true, aliases: ["work email", "email", "mail"] },
+      { key: "mobile", label: "Mobile Number", mandatory: true, aliases: ["mobile number", "mobile", "phone"] },
+      { key: "gender", label: "Gender", mandatory: true, aliases: ["gender", "sex"] },
+      { key: "doj", label: "Date of Joining", mandatory: true, aliases: ["date of joining", "doj", "joining date"] },
+      { key: "location", label: "Work Location", mandatory: true, aliases: ["work location", "location", "branch"] },
+      { key: "designation", label: "Designation", mandatory: true, aliases: ["designation", "role", "position"] },
+      { key: "department", label: "Department", mandatory: true, aliases: ["department", "dept"] },
+      { key: "empType", label: "Employment Type", mandatory: false, aliases: ["employment type", "type"] },
+      { key: "pan", label: "PAN Number", mandatory: true, aliases: ["pan number", "pan"] },
+      { key: "bankAccount", label: "Bank Account Number", mandatory: true, aliases: ["bank account number", "account number", "account no"] },
+      { key: "ifsc", label: "IFSC Code", mandatory: true, aliases: ["ifsc code", "ifsc"] },
+      { key: "annualCTC", label: "Annual CTC", mandatory: true, aliases: ["annual ctc", "ctc", "salary"] },
+    ],
+    sampleRows: [
+      ["EMP-011", "Aarav", "Sharma", "aarav.sharma@naxrita.in", "9876543210", "Male", "2026-09-01", "Head Office (Swamy Ayyapa)", "Packaged App Development Associate", "AI/ML", "Full-Time", "ABCDE1234F", "50100456789012", "HDFC0000123", "600000"],
+      ["EMP-012", "Priya", "Nair", "priya.nair@naxrita.in", "9876543211", "Female", "2026-09-01", "Bangalore SEZ", "HR Specialist", "HR", "Full-Time", "BCDEF2345G", "001101567890", "ICIC0000011", "550000"],
+      ["EMP-013", "Rohan", "Gupta", "rohan.gupta@naxrita.in", "9876543212", "Male", "2026-09-01", "Hyderabad Tech Park", "Senior Frontend Engineer", "Engineering", "Full-Time", "CDEFG3456H", "30987654321", "SBIN0001234", "1200000"],
+    ],
+  },
+  "Employee Exit Details": {
+    option: "Employee Exit Details",
+    filename: "employee_exit_details_template",
+    columns: [
+      { key: "empId", label: "Employee ID", mandatory: true, aliases: ["employee id", "empid", "id"] },
+      { key: "email", label: "Work Email", mandatory: true, aliases: ["work email", "email", "mail"] },
+      { key: "resignationDate", label: "Resignation Date", mandatory: true, aliases: ["resignation date", "resigned on"] },
+      { key: "lastWorkingDay", label: "Last Working Day", mandatory: true, aliases: ["last working day", "lwd", "exit date"] },
+      { key: "reason", label: "Reason for Exit (Resignation/Termination/Retirement/Contract End)", mandatory: true, aliases: ["reason for exit", "reason", "exit reason"] },
+      { key: "noticePeriod", label: "Notice Period Served (Days)", mandatory: true, aliases: ["notice period served (days)", "notice period served", "notice period"] },
+      { key: "eligibleForRehire", label: "Eligible for Rehire (Yes/No)", mandatory: true, aliases: ["eligible for rehire", "rehire"] },
+      { key: "settlementStatus", label: "Full & Final Settlement Status (Pending/Processed)", mandatory: false, aliases: ["full and final settlement status", "settlement status", "fnf status"] },
+    ],
+    sampleRows: [
+      ["EMP-004", "suresh.raina@naxrita.in", "2026-08-15", "2026-09-30", "Resignation", "45", "Yes", "Processed"],
+      ["EMP-005", "kavita.reddy@naxrita.in", "2026-09-01", "2026-10-15", "Resignation", "45", "Yes", "Pending"],
+      ["EMP-006", "rahul.verma@naxrita.in", "2026-09-10", "2026-09-25", "Contract End", "15", "Yes", "Processed"],
+    ],
+  },
+}
+
+// Helper to get schema for any selected option, falling back to Employee Basic Details
+function getImportSchema(optionName?: string): ImportOptionSchema {
+  if (optionName && IMPORT_SCHEMAS[optionName]) {
+    return IMPORT_SCHEMAS[optionName]
+  }
+  // Fallback match by partial name if needed
+  if (optionName) {
+    const key = Object.keys(IMPORT_SCHEMAS).find((k) =>
+      optionName.toLowerCase().includes(k.toLowerCase()) || k.toLowerCase().includes(optionName.toLowerCase()),
+    )
+    if (key) return IMPORT_SCHEMAS[key]
+  }
+  return IMPORT_SCHEMAS["Employee Basic Details"]
+}
+
+// ── Bulk Upload Page ──────────────────────────────────────────────────────────
 function BulkUploadPage({
   ss,
   emps,
   setEmps,
+  importOption = "Employee Basic Details",
   onBack,
 }: {
   ss: SalaryStructure[]
   emps: Employee[]
   setEmps: React.Dispatch<React.SetStateAction<Employee[]>>
+  importOption?: string
   onBack: () => void
 }) {
   const toast = useToast()
-  type RowState = "valid" | "error" | "duplicate"
-  interface ParsedRow {
+  const activeSchema = getImportSchema(importOption)
+
+  interface ParsedRowRecord {
+    id: string
+    empId: string
     name: string
     email: string
-    department: string
-    designation: string
-    doj: string
-    empType: string
-    location: string
-    salaryStructure: string
-    state: RowState
+    values: Record<string, string>
+    missingFields: string[]
+    isValid: boolean
     error?: string
   }
 
   const [step, setStep] = useState<"upload" | "preview" | "done">("upload")
-  const [rows, setRows] = useState<ParsedRow[]>([])
-  const [importedList, setImportedList] = useState<Employee[]>([])
+  const [selectedFile, setSelectedFile] = useState<File | null>(null)
+  const [duplicateHandling, setDuplicateHandling] = useState<"skip" | "overwrite">("overwrite")
+  const [characterEncoding, setCharacterEncoding] = useState("UTF-8 (Unicode)")
+  const [rows, setRows] = useState<ParsedRowRecord[]>([])
+  const [importedList, setImportedList] = useState<ParsedRowRecord[]>([])
   const [dragging, setDragging] = useState(false)
   const [previewSearch, setPreviewSearch] = useState("")
-  const [previewFilter, setPreviewFilter] = useState<"all" | "valid" | "error" | "duplicate">("all")
+  const [previewFilter, setPreviewFilter] = useState<"all" | "valid" | "error">("all")
+  const [validationErrorBanner, setValidationErrorBanner] = useState<string | null>(null)
 
-  const TEMPLATE_CSV = `Name,Email,Department,Designation,Date of Joining,Employment Type,Location,Salary Structure
-Amit Patel,amit.patel@naxrita.in,Engineering,Software Engineer,2026-09-01,Full-Time,Bangalore,Junior Engineer
-Sneha Kulkarni,sneha.kulkarni@naxrita.in,HR,HR Executive,2026-09-01,Full-Time,Mumbai,Associate
-Deepak Joshi,deepak.joshi@naxrita.in,Finance,Finance Analyst,2026-09-01,Full-Time,Hyderabad,Associate`
-
-  const downloadTemplate = () => {
-    const blob = new Blob([TEMPLATE_CSV], { type: "text/csv" })
-    const a = document.createElement("a")
-    a.href = URL.createObjectURL(blob)
-    a.download = "naxpayroll_bulk_employee_template.csv"
-    a.click()
-    toast("Template downloaded successfully", "success")
+  // Construct CSV content dynamically from the active schema
+  const generateSchemaCSV = (): string => {
+    const headerRow = activeSchema.columns.map((c) => (c.mandatory ? `${c.label}*` : c.label)).join(",")
+    const dataRows = activeSchema.sampleRows.map((r) => r.join(",")).join("\n")
+    return `${headerRow}\n${dataRows}`
   }
 
-  const parseCSV = (text: string) => {
-    const lines = text.trim().split("\n").filter(Boolean)
+  const downloadSampleCSV = () => {
+    const csv = generateSchemaCSV()
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement("a")
+    link.setAttribute("href", url)
+    link.setAttribute("download", `${activeSchema.filename}.csv`)
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    URL.revokeObjectURL(url)
+    toast(`Sample CSV template for ${activeSchema.option} downloaded`, "success")
+  }
+
+  const downloadSampleXLS = () => {
+    // Tab-delimited Excel format with XLS mime type
+    const headerRow = activeSchema.columns.map((c) => (c.mandatory ? `${c.label}*` : c.label)).join("\t")
+    const dataRows = activeSchema.sampleRows.map((r) => r.join("\t")).join("\n")
+    const xlsContent = `${headerRow}\n${dataRows}`
+
+    const blob = new Blob([xlsContent], { type: "application/vnd.ms-excel;charset=utf-8;" })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement("a")
+    link.setAttribute("href", url)
+    link.setAttribute("download", `${activeSchema.filename}.xls`)
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    URL.revokeObjectURL(url)
+    toast(`Sample XLS template for ${activeSchema.option} downloaded`, "success")
+  }
+
+  const parseTextToRows = (text: string): ParsedRowRecord[] => {
+    const lines = text.trim().split(/\r?\n/).filter(Boolean)
     if (lines.length < 2) {
-      toast("CSV file contains no data rows", "error")
-      return
+      return []
     }
-    const headers = lines[0].split(",").map((h) => h.trim().toLowerCase())
-    const parsed: ParsedRow[] = lines.slice(1).map((line) => {
-      const cols = line.split(",").map((c) => c.trim())
-      const get = (key: string) => cols[headers.indexOf(key)] ?? ""
-      const name = get("name")
-      const email = get("email")
-      const dept = get("department") || "Operations"
-      const desig = get("designation") || "Associate"
-      const doj = get("date of joining") || new Date().toISOString().slice(0, 10)
-      const type = get("employment type") || "Full-Time"
-      const loc = get("location") || "Corporate HQ"
-      const struc = get("salary structure") || ss[0]?.name || "Associate"
-      const dup = emps.some(
-        (e) => e.email.toLowerCase() === email.toLowerCase(),
-      )
-      const validSS = ss.some((s) => s.name === struc)
-      let state: RowState = "valid"
-      let error = ""
-      if (!name || !email) {
-        state = "error"
-        error = "Name or Email missing"
-      } else if (dup) {
-        state = "duplicate"
-        error = "Email already registered"
-      } else if (!validSS) {
-        state = "error"
-        error = `Salary structure "${struc}" not found`
-      }
+    const headerLine = lines[0]
+    const delimiter = headerLine.includes("\t") ? "\t" : headerLine.includes(";") ? ";" : ","
+    const uploadedHeaders = headerLine
+      .split(delimiter)
+      .map((h) => h.trim().toLowerCase().replace(/^["']|["']$/g, "").replace(/\*+$/, "").trim())
+
+    const parsed: ParsedRowRecord[] = lines.slice(1).map((line, idx) => {
+      const cols = line.split(delimiter).map((c) => c.trim().replace(/^["']|["']$/g, ""))
+      const values: Record<string, string> = {}
+
+      activeSchema.columns.forEach((colDef, colIndex) => {
+        // Try exact match or alias match
+        let foundVal = ""
+        for (const alias of colDef.aliases) {
+          const matchedIdx = uploadedHeaders.findIndex((h) => h === alias || h.includes(alias) || alias.includes(h))
+          if (matchedIdx !== -1 && cols[matchedIdx] !== undefined && cols[matchedIdx] !== "") {
+            foundVal = cols[matchedIdx]
+            break
+          }
+        }
+        // Fallback: match by column position if file matches schema column count
+        if (!foundVal && cols[colIndex] !== undefined && cols[colIndex] !== "") {
+          foundVal = cols[colIndex]
+        }
+        values[colDef.key] = foundVal
+      })
+
+      // Extract identity fields
+      const empId = values.empId || `EMP-${String(emps.length + idx + 1).padStart(3, "0")}`
+      const firstName = values.firstName || ""
+      const lastName = values.lastName || ""
+      const email = values.email || ""
+      const fullName = (firstName + " " + lastName).trim() || values.holderName || values.name || `Employee ${idx + 1}`
+
+      // Validate mandatory fields according to this specific schema
+      const missingFields: string[] = []
+      activeSchema.columns.forEach((colDef) => {
+        if (colDef.mandatory) {
+          const val = values[colDef.key]
+          if (!val || val.trim() === "") {
+            missingFields.push(colDef.label)
+          }
+        }
+      })
+
+      const isValid = missingFields.length === 0
+
       return {
-        name,
+        id: `row-${idx + 1}`,
+        empId,
+        name: fullName,
         email,
-        department: dept,
-        designation: desig,
-        doj,
-        empType: type,
-        location: loc,
-        salaryStructure: struc,
-        state,
-        error,
+        values,
+        missingFields,
+        isValid,
+        error: missingFields.length > 0 ? `Missing: ${missingFields.join(", ")}` : undefined,
       }
     })
-    setRows(parsed)
-    setStep("preview")
-    toast(`Parsed ${parsed.length} rows from CSV`, "info")
+
+    return parsed
   }
 
-  const handleFile = (file: File) => {
-    if (!file.name.endsWith(".csv")) {
-      toast("Please select a valid .csv file", "error")
-      return
-    }
+  const handleFileChange = (file: File) => {
+    setSelectedFile(file)
     const reader = new FileReader()
-    reader.onload = (e) => parseCSV(e.target?.result as string)
+    reader.onload = (e) => {
+      const text = e.target?.result as string
+      if (text) {
+        const parsed = parseTextToRows(text)
+        setRows(parsed)
+      }
+    }
     reader.readAsText(file)
   }
 
-  const loadDemoCSV = () => {
-    parseCSV(TEMPLATE_CSV)
+  const handleNext = () => {
+    if (rows.length === 0) {
+      if (selectedFile) {
+        toast("The uploaded file does not contain valid data rows.", "error")
+        return
+      }
+      // If no file was uploaded, load the schema's authentic sample rows
+      const sampleCsv = generateSchemaCSV()
+      const parsedSample = parseTextToRows(sampleCsv)
+      setRows(parsedSample)
+      toast(`Loaded sample records for ${activeSchema.option}`, "info")
+    }
+    setValidationErrorBanner(null)
+    setStep("preview")
   }
 
-  const importValid = () => {
-    const validRows = rows.filter((r) => r.state === "valid")
-    if (validRows.length === 0) {
-      return toast("No valid rows available to import", "error")
+  const handleProceed = () => {
+    const invalidRows = rows.filter((r) => !r.isValid)
+    if (invalidRows.length > 0) {
+      const mandatoryList = activeSchema.columns.filter((c) => c.mandatory).map((c) => c.label).join(", ")
+      const errMsg = `Mandatory field is missing in ${invalidRows.length} record(s). All required fields for ${activeSchema.option} (${mandatoryList}) must be provided.`
+      setValidationErrorBanner(errMsg)
+      toast(errMsg, "error")
+      return
     }
 
-    const newEmps: Employee[] = validRows.map((r, i) => ({
-      id: `EMP-${String(emps.length + i + 1).padStart(3, "0")}`,
-      name: r.name,
-      email: r.email,
-      department: r.department,
-      designation: r.designation,
-      doj: r.doj || new Date().toISOString().slice(0, 10),
-      empType: r.empType as Employee["empType"],
-      manager: "Meena Iyer",
-      location: r.location,
-      status: "Active" as EmpStatus,
-      salaryStructure: r.salaryStructure,
-      grossSalary: ss.find((s) => s.name === r.salaryStructure)?.gross ?? 60000,
-    }))
+    // Process rows into application state
+    setEmps((prev) => {
+      const currentList = [...prev]
+      rows.forEach((r, idx) => {
+        const existingIdx = currentList.findIndex(
+          (e) => (r.email && e.email.toLowerCase() === r.email.toLowerCase()) || (r.empId && e.id.toLowerCase() === r.empId.toLowerCase()),
+        )
 
-    setEmps((prev) => [...prev, ...newEmps])
-    setImportedList(newEmps)
+        const rawCTC = parseFloat(r.values.annualCTC || r.values.revisedCTC || "600000") || 600000
+        const grossSalary = Math.round(rawCTC / 12)
+
+        const empObject: Employee = {
+          id: r.empId || `EMP-${String(currentList.length + idx + 1).padStart(3, "0")}`,
+          name: r.name || r.values.name || `Employee ${currentList.length + idx + 1}`,
+          email: r.email || `employee.${currentList.length + idx + 1}@naxrita.in`,
+          department: r.values.department || (existingIdx !== -1 ? currentList[existingIdx].department : "Engineering"),
+          designation: r.values.designation || (existingIdx !== -1 ? currentList[existingIdx].designation : "Associate"),
+          doj: r.values.doj || r.values.startDate || (existingIdx !== -1 ? currentList[existingIdx].doj : new Date().toISOString().slice(0, 10)),
+          empType: (r.values.empType as Employee["empType"]) || "Full-Time",
+          manager: "Meena Iyer",
+          location: r.values.location || (existingIdx !== -1 ? currentList[existingIdx].location : "Corporate HQ"),
+          status: "Active" as EmpStatus,
+          salaryStructure: r.values.salaryStructure || ss[0]?.name || "Associate",
+          grossSalary: grossSalary || (existingIdx !== -1 ? currentList[existingIdx].grossSalary : 60000),
+        }
+
+        if (existingIdx !== -1 && duplicateHandling === "overwrite") {
+          currentList[existingIdx] = { ...currentList[existingIdx], ...empObject }
+        } else if (existingIdx === -1) {
+          currentList.push(empObject)
+        }
+      })
+      return currentList
+    })
+
+    setImportedList(rows)
     setStep("done")
-    toast(`Successfully imported ${newEmps.length} employees!`, "success")
+    toast(`Successfully imported ${rows.length} records for ${activeSchema.option}!`, "success")
   }
 
-  const validCount = rows.filter((r) => r.state === "valid").length
-  const errorCount = rows.filter((r) => r.state === "error").length
-  const dupCount = rows.filter((r) => r.state === "duplicate").length
+  const validCount = rows.filter((r) => r.isValid).length
+  const errorCount = rows.filter((r) => !r.isValid).length
 
   const filteredPreviewRows = rows.filter((r) => {
-    if (!searchMatches(previewSearch, [r.name, r.email])) {
+    if (!searchMatches(previewSearch, [r.name, r.empId, r.email, ...Object.values(r.values)])) {
       return false
     }
-    if (previewFilter !== "all" && r.state !== previewFilter) {
-      return false
-    }
+    if (previewFilter === "valid" && !r.isValid) return false
+    if (previewFilter === "error" && r.isValid) return false
     return true
   })
 
-  const stateColor: Record<RowState, string> = {
-    valid: F.success,
-    error: F.error,
-    duplicate: F.warning,
-  }
-  const stateBg: Record<RowState, string> = {
-    valid: F.successBg,
-    error: F.errorBg,
-    duplicate: F.warningBg,
-  }
-
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-      {/* Top Breadcrumb Header */}
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 8,
-          fontSize: 13,
-          color: F.text2,
-        }}
-      >
+    <div style={{ background: "#FFFFFF", minHeight: "100%", borderRadius: 8, padding: "28px 36px" }}>
+      {/* Top Breadcrumbs */}
+      <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "#64748B", marginBottom: 20 }}>
         <button
+          type="button"
           onClick={onBack}
           style={{
             background: "none",
             border: "none",
             cursor: "pointer",
-            color: F.brand,
-            fontWeight: 700,
+            color: "#2563EB",
+            fontWeight: 600,
             fontSize: 13,
-            fontFamily: "inherit",
             display: "flex",
             alignItems: "center",
             gap: 4,
+            padding: 0,
           }}
         >
           <span>&larr;</span>
           <span>Employees</span>
         </button>
-        <span style={{ color: F.border }}>/</span>
-        <span style={{ color: F.text1, fontWeight: 700 }}>
-          Bulk Employee Onboarding
+        <span>/</span>
+        <span style={{ color: "#1E293B", fontWeight: 600 }}>
+          {activeSchema.option}
         </span>
       </div>
 
-      {/* Enhanced 3-Step Stepper Progress Bar */}
-      <div
-        style={{
-          background: F.card,
-          border: `1px solid ${F.border}`,
-          borderRadius: 8,
-          padding: "16px 24px",
-          display: "flex",
-          alignItems: "center",
-          boxShadow: "0 1px 3px rgba(0,0,0,0.03)",
-        }}
-      >
-        {[
-          { key: "upload", stepNum: 1, label: "1. Upload CSV" },
-          { key: "preview", stepNum: 2, label: "2. Review & Validate" },
-          { key: "done", stepNum: 3, label: "3. Done & Summary" },
-        ].map((item, i) => {
-          const isDone =
-            step === "done"
-              ? true
-              : step === "preview"
-              ? i === 0
-              : false
-          const isActive = step === item.key
-
-          return (
-            <Fragment key={item.key}>
-              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                <div
-                  style={{
-                    width: 32,
-                    height: 32,
-                    borderRadius: "50%",
-                    background: isDone
-                      ? F.success
-                      : isActive
-                      ? F.brand
-                      : F.pageBg,
-                    border: `2px solid ${
-                      isDone
-                        ? F.success
-                        : isActive
-                        ? F.brand
-                        : F.border
-                    }`,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    transition: "all 0.2s ease",
-                  }}
-                >
-                  {isDone ? (
-                    <span style={{ color: "#FFFFFF", fontWeight: 800, fontSize: 14 }}>
-                      <UiIcon name="check" size={16} />
-                    </span>
-                  ) : (
-                    <span
-                      style={{
-                        fontSize: 13,
-                        fontWeight: 800,
-                        color: isActive ? "#FFFFFF" : F.text2,
-                      }}
-                    >
-                      {item.stepNum}
-                    </span>
-                  )}
-                </div>
-                <span
-                  style={{
-                    fontSize: 13,
-                    fontWeight: isActive || isDone ? 700 : 500,
-                    color: isActive ? F.brand : isDone ? F.success : F.text2,
-                  }}
-                >
-                  {item.label}
-                </span>
-              </div>
-              {i < 2 && (
-                <div
-                  style={{
-                    flex: 1,
-                    height: 2,
-                    background: isDone ? F.success : F.border,
-                    margin: "0 16px",
-                    transition: "background 0.3s ease",
-                  }}
-                />
-              )}
-            </Fragment>
-          )
-        })}
-      </div>
-
-      {/* STEP 1: UPLOAD CSV */}
+      {/* STEP 1: SELECT FILE (EXACT MATCH WITH REFERENCE SCREENSHOT) */}
       {step === "upload" && (
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 340px", gap: 20 }}>
-          {/* Dropzone Container */}
+        <div style={{ width: "100%" }}>
+          {/* Main Title */}
+          <h1
+            style={{
+              fontSize: 22,
+              fontWeight: 600,
+              color: "#1E293B",
+              margin: "0 0 16px 0",
+              fontFamily: "inherit",
+            }}
+          >
+            {activeSchema.option} - Select File
+          </h1>
+
+          {/* Sample Download Prompt */}
+          <div
+            style={{
+              fontSize: 14,
+              color: "#334155",
+              marginBottom: 24,
+              lineHeight: 1.5,
+            }}
+          >
+            Download a sample{" "}
+            <span
+              onClick={downloadSampleCSV}
+              style={{
+                color: "#2563EB",
+                cursor: "pointer",
+                fontWeight: 500,
+                textDecoration: "underline",
+              }}
+            >
+              .csv format
+            </span>{" "}
+            or{" "}
+            <span
+              onClick={downloadSampleXLS}
+              style={{
+                color: "#2563EB",
+                cursor: "pointer",
+                fontWeight: 500,
+                textDecoration: "underline",
+              }}
+            >
+              .xls format
+            </span>{" "}
+            file and compare it with your import file to ensure that the file is ready to import.
+          </div>
+
+          {/* Drag and Drop Zone */}
           <div
             onDragOver={(e) => {
               e.preventDefault()
@@ -6161,299 +12012,565 @@ Deepak Joshi,deepak.joshi@naxrita.in,Finance,Finance Analyst,2026-09-01,Full-Tim
               e.preventDefault()
               setDragging(false)
               const f = e.dataTransfer.files[0]
-              if (f) handleFile(f)
+              if (f) handleFileChange(f)
+            }}
+            onClick={() => {
+              const input = document.createElement("input")
+              input.type = "file"
+              input.accept = ".csv,.tsv,.xls,.xlsx,.txt"
+              input.onchange = (e) => {
+                const f = (e.target as HTMLInputElement).files?.[0]
+                if (f) handleFileChange(f)
+              }
+              input.click()
             }}
             style={{
-              background: dragging ? F.infoBg : F.card,
-              border: `2px dashed ${dragging ? F.brand : F.border}`,
-              borderRadius: 12,
-              padding: "60px 40px",
+              border: `1.5px dashed ${dragging ? "#2563EB" : "#93C5FD"}`,
+              borderRadius: 6,
+              padding: "44px 24px",
               textAlign: "center",
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              justifyContent: "center",
-              boxShadow: "0 1px 3px rgba(0,0,0,0.02)",
+              cursor: "pointer",
+              background: dragging ? "#EFF6FF" : "#FAFCFF",
+              marginBottom: 28,
               transition: "all 0.2s ease",
             }}
           >
+            {/* Cloud Icon */}
             <div
               style={{
-                width: 64,
-                height: 64,
-                borderRadius: "50%",
-                background: F.infoBg,
-                border: `1px solid ${F.brand}30`,
-                display: "flex",
+                display: "inline-flex",
                 alignItems: "center",
                 justifyContent: "center",
-                fontSize: 28,
-                marginBottom: 16,
-                color: F.brand,
+                marginBottom: 12,
               }}
             >
-              <UiIcon name="upload" size={30} />
-            </div>
-            <div style={{ fontSize: 17, fontWeight: 800, color: F.text1, marginBottom: 6 }}>
-              Drop your CSV file here
-            </div>
-            <div style={{ fontSize: 13, color: F.text2, marginBottom: 20 }}>
-              Supports standard comma-separated .csv employee records
+              <svg
+                width="42"
+                height="42"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="#94A3B8"
+                strokeWidth="1.6"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z" />
+                <polyline points="12 13 12 9 10 11" />
+                <polyline points="12 9 14 11" />
+              </svg>
             </div>
 
-            <div style={{ display: "flex", gap: 12, flexWrap: "wrap", justifyContent: "center" }}>
-              <Btn
-                onClick={() => {
-                  const input = document.createElement("input")
-                  input.type = "file"
-                  input.accept = ".csv"
-                  input.onchange = (e) => {
-                    const f = (e.target as HTMLInputElement).files?.[0]
-                    if (f) handleFile(f)
-                  }
-                  input.click()
+            {selectedFile ? (
+              <div>
+                <div style={{ fontSize: 14, fontWeight: 600, color: "#1E293B", marginBottom: 4 }}>
+                  ✓ Selected: {selectedFile.name}
+                </div>
+                <div style={{ fontSize: 12, color: "#64748B" }}>
+                  {(selectedFile.size / 1024).toFixed(1)} KB &bull; Click or drop another file to replace
+                </div>
+              </div>
+            ) : (
+              <div>
+                <div style={{ fontSize: 14, fontWeight: 500, color: "#1E293B", marginBottom: 6 }}>
+                  Drop files here or click here to upload
+                </div>
+                <div style={{ fontSize: 12, color: "#64748B" }}>
+                  Maximum File Size: 5 MB | File Format: CSV or TSV or XLS
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Duplicate Handling Radio Selection */}
+          <div style={{ marginBottom: 24 }}>
+            <label
+              style={{
+                display: "block",
+                fontSize: 14,
+                fontWeight: 500,
+                color: "#1E293B",
+                marginBottom: 10,
+              }}
+            >
+              How should duplicate entries be handled?
+              <span style={{ color: "#EF4444", marginLeft: 2 }}>*</span>
+            </label>
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              <label
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 10,
+                  fontSize: 14,
+                  color: "#334155",
+                  cursor: "pointer",
                 }}
               >
-                Browse CSV File
-              </Btn>
-              <Btn variant="secondary" onClick={loadDemoCSV}>
-                <UiIcon name="bolt" /> Load Sample Demo CSV
-              </Btn>
+                <input
+                  type="radio"
+                  name="duplicateHandling"
+                  value="skip"
+                  checked={duplicateHandling === "skip"}
+                  onChange={() => setDuplicateHandling("skip")}
+                  style={{ accentColor: "#2563EB", width: 16, height: 16, cursor: "pointer" }}
+                />
+                Skip
+              </label>
+              <label
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 10,
+                  fontSize: 14,
+                  color: "#334155",
+                  cursor: "pointer",
+                }}
+              >
+                <input
+                  type="radio"
+                  name="duplicateHandling"
+                  value="overwrite"
+                  checked={duplicateHandling === "overwrite"}
+                  onChange={() => setDuplicateHandling("overwrite")}
+                  style={{ accentColor: "#2563EB", width: 16, height: 16, cursor: "pointer" }}
+                />
+                Overwrite
+              </label>
             </div>
           </div>
 
-          {/* Guidelines Sidebar */}
-          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-            <div
+          {/* Character Encoding Select */}
+          <div style={{ marginBottom: 36, maxWidth: 360 }}>
+            <label
               style={{
-                background: F.card,
-                border: `1px solid ${F.border}`,
-                borderRadius: 8,
-                padding: "18px 20px",
-                boxShadow: "0 1px 3px rgba(0,0,0,0.02)",
+                display: "block",
+                fontSize: 14,
+                fontWeight: 500,
+                color: "#1E293B",
+                marginBottom: 8,
               }}
             >
-              <div
+              Character Encoding<span style={{ color: "#EF4444", marginLeft: 2 }}>*</span>
+            </label>
+            <div style={{ position: "relative" }}>
+              <select
+                value={characterEncoding}
+                onChange={(e) => setCharacterEncoding(e.target.value)}
                 style={{
-                  fontSize: 12,
-                  fontWeight: 700,
-                  textTransform: "uppercase",
-                  letterSpacing: "0.06em",
-                  color: F.text2,
-                  marginBottom: 12,
+                  width: "100%",
+                  padding: "9px 36px 9px 12px",
+                  fontSize: 14,
+                  color: "#1E293B",
+                  background: "#FFFFFF",
+                  border: "1px solid #CBD5E1",
+                  borderRadius: 6,
+                  outline: "none",
+                  cursor: "pointer",
+                  appearance: "none",
                 }}
               >
-                Mandatory CSV Headers
-              </div>
-              {[
-                "Name",
-                "Email",
-                "Department",
-                "Designation",
-                "Date of Joining",
-                "Employment Type",
-                "Location",
-                "Salary Structure",
-              ].map((col) => (
-                <div
-                  key={col}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 8,
-                    padding: "6px 0",
-                    borderBottom: `1px solid ${F.border}60`,
-                    fontSize: 12,
-                  }}
-                >
-                  <span style={{ color: F.success, fontWeight: 800 }}><UiIcon name="check" size={15} /></span>
-                  <span style={{ color: F.text1, fontWeight: 600 }}>{col}</span>
-                </div>
-              ))}
+                <option value="UTF-8 (Unicode)">UTF-8 (Unicode)</option>
+                <option value="UTF-16 (Unicode)">UTF-16 (Unicode)</option>
+                <option value="ISO-8859-1 (Latin-1)">ISO-8859-1 (Latin-1)</option>
+                <option value="US-ASCII">US-ASCII</option>
+              </select>
+              <span
+                style={{
+                  position: "absolute",
+                  right: 14,
+                  top: "50%",
+                  transform: "translateY(-50%)",
+                  pointerEvents: "none",
+                  color: "#64748B",
+                  fontSize: 11,
+                }}
+              >
+                ▼
+              </span>
+            </div>
+          </div>
+
+          {/* Footer Action Buttons */}
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              paddingTop: 16,
+              borderTop: "1px solid #F1F5F9",
+            }}
+          >
+            <div style={{ display: "flex", gap: 12 }}>
+              <button
+                type="button"
+                onClick={handleNext}
+                style={{
+                  background: "#3B82F6",
+                  color: "#FFFFFF",
+                  border: "none",
+                  borderRadius: 6,
+                  padding: "9px 24px",
+                  fontSize: 14,
+                  fontWeight: 600,
+                  cursor: "pointer",
+                  boxShadow: "0 1px 2px rgba(59, 130, 246, 0.3)",
+                }}
+              >
+                Next
+              </button>
+              <button
+                type="button"
+                onClick={onBack}
+                style={{
+                  background: "#FFFFFF",
+                  color: "#475569",
+                  border: "1px solid #CBD5E1",
+                  borderRadius: 6,
+                  padding: "9px 20px",
+                  fontSize: 14,
+                  fontWeight: 500,
+                  cursor: "pointer",
+                }}
+              >
+                Cancel
+              </button>
             </div>
 
-            <div
-              style={{
-                background: F.successBg,
-                border: `1px solid ${F.success}30`,
-                borderRadius: 8,
-                padding: "16px 18px",
-              }}
-            >
-              <div style={{ fontSize: 13, fontWeight: 700, color: F.success, marginBottom: 4 }}>
-                Download CSV Template
-              </div>
-              <div style={{ fontSize: 12, color: F.text2, marginBottom: 12, lineHeight: 1.4 }}>
-                Pre-formatted template with verified column headers and 3 sample entries.
-              </div>
-              <Btn small onClick={downloadTemplate}>
-                Download Template.csv
-              </Btn>
+            <div style={{ fontSize: 13, color: "#EF4444" }}>
+              * indicates mandatory fields
             </div>
           </div>
         </div>
       )}
 
-      {/* STEP 2: REVIEW & VALIDATE */}
+      {/* STEP 2: REVIEW & VALIDATE IN TABULAR FORMAT */}
       {step === "preview" && (
-        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-          {/* Summary Chips Bar */}
-          <div
-            style={{
-              background: F.card,
-              border: `1px solid ${F.border}`,
-              borderRadius: 8,
-              padding: "14px 18px",
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              flexWrap: "wrap",
-              gap: 12,
-            }}
-          >
-            <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-              <span
-                style={{
-                  padding: "6px 12px",
-                  background: F.successBg,
-                  border: `1px solid ${F.success}40`,
-                  borderRadius: 20,
-                  fontSize: 12,
-                  fontWeight: 700,
-                  color: F.success,
-                }}
-              >
-                <UiIcon name="check" size={15} /> {validCount} Valid Records
-              </span>
-              <span
-                style={{
-                  padding: "6px 12px",
-                  background: errorCount > 0 ? F.errorBg : F.pageBg,
-                  border: `1px solid ${errorCount > 0 ? F.error : F.border}40`,
-                  borderRadius: 20,
-                  fontSize: 12,
-                  fontWeight: 700,
-                  color: errorCount > 0 ? F.error : F.text3,
-                }}
-              >
-                &times; {errorCount} Validation Errors
-              </span>
-              <span
-                style={{
-                  padding: "6px 12px",
-                  background: dupCount > 0 ? F.warningBg : F.pageBg,
-                  border: `1px solid ${dupCount > 0 ? F.warning : F.border}40`,
-                  borderRadius: 20,
-                  fontSize: 12,
-                  fontWeight: 700,
-                  color: dupCount > 0 ? F.warning : F.text3,
-                }}
-              >
-                ! {dupCount} Duplicates Skipped
-              </span>
+        <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+          {/* Header & Controls */}
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
+            <div>
+              <h2 style={{ fontSize: 20, fontWeight: 700, color: "#1E293B", margin: "0 0 4px 0" }}>
+                {activeSchema.option} - Preview Imported Data
+              </h2>
+              <p style={{ fontSize: 13, color: "#64748B", margin: 0 }}>
+                Review data imported from your file in tabular format before proceeding.
+              </p>
             </div>
 
-            <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-              <Btn
-                variant="secondary"
-                onClick={() => {
-                  setRows([])
-                  setStep("upload")
+            {/* Summary Statistics */}
+            <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+              <span
+                style={{
+                  padding: "5px 12px",
+                  background: "#F1F5F9",
+                  borderRadius: 16,
+                  fontSize: 12,
+                  fontWeight: 600,
+                  color: "#334155",
                 }}
               >
-                Re-upload File
-              </Btn>
-              <Btn disabled={validCount === 0} onClick={importValid}>
-                Import {validCount} Employees &rarr;
-              </Btn>
+                Total: {rows.length}
+              </span>
+              <span
+                style={{
+                  padding: "5px 12px",
+                  background: "#F0FDF4",
+                  border: "1px solid #BBF7D0",
+                  borderRadius: 16,
+                  fontSize: 12,
+                  fontWeight: 600,
+                  color: "#16A34A",
+                }}
+              >
+                ✓ {validCount} Ready
+              </span>
+              {errorCount > 0 && (
+                <span
+                  style={{
+                    padding: "5px 12px",
+                    background: "#FEF2F2",
+                    border: "1px solid #FECACA",
+                    borderRadius: 16,
+                    fontSize: 12,
+                    fontWeight: 600,
+                    color: "#DC2626",
+                  }}
+                >
+                  ✕ {errorCount} Missing Mandatory
+                </span>
+              )}
             </div>
           </div>
 
-          {/* Validation Table */}
-          <div
-            style={{
-              background: F.card,
-              border: `1px solid ${F.border}`,
-              borderRadius: 8,
-              overflow: "hidden",
-              boxShadow: "0 1px 3px rgba(0,0,0,0.03)",
-            }}
-          >
+          {/* Validation Error Alert Banner */}
+          {validationErrorBanner && (
             <div
-            style={{
-              padding: "12px 18px",
-                borderBottom: `1px solid ${F.border}`,
+              style={{
+                background: "#FEF2F2",
+                border: "1px solid #F87171",
+                borderRadius: 6,
+                padding: "12px 16px",
                 display: "flex",
-                justifyContent: "space-between",
                 alignItems: "center",
+                gap: 12,
+                color: "#991B1B",
+                fontSize: 13.5,
               }}
             >
-              <span style={{ fontSize: 13, fontWeight: 700, color: F.text1 }}>
-                CSV Record Validation Sheet ({rows.length} Total Rows)
-              </span>
-              <span style={{ fontSize: 11, color: F.text3 }}>
-                Only valid records will be written to the database.
-              </span>
+              <span style={{ fontSize: 18 }}>⚠️</span>
+              <div style={{ flex: 1 }}>{validationErrorBanner}</div>
+              <button
+                type="button"
+                onClick={() => setValidationErrorBanner(null)}
+                style={{ background: "none", border: "none", cursor: "pointer", color: "#991B1B", fontSize: 16 }}
+              >
+                ✕
+              </button>
+            </div>
+          )}
+
+          {/* Filter / Search Bar */}
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
+            <div style={{ display: "flex", gap: 8 }}>
+              {(["all", "valid", "error"] as const).map((filt) => (
+                <button
+                  key={filt}
+                  type="button"
+                  onClick={() => setPreviewFilter(filt)}
+                  style={{
+                    padding: "6px 14px",
+                    fontSize: 12,
+                    fontWeight: 600,
+                    borderRadius: 6,
+                    border: "1px solid",
+                    borderColor: previewFilter === filt ? "#2563EB" : "#CBD5E1",
+                    background: previewFilter === filt ? "#EFF6FF" : "#FFFFFF",
+                    color: previewFilter === filt ? "#2563EB" : "#475569",
+                    cursor: "pointer",
+                    textTransform: "capitalize",
+                  }}
+                >
+                  {filt === "all" ? `All (${rows.length})` : filt === "valid" ? `Ready (${validCount})` : `Errors (${errorCount})`}
+                </button>
+              ))}
             </div>
 
-            <div style={{ overflowX: "auto" }}>
+            <input
+              type="text"
+              placeholder={`Search ${activeSchema.option.toLowerCase()}...`}
+              value={previewSearch}
+              onChange={(e) => setPreviewSearch(e.target.value)}
+              style={{
+                padding: "6px 12px",
+                fontSize: 13,
+                border: "1px solid #CBD5E1",
+                borderRadius: 6,
+                outline: "none",
+                width: 260,
+              }}
+            />
+          </div>
+
+          {/* Dynamic Tabular Format Grid for the specific schema */}
+          <div
+            style={{
+              border: "1px solid #E2E8F0",
+              borderRadius: 6,
+              overflow: "hidden",
+              boxShadow: "0 1px 3px rgba(0,0,0,0.02)",
+            }}
+          >
+            <div style={{ overflowX: "auto", maxHeight: 440 }}>
               <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
                 <thead>
                   <tr
                     style={{
-                      borderBottom: `1px solid ${F.border}`,
-                      background: F.pageBg,
-                      color: F.text2,
-                      fontSize: 11,
-                      fontWeight: 700,
-                      textTransform: "uppercase",
+                      background: "#F8FAFC",
+                      borderBottom: "1px solid #E2E8F0",
+                      color: "#475569",
+                      fontSize: 12,
+                      fontWeight: 600,
+                      position: "sticky",
+                      top: 0,
+                      zIndex: 1,
                     }}
                   >
-                    <th style={{ padding: "10px 14px", textAlign: "center" }}>#</th>
-                    <th style={{ padding: "10px 14px", textAlign: "left" }}>Employee Name</th>
-                    <th style={{ padding: "10px 14px", textAlign: "left" }}>Email Address</th>
-                    <th style={{ padding: "10px 14px", textAlign: "left" }}>Department</th>
-                    <th style={{ padding: "10px 14px", textAlign: "left" }}>Designation</th>
-                    <th style={{ padding: "10px 14px", textAlign: "left" }}>Salary Structure</th>
-                    <th style={{ padding: "10px 14px", textAlign: "left" }}>Date of Joining</th>
-                    <th style={{ padding: "10px 18px", textAlign: "center" }}>Validation Status</th>
+                    <th style={{ padding: "10px 12px", textAlign: "center" }}>#</th>
+                    {activeSchema.columns.map((colDef) => (
+                      <th
+                        key={colDef.key}
+                        style={{
+                          padding: "10px 12px",
+                          textAlign: "left",
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        {colDef.label}
+                        {colDef.mandatory && <span style={{ color: "#EF4444", marginLeft: 2 }}>*</span>}
+                      </th>
+                    ))}
+                    <th style={{ padding: "10px 14px", textAlign: "center", whiteSpace: "nowrap" }}>
+                      Validation Status
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredPreviewRows.map((r, i) => (
-                    <tr
-                      key={i}
-                      style={{
-                        borderBottom: `1px solid ${F.border}60`,
-                        background: r.state !== "valid" ? stateBg[r.state] : "transparent",
-                      }}
-                    >
-                      <td style={{ padding: "12px 14px", textAlign: "center", color: F.text3, fontSize: 11 }}>
-                        {i + 1}
-                      </td>
-                      <td style={{ padding: "12px 14px", fontWeight: 700, color: F.text1 }}>
-                        {r.name || "—"}
-                      </td>
-                      <td style={{ padding: "12px 14px", color: F.text2 }}>
-                        {r.email || "—"}
-                      </td>
-                      <td style={{ padding: "12px 14px", color: F.text2 }}>{r.department}</td>
-                      <td style={{ padding: "12px 14px", color: F.text2 }}>{r.designation}</td>
-                      <td style={{ padding: "12px 14px", color: F.brand, fontWeight: 600 }}>
-                        {r.salaryStructure}
-                      </td>
-                      <td style={{ padding: "12px 14px", color: F.text3, fontSize: 12 }}>{r.doj}</td>
-                      <td style={{ padding: "12px 18px", textAlign: "center" }}>
-                        <Badge
-                          label={r.error || "Valid"}
-                          color={stateColor[r.state]}
-                          bg={stateBg[r.state]}
-                        />
+                  {filteredPreviewRows.length === 0 ? (
+                    <tr>
+                      <td
+                        colSpan={activeSchema.columns.length + 2}
+                        style={{ padding: "32px", textAlign: "center", color: "#94A3B8" }}
+                      >
+                        No records match the current filter.
                       </td>
                     </tr>
-                  ))}
+                  ) : (
+                    filteredPreviewRows.map((r, i) => {
+                      const hasError = !r.isValid
+                      return (
+                        <tr
+                          key={r.id}
+                          style={{
+                            borderBottom: "1px solid #F1F5F9",
+                            background: hasError ? "#FEF2F2" : i % 2 === 0 ? "#FFFFFF" : "#F8FAFC",
+                          }}
+                        >
+                          <td style={{ padding: "10px 12px", textAlign: "center", color: "#94A3B8", fontSize: 12 }}>
+                            {i + 1}
+                          </td>
+                          {activeSchema.columns.map((colDef) => {
+                            const val = r.values[colDef.key]
+                            const isMissing = colDef.mandatory && (!val || val.trim() === "")
+                            return (
+                              <td
+                                key={colDef.key}
+                                style={{
+                                  padding: "10px 12px",
+                                  color: isMissing ? "#DC2626" : colDef.key === "empId" ? "#2563EB" : "#334155",
+                                  fontWeight: colDef.key === "empId" || colDef.key === "firstName" ? 600 : 400,
+                                  background: isMissing ? "#FEE2E2" : "transparent",
+                                  whiteSpace: "nowrap",
+                                }}
+                              >
+                                {isMissing ? (
+                                  <span style={{ fontStyle: "italic", fontSize: 11, fontWeight: 500 }}>
+                                    Missing
+                                  </span>
+                                ) : (
+                                  val || "—"
+                                )}
+                              </td>
+                            )
+                          })}
+                          <td style={{ padding: "10px 14px", textAlign: "center", whiteSpace: "nowrap" }}>
+                            {hasError ? (
+                              <span
+                                style={{
+                                  display: "inline-block",
+                                  padding: "3px 8px",
+                                  background: "#FEE2E2",
+                                  color: "#DC2626",
+                                  borderRadius: 4,
+                                  fontSize: 11,
+                                  fontWeight: 600,
+                                }}
+                                title={r.error}
+                              >
+                                Missing ({r.missingFields.length})
+                              </span>
+                            ) : (
+                              <span
+                                style={{
+                                  display: "inline-block",
+                                  padding: "3px 8px",
+                                  background: "#DCFCE7",
+                                  color: "#16A34A",
+                                  borderRadius: 4,
+                                  fontSize: 11,
+                                  fontWeight: 600,
+                                }}
+                              >
+                                Ready
+                              </span>
+                            )}
+                          </td>
+                        </tr>
+                      )
+                    })
+                  )}
                 </tbody>
               </table>
+            </div>
+          </div>
+
+          {/* Footer Navigation Bar */}
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              paddingTop: 16,
+              borderTop: "1px solid #F1F5F9",
+              flexWrap: "wrap",
+              gap: 12,
+            }}
+          >
+            <div style={{ display: "flex", gap: 12 }}>
+              <button
+                type="button"
+                onClick={handleProceed}
+                style={{
+                  background: "#3B82F6",
+                  color: "#FFFFFF",
+                  border: "none",
+                  borderRadius: 6,
+                  padding: "9px 24px",
+                  fontSize: 14,
+                  fontWeight: 600,
+                  cursor: "pointer",
+                  boxShadow: "0 1px 2px rgba(59, 130, 246, 0.3)",
+                }}
+              >
+                Proceed
+              </button>
+              <button
+                type="button"
+                onClick={() => setStep("upload")}
+                style={{
+                  background: "#FFFFFF",
+                  color: "#475569",
+                  border: "1px solid #CBD5E1",
+                  borderRadius: 6,
+                  padding: "9px 18px",
+                  fontSize: 14,
+                  fontWeight: 500,
+                  cursor: "pointer",
+                }}
+              >
+                Back
+              </button>
+              <button
+                type="button"
+                onClick={onBack}
+                style={{
+                  background: "#FFFFFF",
+                  color: "#475569",
+                  border: "1px solid #CBD5E1",
+                  borderRadius: 6,
+                  padding: "9px 18px",
+                  fontSize: 14,
+                  fontWeight: 500,
+                  cursor: "pointer",
+                }}
+              >
+                Cancel
+              </button>
+            </div>
+
+            <div style={{ fontSize: 13, color: errorCount > 0 ? "#DC2626" : "#64748B" }}>
+              {errorCount > 0
+                ? `* All mandatory fields (${activeSchema.columns.filter((c) => c.mandatory).map((c) => c.label).join(", ")}) must be present to proceed.`
+                : "* Click Proceed to apply verified records to the system."}
             </div>
           </div>
         </div>
@@ -6461,131 +12578,145 @@ Deepak Joshi,deepak.joshi@naxrita.in,Finance,Finance Analyst,2026-09-01,Full-Tim
 
       {/* STEP 3: DONE & SUMMARY REPORT */}
       {step === "done" && (
-        <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+        <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: 24 }}>
           {/* Executive Success Card */}
           <div
             style={{
-              background: F.card,
-              border: `1px solid ${F.border}`,
-              borderRadius: 12,
-              padding: "40px 32px",
+              width: "100%",
+              boxSizing: "border-box",
+              background: "#F0FDF4",
+              border: "1px solid #BBF7D0",
+              borderRadius: 8,
+              padding: "36px 32px",
               textAlign: "center",
-              boxShadow: "0 2px 8px rgba(0,0,0,0.04)",
             }}
           >
             <div
               style={{
-                width: 64,
-                height: 64,
+                width: 56,
+                height: 56,
                 borderRadius: "50%",
-                background: F.successBg,
-                border: `3px solid ${F.success}`,
+                background: "#16A34A",
+                color: "#FFFFFF",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
                 margin: "0 auto 16px",
-                fontSize: 28,
+                fontSize: 24,
+                fontWeight: 700,
               }}
             >
-              <UiIcon name="check" size={30} />
+              ✓
             </div>
-            <h2
-              style={{
-                fontSize: 22,
-                fontWeight: 800,
-                color: F.text1,
-                margin: "0 0 6px",
-              }}
-            >
-              Bulk Onboarding Complete!
+            <h2 style={{ fontSize: 22, fontWeight: 700, color: "#166534", margin: "0 0 6px" }}>
+              {activeSchema.option} Successfully Imported!
             </h2>
-            <p style={{ fontSize: 14, color: F.text2, margin: "0 0 24px" }}>
-              Successfully imported <strong>{importedList.length}</strong> new employee record{importedList.length !== 1 ? "s" : ""} to Naxrita Solutions.
+            <p style={{ fontSize: 14, color: "#15803D", margin: "0 0 24px" }}>
+              Successfully processed and imported <strong>{importedList.length}</strong> record{importedList.length !== 1 ? "s" : ""} for {activeSchema.option}.
             </p>
 
             <div style={{ display: "flex", justifyContent: "center", gap: 12 }}>
-              <Btn onClick={onBack}>View All Employees &rarr;</Btn>
-              <Btn
-                variant="secondary"
+              <button
+                type="button"
+                onClick={onBack}
+                style={{
+                  background: "#16A34A",
+                  color: "#FFFFFF",
+                  border: "none",
+                  borderRadius: 6,
+                  padding: "9px 24px",
+                  fontSize: 14,
+                  fontWeight: 600,
+                  cursor: "pointer",
+                }}
+              >
+                View Employee Directory &rarr;
+              </button>
+              <button
+                type="button"
                 onClick={() => {
                   setRows([])
+                  setSelectedFile(null)
                   setImportedList([])
                   setStep("upload")
                 }}
+                style={{
+                  background: "#FFFFFF",
+                  color: "#166534",
+                  border: "1px solid #BBF7D0",
+                  borderRadius: 6,
+                  padding: "9px 20px",
+                  fontSize: 14,
+                  fontWeight: 500,
+                  cursor: "pointer",
+                }}
               >
-                Upload Another File
-              </Btn>
+                Import Another File
+              </button>
             </div>
           </div>
 
-          {/* Report Sheet of Newly Imported Employees */}
+          {/* Imported Records Summary */}
           {importedList.length > 0 && (
-            <div
-              style={{
-                background: F.card,
-                border: `1px solid ${F.border}`,
-                borderRadius: 8,
-                overflow: "hidden",
-                boxShadow: "0 1px 3px rgba(0,0,0,0.03)",
-              }}
-            >
+            <div style={{ width: "100%", border: "1px solid #E2E8F0", borderRadius: 6, overflow: "hidden", boxSizing: "border-box" }}>
               <div
                 style={{
-                  padding: "14px 18px",
-                  borderBottom: `1px solid ${F.border}`,
-                  background: F.successBg,
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
+                  padding: "12px 18px",
+                  background: "#F8FAFC",
+                  borderBottom: "1px solid #E2E8F0",
+                  fontSize: 14,
+                  fontWeight: 600,
+                  color: "#1E293B",
                 }}
               >
-                <span style={{ fontSize: 13, fontWeight: 700, color: F.success }}>
-                  Newly Assigned Employee Records
-                </span>
-                <span style={{ fontSize: 12, color: F.text2 }}>
-                  Status: Active &bull; Accounts Provisioned
-                </span>
+                {activeSchema.option} - Processed Records Summary
               </div>
-
-              <div style={{ overflowX: "auto" }}>
+              <div style={{ overflowX: "auto", width: "100%" }}>
                 <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
                   <thead>
-                    <tr
-                      style={{
-                        borderBottom: `1px solid ${F.border}`,
-                        background: F.pageBg,
-                        color: F.text2,
-                        fontSize: 11,
-                        fontWeight: 700,
-                        textTransform: "uppercase",
-                      }}
-                    >
-                      <th style={{ padding: "10px 18px", textAlign: "left" }}>Assigned ID</th>
-                      <th style={{ padding: "10px 14px", textAlign: "left" }}>Employee Name</th>
+                    <tr style={{ background: "#F1F5F9", color: "#475569", borderBottom: "1px solid #E2E8F0" }}>
+                      <th style={{ padding: "10px 14px", textAlign: "left" }}>ID</th>
+                      <th style={{ padding: "10px 14px", textAlign: "left" }}>Employee</th>
                       <th style={{ padding: "10px 14px", textAlign: "left" }}>Email</th>
-                      <th style={{ padding: "10px 14px", textAlign: "left" }}>Department</th>
-                      <th style={{ padding: "10px 14px", textAlign: "left" }}>Designation</th>
-                      <th style={{ padding: "10px 14px", textAlign: "left" }}>Salary Structure</th>
-                      <th style={{ padding: "10px 18px", textAlign: "center" }}>Account Status</th>
+                      {activeSchema.columns
+                        .filter((c) => c.key !== "empId" && c.key !== "firstName" && c.key !== "middleName" && c.key !== "lastName" && c.key !== "name" && c.key !== "email")
+                        .map((c) => {
+                          const shortLabel = c.label.includes("(") ? c.label.split("(")[0].trim() : c.label
+                          return (
+                            <th key={c.key} title={c.label} style={{ padding: "10px 14px", textAlign: "left", whiteSpace: "nowrap" }}>
+                              {shortLabel}
+                            </th>
+                          )
+                        })}
+                      <th style={{ padding: "10px 14px", textAlign: "center" }}>Status</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {importedList.map((emp) => (
-                      <tr key={emp.id} style={{ borderBottom: `1px solid ${F.border}60` }}>
-                        <td style={{ padding: "12px 18px", fontWeight: 800, color: F.brand }}>
-                          {emp.id}
-                        </td>
-                        <td style={{ padding: "12px 14px", fontWeight: 700, color: F.text1 }}>
-                          {emp.name}
-                        </td>
-                        <td style={{ padding: "12px 14px", color: F.text2 }}>{emp.email}</td>
-                        <td style={{ padding: "12px 14px", color: F.text2 }}>{emp.department}</td>
-                        <td style={{ padding: "12px 14px", color: F.text2 }}>{emp.designation}</td>
-                        <td style={{ padding: "12px 14px", color: F.text1, fontWeight: 600 }}>
-                          {emp.salaryStructure}
-                        </td>
-                        <td style={{ padding: "12px 18px", textAlign: "center" }}>
-                          <Badge label="Active" color={F.success} bg={F.successBg} dot={F.success} />
+                    {importedList.map((r) => (
+                      <tr key={r.id} style={{ borderBottom: "1px solid #F1F5F9" }}>
+                        <td style={{ padding: "10px 14px", fontWeight: 600, color: "#2563EB" }}>{r.empId}</td>
+                        <td style={{ padding: "10px 14px", fontWeight: 600, color: "#1E293B" }}>{r.name}</td>
+                        <td style={{ padding: "10px 14px", color: "#475569" }}>{r.email}</td>
+                        {activeSchema.columns
+                          .filter((c) => c.key !== "empId" && c.key !== "firstName" && c.key !== "middleName" && c.key !== "lastName" && c.key !== "name" && c.key !== "email")
+                          .map((c) => (
+                            <td key={c.key} style={{ padding: "10px 14px", color: "#475569", whiteSpace: "nowrap" }}>
+                              {r.values[c.key] || "—"}
+                            </td>
+                          ))}
+                        <td style={{ padding: "10px 14px", textAlign: "center" }}>
+                          <span
+                            style={{
+                              padding: "3px 8px",
+                              background: "#DCFCE7",
+                              color: "#16A34A",
+                              borderRadius: 4,
+                              fontSize: 11,
+                              fontWeight: 600,
+                            }}
+                          >
+                            Imported
+                          </span>
                         </td>
                       </tr>
                     ))}
@@ -6636,9 +12767,12 @@ function EmployeesView({
     sortBy: "name-asc",
   })
   const [showAdv, setShowAdv] = useState(false)
-  const [subPage, setSubPage] = useState<{ type: "detail" emp: Employee } | {
-    type: "bulk"
-  } | { type: "new" } | null>(null)
+  const [subPage, setSubPage] = useState<
+    | { type: "detail"; emp: Employee }
+    | { type: "bulk"; importOption?: string }
+    | { type: "new" }
+    | null
+  >(null)
   const [showAdd, setShowAdd] = useState(false)
   const [editEmp, setEditEmp] = useState<Employee | null>(null)
   const [confirm, setConfirm] = useState<{
@@ -6662,6 +12796,189 @@ function EmployeesView({
   const [bulkStructure, setBulkStructure] = useState(ss[0]?.name ?? "")
   const [showColumnManager, setShowColumnManager] = useState(false)
   const [draggedColumnId, setDraggedColumnId] = useState<string | null>(null)
+  const [showImportModal, setShowImportModal] = useState(false)
+  const [selectedImportOption, setSelectedImportOption] = useState("")
+  const [importDropdownOpen, setImportDropdownOpen] = useState(false)
+  const [importSearchText, setImportSearchText] = useState("")
+
+  const [showExportModal, setShowExportModal] = useState(false)
+  const [exportDetailType, setExportDetailType] = useState("")
+  const [exportDetailDropdownOpen, setExportDetailDropdownOpen] = useState(false)
+  const [exportDetailSearch, setExportDetailSearch] = useState("")
+  const [exportFilterBy, setExportFilterBy] = useState("All Employees")
+  const [exportFilterByDropdownOpen, setExportFilterByDropdownOpen] = useState(false)
+  const [exportFilterBySearch, setExportFilterBySearch] = useState("")
+  const [showExportAdvFilters, setShowExportAdvFilters] = useState(false)
+  const [exportLocation, setExportLocation] = useState("All Locations")
+  const [exportDepartment, setExportDepartment] = useState("All Departments")
+  const [exportDesignation, setExportDesignation] = useState("All Designations")
+  const [exportFormat, setExportFormat] = useState("XLS (Microsoft Excel 1997-2004 Compatible)")
+  const [exportPasswordProtected, setExportPasswordProtected] = useState(false)
+  const [exportPassword, setExportPassword] = useState("")
+
+  // Export modal draggable state (moving container with cursor)
+  const [exportModalPos, setExportModalPos] = useState({ x: 0, y: 0 })
+  const [isDraggingExportModal, setIsDraggingExportModal] = useState(false)
+  const exportDragStartRef = useRef({ startX: 0, startY: 0, initialX: 0, initialY: 0 })
+
+  const handleExportMouseDown = (e: React.MouseEvent) => {
+    if (e.button !== 0) return
+    const target = e.target as HTMLElement
+    if (target.closest("button") || target.closest("input") || target.closest("select")) return
+    setIsDraggingExportModal(true)
+    exportDragStartRef.current = {
+      startX: e.clientX,
+      startY: e.clientY,
+      initialX: exportModalPos.x,
+      initialY: exportModalPos.y,
+    }
+  }
+
+  useEffect(() => {
+    if (!isDraggingExportModal) return
+    const handleMouseMove = (e: MouseEvent) => {
+      const dx = e.clientX - exportDragStartRef.current.startX
+      const dy = e.clientY - exportDragStartRef.current.startY
+      setExportModalPos({
+        x: exportDragStartRef.current.initialX + dx,
+        y: exportDragStartRef.current.initialY + dy,
+      })
+    }
+    const handleMouseUp = () => {
+      setIsDraggingExportModal(false)
+    }
+    window.addEventListener("mousemove", handleMouseMove)
+    window.addEventListener("mouseup", handleMouseUp)
+    return () => {
+      window.removeEventListener("mousemove", handleMouseMove)
+      window.removeEventListener("mouseup", handleMouseUp)
+    }
+  }, [isDraggingExportModal])
+
+  useEffect(() => {
+    if (showExportModal) {
+      setExportModalPos({ x: 0, y: 0 })
+    }
+  }, [showExportModal])
+
+  // Import modal draggable state
+  const [importModalPos, setImportModalPos] = useState({ x: 0, y: 0 })
+  const [isDraggingImportModal, setIsDraggingImportModal] = useState(false)
+  const importDragStartRef = useRef({ startX: 0, startY: 0, initialX: 0, initialY: 0 })
+
+  const handleImportMouseDown = (e: React.MouseEvent) => {
+    if (e.button !== 0) return
+    const target = e.target as HTMLElement
+    if (target.closest("button") || target.closest("input") || target.closest("select")) return
+    setIsDraggingImportModal(true)
+    importDragStartRef.current = {
+      startX: e.clientX,
+      startY: e.clientY,
+      initialX: importModalPos.x,
+      initialY: importModalPos.y,
+    }
+  }
+
+  useEffect(() => {
+    if (!isDraggingImportModal) return
+    const handleMouseMove = (e: MouseEvent) => {
+      const dx = e.clientX - importDragStartRef.current.startX
+      const dy = e.clientY - importDragStartRef.current.startY
+      setImportModalPos({
+        x: importDragStartRef.current.initialX + dx,
+        y: importDragStartRef.current.initialY + dy,
+      })
+    }
+    const handleMouseUp = () => {
+      setIsDraggingImportModal(false)
+    }
+    window.addEventListener("mousemove", handleMouseMove)
+    window.addEventListener("mouseup", handleMouseUp)
+    return () => {
+      window.removeEventListener("mousemove", handleMouseMove)
+      window.removeEventListener("mouseup", handleMouseUp)
+    }
+  }, [isDraggingImportModal])
+
+  useEffect(() => {
+    if (showImportModal) {
+      setImportModalPos({ x: 0, y: 0 })
+    }
+  }, [showImportModal])
+
+  const importCategories = [
+    {
+      group: "Employee Details",
+      items: [
+        "Employee Basic Details",
+        "Employee Statutory Details",
+        "Employees Payment Information",
+      ],
+    },
+    {
+      group: "Salary Details",
+      items: [
+        "Employee Salary Details",
+        "Salary Revision",
+        "Employee Scheduled Earnings",
+        "Employee Benefit Details",
+        "Employee Deduction Details",
+        "Perquisites",
+        "Employee Vehicle Details",
+      ],
+    },
+    {
+      group: "Complete Employee Basic Details",
+      items: [
+        "Employee Details",
+      ],
+    },
+    {
+      group: "Employee Exit Details",
+      items: [
+        "Employee Exit Details",
+      ],
+    },
+  ]
+
+  const exportCategories = [
+    {
+      group: "Employee Details",
+      items: [
+        "Employee Basic Details",
+        "Employee Statutory Details",
+        "Employees Payment Information",
+      ],
+    },
+    {
+      group: "Salary Details",
+      items: [
+        "Employee Salary Details",
+        "Employee Scheduled Earnings",
+        "Employee Benefit Details",
+        "Employee Deduction Details",
+        "Perquisites",
+        "Employee Vehicle Details",
+      ],
+    },
+    {
+      group: "Complete Employee Basic Details",
+      items: [
+        "Employee Details",
+      ],
+    },
+  ]
+
+  const exportFilterByOptions = [
+    "All Employees",
+    "Active Employees",
+    "Incomplete Employees",
+    "Portal Enabled Employees",
+    "Portal Disabled Employees",
+    "Yet to Accept Portal Invite Employees",
+    "Exited Employees",
+  ]
+
   const [employeeColumns, setEmployeeColumns] = useState([
     { id: "employee", label: "Employee", visible: true },
     { id: "department", label: "Department", visible: true },
@@ -6699,6 +13016,7 @@ function EmployeesView({
         ss={ss}
         emps={emps}
         setEmps={setEmps}
+        importOption={subPage.importOption}
         onBack={() => setSubPage(null)}
       />
     )
@@ -6791,37 +13109,67 @@ function EmployeesView({
     })
   }
 
-  const filtered = hasRunEmployeeSearch ? emps.filter((e) => {
-    const nameMatch = searchMatches(appliedEmpFilters.search, [
+  // Live instant filtering matching Zoho reference
+  const filtered = emps.filter((e) => {
+    const nameMatch = searchMatches(search, [
       e.name,
       e.id,
       e.email,
       e.designation,
+      e.department,
     ])
+    const deptMatch = deptF === "All" || e.department === deptF
+    const typeMatch = typeF === "All" || e.empType === typeF
+    const locMatch = locF === "All" || e.location === locF
+    const ssMatch = ssF === "All" || e.salaryStructure === ssF
+    const dojMatch = dojYear === "All" || e.doj.startsWith(dojYear)
+    const salMinMatch = !salMin || e.grossSalary >= parseInt(salMin) * 1000
+    const salMaxMatch = !salMax || e.grossSalary <= parseInt(salMax) * 1000
+
+    let statusMatch = true
+    if (statusF === "All") {
+      statusMatch = true
+    } else if (statusF === "Active") {
+      statusMatch = e.status === "Active"
+    } else if (statusF === "Incomplete") {
+      statusMatch = e.status === "Incomplete"
+    } else if (statusF === "Portal Enabled") {
+      statusMatch = e.portalStatus === "Enabled"
+    } else if (statusF === "Portal Disabled") {
+      statusMatch = e.portalStatus === "Disabled"
+    } else if (statusF === "Yet to Accept Invite") {
+      statusMatch = e.portalStatus === "Yet to Accept Invite"
+    } else if (statusF === "Exited" || statusF === "Inactive") {
+      statusMatch = e.status === "Exited" || e.status === "Inactive"
+    } else if (statusF === "On Leave") {
+      statusMatch = e.status === "On Leave"
+    }
+
     return (
       nameMatch &&
-      (appliedEmpFilters.deptF === "All" || e.department === appliedEmpFilters.deptF) &&
-      (appliedEmpFilters.statusF === "All" || e.status === appliedEmpFilters.statusF) &&
-      (appliedEmpFilters.typeF === "All" || e.empType === appliedEmpFilters.typeF) &&
-      (appliedEmpFilters.locF === "All" || e.location === appliedEmpFilters.locF) &&
-      (appliedEmpFilters.ssF === "All" || e.salaryStructure === appliedEmpFilters.ssF) &&
-      (appliedEmpFilters.dojYear === "All" || e.doj.startsWith(appliedEmpFilters.dojYear)) &&
-      (!appliedEmpFilters.salMin || e.grossSalary >= parseInt(appliedEmpFilters.salMin) * 1000) &&
-      (!appliedEmpFilters.salMax || e.grossSalary <= parseInt(appliedEmpFilters.salMax) * 1000)
+      deptMatch &&
+      typeMatch &&
+      locMatch &&
+      ssMatch &&
+      dojMatch &&
+      salMinMatch &&
+      salMaxMatch &&
+      statusMatch
     )
   }).sort((a, b) => {
-    const dir = appliedEmpFilters.sortBy.endsWith("-desc") ? -1 : 1
-    if (appliedEmpFilters.sortBy.startsWith("salary")) {
+    const dir = sortBy.endsWith("-desc") ? -1 : 1
+    if (sortBy.startsWith("salary")) {
       return (a.grossSalary - b.grossSalary) * dir
     }
-    if (appliedEmpFilters.sortBy.startsWith("joined")) {
+    if (sortBy.startsWith("joined")) {
       return (new Date(a.doj).getTime() - new Date(b.doj).getTime()) * dir
     }
-    if (appliedEmpFilters.sortBy.startsWith("dept")) {
+    if (sortBy.startsWith("dept")) {
       return a.department.localeCompare(b.department) * dir
     }
     return a.name.localeCompare(b.name) * dir
-  }) : []
+  })
+
   const paginatedEmployees = filtered.slice((employeePage - 1) * employeePageSize, employeePage * employeePageSize)
   const allVisibleSelected = paginatedEmployees.length > 0 && paginatedEmployees.every((employee) => selectedEmployeeIds.includes(employee.id))
   const toggleVisibleSelection = () => setSelectedEmployeeIds(allVisibleSelected ? selectedEmployeeIds.filter((id) => !paginatedEmployees.some((employee) => employee.id === id)) : Array.from(new Set([...selectedEmployeeIds, ...paginatedEmployees.map((employee) => employee.id)])))
@@ -6926,7 +13274,11 @@ function EmployeesView({
           <div style={{ display: "flex", gap: 8 }}>
             <Btn
               variant="secondary"
-              onClick={() => toast("Employee list exported as CSV", "success")}
+              onClick={() => {
+                setShowExportModal(true)
+                setExportDetailDropdownOpen(false)
+                setExportFilterByDropdownOpen(false)
+              }}
             >
               <svg
                 width="13"
@@ -6942,14 +13294,18 @@ function EmployeesView({
                 <polyline points="7 10 12 15 17 10" />
                 <line x1="12" y1="15" x2="12" y2="3" />
               </svg>
-              Export CSV
+              Export Data
             </Btn>
             <Btn variant="secondary" onClick={() => setShowColumnManager(!showColumnManager)}>
               ↔ Customize columns
             </Btn>
             <Btn
               variant="secondary"
-              onClick={() => setSubPage({ type: "bulk" })}
+              onClick={() => {
+                setShowImportModal(true)
+                setImportDropdownOpen(false)
+                setImportSearchText("")
+              }}
             >
               <svg
                 width="13"
@@ -6974,55 +13330,69 @@ function EmployeesView({
         }
       />
 
-      {/* Status chips */}
+      {/* Status chips matching Zoho reference */}
       <div
-        style={{ display: "flex", gap: 8, marginBottom: 10, flexWrap: "wrap" }}
+        style={{ display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap", alignItems: "center" }}
       >
         {[
-          { l: "All", v: emps.length, c: F.brand },
+          { l: "All", label: "All", v: emps.length, c: F.brand },
           {
             l: "Active",
+            label: "Active",
             v: emps.filter((e) => e.status === "Active").length,
             c: F.success,
           },
           {
-            l: "On Leave",
-            v: emps.filter((e) => e.status === "On Leave").length,
-            c: F.warning,
-          },
-          {
             l: "Incomplete",
+            label: "Incomplete",
             v: emps.filter((e) => e.status === "Incomplete").length,
-            c: F.warning,
+            c: "#D97706",
           },
           {
-            l: "Inactive",
-            v: emps.filter((e) => e.status === "Inactive").length,
-            c: F.text3,
+            l: "Portal Enabled",
+            label: "Portal Enabled",
+            v: emps.filter((e) => e.portalStatus === "Enabled").length,
+            c: "#0284C7",
+          },
+          {
+            l: "Portal Disabled",
+            label: "Portal Disabled",
+            v: emps.filter((e) => e.portalStatus === "Disabled").length,
+            c: "#64748B",
+          },
+          {
+            l: "Yet to Accept Invite",
+            label: "Yet to Accept Invite",
+            v: emps.filter((e) => e.portalStatus === "Yet to Accept Invite").length,
+            c: "#EA580C",
+          },
+          {
+            l: "Exited",
+            label: "Exited",
+            v: emps.filter((e) => e.status === "Exited" || e.status === "Inactive").length,
+            c: F.error,
           },
         ].map((x) => (
           <div
             key={x.l}
-            onClick={() => setStatusF(x.l === "All" ? "All" : x.l)}
+            onClick={() => setStatusF(x.l)}
             style={{
-              padding: "5px 14px",
-              background:
-                statusF === (x.l === "All" ? "All" : x.l) ? `${x.c}15` : F.card,
-              border: `1px solid ${
-                statusF === (x.l === "All" ? "All" : x.l) ? x.c : F.border
-              }`,
+              padding: "6px 14px",
+              background: statusF === x.l ? `${x.c}18` : F.card,
+              border: `1.5px solid ${statusF === x.l ? x.c : F.border}`,
               borderRadius: 20,
               cursor: "pointer",
               fontSize: 12,
               fontWeight: 600,
-              color: x.c,
+              color: statusF === x.l ? x.c : F.text2,
               display: "flex",
               alignItems: "center",
               gap: 6,
+              transition: "all 0.15s ease",
             }}
           >
-            <span style={{ fontSize: 13, fontWeight: 800 }}>{x.v}</span>
-            {x.l}
+            <span style={{ fontSize: 13, fontWeight: 800, color: x.c }}>{x.v}</span>
+            {x.label}
           </div>
         ))}
         <div style={{ flex: 1 }} />
@@ -7093,7 +13463,7 @@ function EmployeesView({
       </div>
 
       {/* Incomplete profiles banner alert */}
-          {emps.filter((e) => e.status === "Incomplete").length > 0 && (
+      {emps.filter((e) => e.status === "Incomplete").length > 0 && (
         <div
           style={{
             background: "#FFF8E1",
@@ -7109,7 +13479,7 @@ function EmployeesView({
           }}
         >
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <span style={{ fontSize: 15 }}><UiIcon name="warning" size={17} /></span>
+            <span style={{ fontSize: 15 }}>⚠️</span>
             <span>
               You have{" "}
               <strong>
@@ -7136,13 +13506,14 @@ function EmployeesView({
         </div>
       )}
 
-      {/* Primary search + quick selects */}
+      {/* Primary search + quick selects (Live filtering without Go button) */}
       <div
         style={{
           display: "flex",
           gap: 8,
           marginBottom: showAdv ? 8 : 14,
           flexWrap: "wrap",
+          alignItems: "center",
         }}
       >
         <ValueHelp
@@ -7154,41 +13525,43 @@ function EmployeesView({
         <select
           value={deptF}
           onChange={(e) => setDeptF(e.target.value)}
-          style={{ ...iSt, width: 160 }}
+          style={{ ...iSt, width: "auto", minWidth: 140 }}
         >
-          {depts.map((d) => (
-            <option key={d}>{d}</option>
+          <option value="All">Department</option>
+          {depts.filter((d) => d !== "All").map((d) => (
+            <option key={d} value={d}>{d}</option>
           ))}
         </select>
         <select
           value={typeF}
           onChange={(e) => setTypeF(e.target.value)}
-          style={{ ...iSt, width: 140 }}
+          style={{ ...iSt, width: "auto", minWidth: 150 }}
         >
-          {["All", "Full-Time", "Part-Time", "Contract"].map((t) => (
-            <option key={t}>{t}</option>
-          ))}
+          <option value="All">Employment Type</option>
+          <option value="Full-Time">Full-Time</option>
+          <option value="Part-Time">Part-Time</option>
+          <option value="Contract">Contract</option>
         </select>
         <select
           value={sortBy}
           onChange={(e) => setSortBy(e.target.value)}
-          style={{ ...iSt, width: 180 }}
+          style={{ ...iSt, width: "auto", minWidth: 160 }}
           title="Sort employees"
         >
-          <option value="name-asc">Name A-Z</option>
-          <option value="name-desc">Name Z-A</option>
-          <option value="salary-desc">Salary High-Low</option>
-          <option value="salary-asc">Salary Low-High</option>
-          <option value="joined-desc">Newest Joined</option>
-          <option value="joined-asc">Oldest Joined</option>
-          <option value="dept-asc">Department A-Z</option>
+          <option value="name-asc">Sort By: Name A-Z</option>
+          <option value="name-desc">Sort By: Name Z-A</option>
+          <option value="salary-desc">Sort By: Salary High-Low</option>
+          <option value="salary-asc">Sort By: Salary Low-High</option>
+          <option value="joined-desc">Sort By: Joined Recent</option>
+          <option value="joined-asc">Sort By: Joined Oldest</option>
+          <option value="dept-asc">Sort By: Dept A-Z</option>
         </select>
-        <Btn onClick={applyEmpFilters}>Go</Btn>
-        <Btn variant="secondary" onClick={clearEmpFilters}>
-          Clear Filters
-        </Btn>
+        {(search || deptF !== "All" || typeF !== "All" || statusF !== "All") && (
+          <Btn variant="secondary" onClick={clearEmpFilters}>
+            Clear Filters
+          </Btn>
+        )}
       </div>
-
       {/* Advanced filter panel */}
       {showAdv && (
         <div
@@ -7429,8 +13802,8 @@ function EmployeesView({
       )}
 
       <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 10, position: "relative" }}>
-        <Btn small variant="secondary" onClick={() => setShowColumnManager(!showColumnManager)}><UiIcon name="columns" /> Columns</Btn>
-        {showColumnManager && <div style={{ position: "absolute", top: 34, right: 0, zIndex: 5, width: 330, background: F.card, border: `1px solid ${F.border}`, borderRadius: 8, padding: 12, boxShadow: "0 8px 24px rgba(15,23,42,0.18)" }}><div style={{ fontSize: 13, fontWeight: 800, marginBottom: 8 }}>Table columns</div><div style={{ fontSize: 11, color: F.text2, marginBottom: 10 }}>Drag the handle to rearrange. Check columns to show or hide them.</div>{employeeColumns.map((column) => <div key={column.id} draggable onDragStart={() => setDraggedColumnId(column.id)} onDragOver={(event) => event.preventDefault()} onDrop={() => dropEmployeeColumn(column.id)} onDragEnd={() => setDraggedColumnId(null)} style={{ display: "grid", gridTemplateColumns: "18px 22px 1fr", alignItems: "center", gap: 7, padding: "8px 4px", borderRadius: 5, cursor: "grab", background: draggedColumnId === column.id ? F.infoBg : "transparent", border: `1px solid ${draggedColumnId === column.id ? F.brand : "transparent"}` }}><span title="Drag to rearrange" style={{ color: F.text3, fontSize: 16 }}><UiIcon name="grip" /></span><input type="checkbox" checked={column.visible} onClick={(event) => event.stopPropagation()} onChange={() => setEmployeeColumns(employeeColumns.map((item) => item.id === column.id ? { ...item, visible: !item.visible } : item))} /><span style={{ fontSize: 12, fontWeight: 600 }}>{column.label}</span></div>)}</div>}
+        <Btn small variant="secondary" onClick={() => setShowColumnManager(!showColumnManager)}>☷ Columns</Btn>
+        {showColumnManager && <div style={{ position: "absolute", top: 34, right: 0, zIndex: 5, width: 330, background: F.card, border: `1px solid ${F.border}`, borderRadius: 8, padding: 12, boxShadow: "0 8px 24px rgba(15,23,42,0.18)" }}><div style={{ fontSize: 13, fontWeight: 800, marginBottom: 8 }}>Table columns</div><div style={{ fontSize: 11, color: F.text2, marginBottom: 10 }}>Drag the ⠿ handle to rearrange. Check columns to show or hide them.</div>{employeeColumns.map((column) => <div key={column.id} draggable onDragStart={() => setDraggedColumnId(column.id)} onDragOver={(event) => event.preventDefault()} onDrop={() => dropEmployeeColumn(column.id)} onDragEnd={() => setDraggedColumnId(null)} style={{ display: "grid", gridTemplateColumns: "18px 22px 1fr", alignItems: "center", gap: 7, padding: "8px 4px", borderRadius: 5, cursor: "grab", background: draggedColumnId === column.id ? F.infoBg : "transparent", border: `1px solid ${draggedColumnId === column.id ? F.brand : "transparent"}` }}><span title="Drag to rearrange" style={{ color: F.text3, fontSize: 16, letterSpacing: -2 }}>⠿</span><input type="checkbox" checked={column.visible} onClick={(event) => event.stopPropagation()} onChange={() => setEmployeeColumns(employeeColumns.map((item) => item.id === column.id ? { ...item, visible: !item.visible } : item))} /><span style={{ fontSize: 12, fontWeight: 600 }}>{column.label}</span></div>)}</div>}
       </div>
 
       <div style={{ background: F.card, border: `1px solid ${F.border}`, borderRadius: 8, overflow: "hidden" }}>
@@ -7559,7 +13932,7 @@ function EmployeesView({
                         padding: "6px 12px",
                         display: "flex",
                         alignItems: "center",
-                        justify: "space-between",
+                        justifyContent: "space-between",
                         gap: 8,
                         width: "100%",
                       }}
@@ -7889,6 +14262,8 @@ function EmployeesView({
                 <option>Active</option>
                 <option>Inactive</option>
                 <option>On Leave</option>
+                <option>Incomplete</option>
+                <option>Exited</option>
               </select>
             </Fld>
           </div>
@@ -7908,6 +14283,1056 @@ function EmployeesView({
         </Modal>
       )}
 
+      {/* Import Data Modal matching Zoho Payroll */}
+      {showImportModal && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(15, 23, 42, 0.4)",
+            backdropFilter: "blur(2px)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 9999,
+            padding: 20,
+          }}
+          onClick={() => {
+            setImportDropdownOpen(false)
+          }}
+        >
+          <div
+            style={{
+              background: "#FFFFFF",
+              borderRadius: 8,
+              width: "100%",
+              maxWidth: 540,
+              boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1)",
+              border: `1px solid ${F.border}`,
+              overflow: "visible",
+              transform: `translate(${importModalPos.x}px, ${importModalPos.y}px)`,
+              transition: isDraggingImportModal ? "none" : "transform 0.05s ease",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header - Draggable with cursor */}
+            <div
+              onMouseDown={handleImportMouseDown}
+              style={{
+                padding: "18px 24px",
+                borderBottom: `1px solid ${F.border}`,
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                cursor: isDraggingImportModal ? "grabbing" : "grab",
+                userSelect: "none",
+              }}
+              title="Drag to move container"
+            >
+              <div style={{ fontSize: 18, fontWeight: 600, color: "#1E293B" }}>
+                Import Data
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowImportModal(false)}
+                style={{
+                  background: "none",
+                  border: "none",
+                  fontSize: 20,
+                  color: "#2563EB",
+                  cursor: "pointer",
+                  padding: "2px 6px",
+                  lineHeight: 1,
+                }}
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div style={{ padding: "24px", position: "relative" }}>
+              <div style={{ fontSize: 14, fontWeight: 500, color: "#1E293B", marginBottom: 12 }}>
+                Select the type of employee details to import
+              </div>
+
+              {/* Custom Searchable Dropdown Selector */}
+              <div style={{ position: "relative" }}>
+                <div
+                  onClick={() => setImportDropdownOpen(!importDropdownOpen)}
+                  style={{
+                    border: `1px solid ${importDropdownOpen ? "#3B82F6" : "#BFDBFE"}`,
+                    borderRadius: 6,
+                    padding: "10px 14px",
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    cursor: "pointer",
+                    background: "#FFFFFF",
+                    minHeight: 42,
+                    boxShadow: importDropdownOpen ? "0 0 0 3px rgba(59, 130, 246, 0.15)" : "none",
+                  }}
+                >
+                  <span
+                    style={{
+                      color: selectedImportOption ? "#1E293B" : "#94A3B8",
+                      fontSize: 14,
+                      fontWeight: selectedImportOption ? 500 : 400,
+                    }}
+                  >
+                    {selectedImportOption || "Select"}
+                  </span>
+                  <span style={{ color: "#3B82F6", fontSize: 12, transform: importDropdownOpen ? "rotate(180deg)" : "none", transition: "transform 0.2s" }}>
+                    ▼
+                  </span>
+                </div>
+
+                {/* Dropdown Menu Popup */}
+                {importDropdownOpen && (
+                  <div
+                    style={{
+                      position: "absolute",
+                      top: "calc(100% + 4px)",
+                      left: 0,
+                      right: 0,
+                      background: "#FFFFFF",
+                      border: "1px solid #E2E8F0",
+                      borderRadius: 8,
+                      boxShadow: "0 10px 25px -5px rgba(0, 0, 0, 0.15), 0 8px 10px -6px rgba(0, 0, 0, 0.1)",
+                      zIndex: 1000,
+                      overflow: "hidden",
+                    }}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    {/* Search Field */}
+                    <div style={{ padding: "10px 12px", borderBottom: "1px solid #F1F5F9", position: "relative" }}>
+                      <svg
+                        width="14"
+                        height="14"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="#64748B"
+                        strokeWidth="2.5"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        style={{ position: "absolute", left: 22, top: "50%", transform: "translateY(-50%)" }}
+                      >
+                        <circle cx="11" cy="11" r="8" />
+                        <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                      </svg>
+                      <input
+                        autoFocus
+                        style={{
+                          width: "100%",
+                          padding: "8px 12px 8px 32px",
+                          fontSize: 13,
+                          border: "1px solid #3B82F6",
+                          borderRadius: 6,
+                          outline: "none",
+                          fontFamily: "inherit",
+                          boxSizing: "border-box",
+                        }}
+                        value={importSearchText}
+                        onChange={(e) => setImportSearchText(e.target.value)}
+                        placeholder="Search..."
+                      />
+                    </div>
+
+                    {/* Options List */}
+                    <div
+                      style={{
+                        maxHeight: 250,
+                        overflowY: "auto",
+                        padding: "6px 0",
+                      }}
+                    >
+                      {importCategories.map((group) => {
+                        const filteredItems = group.items.filter((item) =>
+                          item.toLowerCase().includes(importSearchText.toLowerCase()),
+                        )
+                        if (filteredItems.length === 0) return null
+
+                        return (
+                          <div key={group.group}>
+                            <div
+                              style={{
+                                padding: "8px 16px 4px",
+                                fontSize: 12,
+                                fontWeight: 700,
+                                color: "#0F172A",
+                              }}
+                            >
+                              {group.group}
+                            </div>
+                            {filteredItems.map((item) => {
+                              const isSelected = selectedImportOption === item
+                              return (
+                                <div
+                                  key={item}
+                                  onClick={() => {
+                                    setSelectedImportOption(item)
+                                    setImportDropdownOpen(false)
+                                  }}
+                                  style={{
+                                    padding: "8px 16px 8px 24px",
+                                    fontSize: 13.5,
+                                    cursor: "pointer",
+                                    color: isSelected ? "#FFFFFF" : "#334155",
+                                    background: isSelected ? "#3B82F6" : "transparent",
+                                    fontWeight: isSelected ? 600 : 400,
+                                    transition: "background 0.15s",
+                                  }}
+                                  onMouseOver={(e) => {
+                                    if (!isSelected) e.currentTarget.style.background = "#EFF6FF"
+                                  }}
+                                  onMouseOut={(e) => {
+                                    if (!isSelected) e.currentTarget.style.background = "transparent"
+                                  }}
+                                >
+                                  {item}
+                                </div>
+                              )
+                            })}
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div
+              style={{
+                padding: "16px 24px",
+                borderTop: `1px solid ${F.border}`,
+                display: "flex",
+                gap: 10,
+              }}
+            >
+              <button
+                type="button"
+                disabled={!selectedImportOption}
+                onClick={() => {
+                  if (!selectedImportOption) return
+                  setShowImportModal(false)
+                  setSubPage({ type: "bulk", importOption: selectedImportOption })
+                }}
+                style={{
+                  background: selectedImportOption ? "#3B82F6" : "#93C5FD",
+                  color: "#FFFFFF",
+                  border: "none",
+                  borderRadius: 6,
+                  padding: "9px 22px",
+                  fontSize: 14,
+                  fontWeight: 600,
+                  cursor: selectedImportOption ? "pointer" : "not-allowed",
+                  transition: "background 0.2s",
+                }}
+              >
+                Proceed
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowImportModal(false)}
+                style={{
+                  background: "#FFFFFF",
+                  color: "#475569",
+                  border: "1px solid #CBD5E1",
+                  borderRadius: 6,
+                  padding: "9px 18px",
+                  fontSize: 14,
+                  fontWeight: 500,
+                  cursor: "pointer",
+                }}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Export Data Modal matching Zoho Payroll */}
+      {showExportModal && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(15, 23, 42, 0.4)",
+            backdropFilter: "blur(2px)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 9999,
+            padding: 16,
+            overflowY: "auto",
+          }}
+          onClick={() => {
+            setExportDetailDropdownOpen(false)
+            setExportFilterByDropdownOpen(false)
+          }}
+        >
+          <div
+            style={{
+              background: "#FFFFFF",
+              borderRadius: 8,
+              width: "100%",
+              maxWidth: 540,
+              maxHeight: "calc(100vh - 40px)",
+              display: "flex",
+              flexDirection: "column",
+              boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1)",
+              border: `1px solid ${F.border}`,
+              overflow: "hidden",
+              transform: `translate(${exportModalPos.x}px, ${exportModalPos.y}px)`,
+              transition: isDraggingExportModal ? "none" : "transform 0.05s ease",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header - Draggable with cursor */}
+            <div
+              onMouseDown={handleExportMouseDown}
+              style={{
+                padding: "16px 24px",
+                borderBottom: `1px solid ${F.border}`,
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                flexShrink: 0,
+                background: "#FFFFFF",
+                cursor: isDraggingExportModal ? "grabbing" : "grab",
+                userSelect: "none",
+              }}
+              title="Drag to move container"
+            >
+              <div style={{ fontSize: 18, fontWeight: 600, color: "#1E293B" }}>
+                Export Data
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowExportModal(false)}
+                style={{
+                  background: "none",
+                  border: "none",
+                  fontSize: 20,
+                  color: "#2563EB",
+                  cursor: "pointer",
+                  padding: "2px 6px",
+                  lineHeight: 1,
+                }}
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Modal Body - Scrollable */}
+            <div
+              style={{
+                padding: "20px 24px",
+                display: "flex",
+                flexDirection: "column",
+                gap: 18,
+                flex: 1,
+                overflowY: "auto",
+              }}
+            >
+              {/* Field 1: Select Type of Details to Export */}
+              <div>
+                <label style={{ display: "block", fontSize: 14, fontWeight: 500, color: "#1E293B", marginBottom: 8 }}>
+                  Select the type of employee details to export
+                </label>
+                <div style={{ position: "relative" }}>
+                  <div
+                    onClick={() => {
+                      setExportDetailDropdownOpen(!exportDetailDropdownOpen)
+                      setExportFilterByDropdownOpen(false)
+                    }}
+                    style={{
+                      border: `1px solid ${exportDetailDropdownOpen ? "#3B82F6" : "#CBD5E1"}`,
+                      borderRadius: 6,
+                      padding: "10px 14px",
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      cursor: "pointer",
+                      background: "#FFFFFF",
+                      minHeight: 42,
+                      boxShadow: exportDetailDropdownOpen ? "0 0 0 3px rgba(59, 130, 246, 0.15)" : "none",
+                    }}
+                  >
+                    <span
+                      style={{
+                        color: exportDetailType ? "#1E293B" : "#94A3B8",
+                        fontSize: 14,
+                        fontWeight: exportDetailType ? 500 : 400,
+                      }}
+                    >
+                      {exportDetailType || "Select"}
+                    </span>
+                    <span style={{ color: "#3B82F6", fontSize: 12, transform: exportDetailDropdownOpen ? "rotate(180deg)" : "none", transition: "transform 0.2s" }}>
+                      ▼
+                    </span>
+                  </div>
+
+                  {/* Dropdown Menu Popup */}
+                  {exportDetailDropdownOpen && (
+                    <div
+                      style={{
+                        position: "absolute",
+                        top: "calc(100% + 4px)",
+                        left: 0,
+                        right: 0,
+                        background: "#FFFFFF",
+                        border: "1px solid #E2E8F0",
+                        borderRadius: 8,
+                        boxShadow: "0 10px 25px -5px rgba(0, 0, 0, 0.15), 0 8px 10px -6px rgba(0, 0, 0, 0.1)",
+                        zIndex: 1000,
+                        overflow: "hidden",
+                      }}
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      {/* Search Field */}
+                      <div style={{ padding: "10px 12px", borderBottom: "1px solid #F1F5F9", position: "relative" }}>
+                        <svg
+                          width="14"
+                          height="14"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="#64748B"
+                          strokeWidth="2.5"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          style={{ position: "absolute", left: 22, top: "50%", transform: "translateY(-50%)" }}
+                        >
+                          <circle cx="11" cy="11" r="8" />
+                          <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                        </svg>
+                        <input
+                          type="text"
+                          placeholder="Search"
+                          value={exportDetailSearch}
+                          onChange={(e) => setExportDetailSearch(e.target.value)}
+                          autoFocus
+                          style={{
+                            width: "100%",
+                            padding: "8px 12px 8px 32px",
+                            border: "1px solid #CBD5E1",
+                            borderRadius: 6,
+                            fontSize: 13,
+                            outline: "none",
+                            color: "#1E293B",
+                          }}
+                        />
+                      </div>
+
+                      {/* Items List */}
+                      <div style={{ maxHeight: 220, overflowY: "auto" }}>
+                        {exportCategories.map((group) => {
+                          const filteredItems = group.items.filter((item) =>
+                            item.toLowerCase().includes(exportDetailSearch.toLowerCase()),
+                          )
+                          if (filteredItems.length === 0) return null
+
+                          return (
+                            <div key={group.group}>
+                              <div
+                                style={{
+                                  padding: "8px 16px 4px 16px",
+                                  fontSize: 11.5,
+                                  fontWeight: 700,
+                                  color: "#64748B",
+                                }}
+                              >
+                                {group.group}
+                              </div>
+                              {filteredItems.map((item) => {
+                                const isSelected = exportDetailType === item
+                                return (
+                                  <div
+                                    key={item}
+                                    onClick={() => {
+                                      setExportDetailType(item)
+                                      setExportDetailDropdownOpen(false)
+                                    }}
+                                    style={{
+                                      padding: "8px 16px 8px 24px",
+                                      fontSize: 13.5,
+                                      cursor: "pointer",
+                                      color: isSelected ? "#FFFFFF" : "#334155",
+                                      background: isSelected ? "#3B82F6" : "transparent",
+                                      fontWeight: isSelected ? 600 : 400,
+                                      transition: "background 0.15s",
+                                    }}
+                                    onMouseOver={(e) => {
+                                      if (!isSelected) e.currentTarget.style.background = "#EFF6FF"
+                                    }}
+                                    onMouseOut={(e) => {
+                                      if (!isSelected) e.currentTarget.style.background = "transparent"
+                                    }}
+                                  >
+                                    {item}
+                                  </div>
+                                )
+                              })}
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Field 2: Filter By Dropdown */}
+              <div>
+                <label style={{ display: "block", fontSize: 14, fontWeight: 500, color: "#1E293B", marginBottom: 8 }}>
+                  Filter By
+                </label>
+                <div style={{ position: "relative" }}>
+                  <div
+                    onClick={() => {
+                      setExportFilterByDropdownOpen(!exportFilterByDropdownOpen)
+                      setExportDetailDropdownOpen(false)
+                    }}
+                    style={{
+                      border: `1px solid ${exportFilterByDropdownOpen ? "#3B82F6" : "#CBD5E1"}`,
+                      borderRadius: 6,
+                      padding: "10px 14px",
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      cursor: "pointer",
+                      background: "#FFFFFF",
+                      minHeight: 42,
+                      boxShadow: exportFilterByDropdownOpen ? "0 0 0 3px rgba(59, 130, 246, 0.15)" : "none",
+                    }}
+                  >
+                    <span style={{ color: "#1E293B", fontSize: 14, fontWeight: 500 }}>
+                      {exportFilterBy}
+                    </span>
+                    <span style={{ color: "#3B82F6", fontSize: 12, transform: exportFilterByDropdownOpen ? "rotate(180deg)" : "none", transition: "transform 0.2s" }}>
+                      ▼
+                    </span>
+                  </div>
+
+                  {/* Filter By Dropdown Menu */}
+                  {exportFilterByDropdownOpen && (
+                    <div
+                      style={{
+                        position: "absolute",
+                        top: "calc(100% + 4px)",
+                        left: 0,
+                        right: 0,
+                        background: "#FFFFFF",
+                        border: "1px solid #E2E8F0",
+                        borderRadius: 8,
+                        boxShadow: "0 10px 25px -5px rgba(0, 0, 0, 0.15), 0 8px 10px -6px rgba(0, 0, 0, 0.1)",
+                        zIndex: 1000,
+                        overflow: "hidden",
+                      }}
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      {/* Search inside Filter By */}
+                      <div style={{ padding: "10px 12px", borderBottom: "1px solid #F1F5F9", position: "relative" }}>
+                        <svg
+                          width="14"
+                          height="14"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="#64748B"
+                          strokeWidth="2.5"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          style={{ position: "absolute", left: 22, top: "50%", transform: "translateY(-50%)" }}
+                        >
+                          <circle cx="11" cy="11" r="8" />
+                          <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                        </svg>
+                        <input
+                          type="text"
+                          placeholder="Search"
+                          value={exportFilterBySearch}
+                          onChange={(e) => setExportFilterBySearch(e.target.value)}
+                          autoFocus
+                          style={{
+                            width: "100%",
+                            padding: "8px 12px 8px 32px",
+                            border: "1px solid #CBD5E1",
+                            borderRadius: 6,
+                            fontSize: 13,
+                            outline: "none",
+                            color: "#1E293B",
+                          }}
+                        />
+                      </div>
+
+                      {/* Filter By Options List */}
+                      <div style={{ maxHeight: 200, overflowY: "auto" }}>
+                        {exportFilterByOptions
+                          .filter((opt) => opt.toLowerCase().includes(exportFilterBySearch.toLowerCase()))
+                          .map((opt) => {
+                            const isSelected = exportFilterBy === opt
+                            return (
+                              <div
+                                key={opt}
+                                onClick={() => {
+                                  setExportFilterBy(opt)
+                                  setExportFilterByDropdownOpen(false)
+                                }}
+                                style={{
+                                  padding: "9px 16px",
+                                  fontSize: 13.5,
+                                  cursor: "pointer",
+                                  color: isSelected ? "#FFFFFF" : "#334155",
+                                  background: isSelected ? "#3B82F6" : "transparent",
+                                  fontWeight: isSelected ? 600 : 400,
+                                  display: "flex",
+                                  justifyContent: "space-between",
+                                  alignItems: "center",
+                                  transition: "background 0.15s",
+                                }}
+                                onMouseOver={(e) => {
+                                  if (!isSelected) e.currentTarget.style.background = "#EFF6FF"
+                                }}
+                                onMouseOut={(e) => {
+                                  if (!isSelected) e.currentTarget.style.background = "transparent"
+                                }}
+                              >
+                                <span>{opt}</span>
+                                {isSelected && <span style={{ color: "#FFFFFF", fontWeight: 700 }}>✓</span>}
+                              </div>
+                            )
+                          })}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Collapsible Advanced Filters Section */}
+              <div>
+                <button
+                  type="button"
+                  onClick={() => setShowExportAdvFilters(!showExportAdvFilters)}
+                  style={{
+                    background: "none",
+                    border: "none",
+                    color: "#2563EB",
+                    fontSize: 13.5,
+                    fontWeight: 500,
+                    cursor: "pointer",
+                    padding: "4px 0",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 6,
+                  }}
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                    <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" />
+                  </svg>
+                  <span>Filters</span>
+                  <span style={{ fontSize: 11, marginLeft: 2 }}>{showExportAdvFilters ? "▲" : "▼"}</span>
+                </button>
+
+                {showExportAdvFilters && (
+                  <div
+                    style={{
+                      marginTop: 12,
+                      padding: "16px",
+                      background: "#F8FAFC",
+                      borderRadius: 6,
+                      border: "1px solid #E2E8F0",
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: 14,
+                    }}
+                  >
+                    <div>
+                      <label style={{ display: "block", fontSize: 13, fontWeight: 500, color: "#334155", marginBottom: 6 }}>
+                        Work Location
+                      </label>
+                      <select
+                        value={exportLocation}
+                        onChange={(e) => setExportLocation(e.target.value)}
+                        style={{
+                          width: "100%",
+                          padding: "8px 12px",
+                          fontSize: 13.5,
+                          border: "1px solid #CBD5E1",
+                          borderRadius: 6,
+                          background: "#FFFFFF",
+                          outline: "none",
+                          color: "#1E293B",
+                        }}
+                      >
+                        <option value="All Locations">All Locations</option>
+                        {Array.from(new Set(emps.map((e) => e.location).filter(Boolean))).map((loc) => (
+                          <option key={loc} value={loc}>{loc}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label style={{ display: "block", fontSize: 13, fontWeight: 500, color: "#334155", marginBottom: 6 }}>
+                        Department
+                      </label>
+                      <select
+                        value={exportDepartment}
+                        onChange={(e) => setExportDepartment(e.target.value)}
+                        style={{
+                          width: "100%",
+                          padding: "8px 12px",
+                          fontSize: 13.5,
+                          border: "1px solid #CBD5E1",
+                          borderRadius: 6,
+                          background: "#FFFFFF",
+                          outline: "none",
+                          color: "#1E293B",
+                        }}
+                      >
+                        <option value="All Departments">All Departments</option>
+                        {Array.from(new Set(emps.map((e) => e.department).filter(Boolean))).map((dept) => (
+                          <option key={dept} value={dept}>{dept}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label style={{ display: "block", fontSize: 13, fontWeight: 500, color: "#334155", marginBottom: 6 }}>
+                        Designation
+                      </label>
+                      <select
+                        value={exportDesignation}
+                        onChange={(e) => setExportDesignation(e.target.value)}
+                        style={{
+                          width: "100%",
+                          padding: "8px 12px",
+                          fontSize: 13.5,
+                          border: "1px solid #CBD5E1",
+                          borderRadius: 6,
+                          background: "#FFFFFF",
+                          outline: "none",
+                          color: "#1E293B",
+                        }}
+                      >
+                        <option value="All Designations">All Designations</option>
+                        {Array.from(new Set(emps.map((e) => e.designation).filter(Boolean))).map((desig) => (
+                          <option key={desig} value={desig}>{desig}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Field 3: Export as */}
+              <div>
+                <label style={{ display: "block", fontSize: 14, fontWeight: 500, color: "#1E293B", marginBottom: 8 }}>
+                  Export as
+                </label>
+                <div style={{ position: "relative" }}>
+                  <select
+                    value={exportFormat}
+                    onChange={(e) => setExportFormat(e.target.value)}
+                    style={{
+                      width: "100%",
+                      padding: "9px 36px 9px 12px",
+                      fontSize: 14,
+                      color: "#1E293B",
+                      background: "#FFFFFF",
+                      border: "1px solid #CBD5E1",
+                      borderRadius: 6,
+                      outline: "none",
+                      cursor: "pointer",
+                      appearance: "none",
+                    }}
+                  >
+                    <option value="XLS (Microsoft Excel 1997-2004 Compatible)">XLS (Microsoft Excel 1997-2004 Compatible)</option>
+                    <option value="CSV (Comma Separated Values)">CSV (Comma Separated Values)</option>
+                    <option value="XLSX (Microsoft Excel)">XLSX (Microsoft Excel)</option>
+                  </select>
+                  <span
+                    style={{
+                      position: "absolute",
+                      right: 14,
+                      top: "50%",
+                      transform: "translateY(-50%)",
+                      pointerEvents: "none",
+                      color: "#64748B",
+                      fontSize: 11,
+                    }}
+                  >
+                    ▼
+                  </span>
+                </div>
+              </div>
+
+              {/* Password Protection Checkbox */}
+              <div>
+                <label style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 14, color: "#334155", cursor: "pointer" }}>
+                  <input
+                    type="checkbox"
+                    checked={exportPasswordProtected}
+                    onChange={(e) => setExportPasswordProtected(e.target.checked)}
+                    style={{ width: 16, height: 16, accentColor: "#2563EB", cursor: "pointer" }}
+                  />
+                  Protect this file with a password
+                </label>
+
+                {exportPasswordProtected && (
+                  <div style={{ marginTop: 10 }}>
+                    <input
+                      type="password"
+                      placeholder="Enter file protection password"
+                      value={exportPassword}
+                      onChange={(e) => setExportPassword(e.target.value)}
+                      style={{
+                        width: "100%",
+                        padding: "8px 12px",
+                        fontSize: 13.5,
+                        border: "1px solid #CBD5E1",
+                        borderRadius: 6,
+                        outline: "none",
+                        color: "#1E293B",
+                      }}
+                    />
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Modal Footer - Fixed at bottom */}
+            <div
+              style={{
+                padding: "14px 24px",
+                borderTop: `1px solid ${F.border}`,
+                display: "flex",
+                gap: 10,
+                background: "#FFFFFF",
+                flexShrink: 0,
+              }}
+            >
+              <button
+                type="button"
+                onClick={() => {
+                  if (!exportDetailType) {
+                    toast("Please select the type of employee details to export", "error")
+                    return
+                  }
+
+                  // Filter target employees
+                  let targetEmps = [...emps]
+                  if (exportFilterBy === "Active Employees") {
+                    targetEmps = targetEmps.filter((e) => e.status === "Active")
+                  } else if (exportFilterBy === "Incomplete Employees") {
+                    targetEmps = targetEmps.filter((e) => !e.mobile || !e.salaryStructure || !e.department)
+                  } else if (exportFilterBy === "Portal Enabled Employees") {
+                    targetEmps = targetEmps.filter((e) => e.portalStatus === "Enabled" || (e.status === "Active" && e.portalStatus !== "Disabled"))
+                  } else if (exportFilterBy === "Portal Disabled Employees") {
+                    targetEmps = targetEmps.filter((e) => e.portalStatus === "Disabled")
+                  } else if (exportFilterBy === "Yet to Accept Portal Invite Employees") {
+                    targetEmps = targetEmps.filter((e) => e.portalStatus === "Pending" || e.portalStatus === "Invited")
+                  } else if (exportFilterBy === "Exited Employees") {
+                    targetEmps = targetEmps.filter((e) => e.status === "Inactive" || e.status === "Terminated" || e.status === "Resigned")
+                  }
+
+                  if (exportLocation !== "All Locations") {
+                    targetEmps = targetEmps.filter((e) => e.location === exportLocation)
+                  }
+                  if (exportDepartment !== "All Departments") {
+                    targetEmps = targetEmps.filter((e) => e.department === exportDepartment)
+                  }
+                  if (exportDesignation !== "All Designations") {
+                    targetEmps = targetEmps.filter((e) => e.designation === exportDesignation)
+                  }
+
+                  if (targetEmps.length === 0) {
+                    toast("No employees match the selected export filter criteria", "warning")
+                    return
+                  }
+
+                  const schema = getImportSchema(exportDetailType)
+                  const isCsv = exportFormat.includes("CSV")
+                  const delimiter = isCsv ? "," : "\t"
+
+                  const headerRow = schema.columns.map((c) => c.label).join(delimiter)
+                  const dataRows = targetEmps.map((emp) => {
+                    const parts = emp.name.split(" ")
+                    const firstName = parts[0] || ""
+                    const lastName = parts.slice(1).join(" ") || ""
+                    const annualCTC = emp.grossSalary ? emp.grossSalary * 12 : 600000
+
+                    const rowValues = schema.columns.map((col) => {
+                      switch (col.key) {
+                        case "empId":
+                          return emp.id
+                        case "firstName":
+                          return firstName
+                        case "lastName":
+                          return lastName
+                        case "name":
+                        case "holderName":
+                          return emp.name
+                        case "email":
+                          return emp.email
+                        case "mobile":
+                          return emp.mobile || "9876543210"
+                        case "gender":
+                          return "Male"
+                        case "doj":
+                        case "effectiveDate":
+                        case "startDate":
+                        case "resignationDate":
+                          return emp.doj || "2026-09-01"
+                        case "lastWorkingDay":
+                        case "endDate":
+                          return "2026-10-31"
+                        case "location":
+                          return emp.location
+                        case "designation":
+                          return emp.designation
+                        case "department":
+                          return emp.department
+                        case "empType":
+                          return emp.empType
+                        case "salaryStructure":
+                          return emp.salaryStructure
+                        case "annualCTC":
+                        case "revisedCTC":
+                          return String(annualCTC)
+                        case "basicMonthly":
+                          return String(Math.round((annualCTC * 0.5) / 12))
+                        case "hraMonthly":
+                          return String(Math.round((annualCTC * 0.25) / 12))
+                        case "conveyanceMonthly":
+                          return "3000"
+                        case "specialAllowanceMonthly":
+                          return String(Math.round((annualCTC * 0.2) / 12))
+                        case "pan":
+                          return "ABCDE1234F"
+                        case "aadhaar":
+                          return "123456789012"
+                        case "bankName":
+                          return "HDFC Bank"
+                        case "accountNumber":
+                        case "bankAccount":
+                          return "50100456789012"
+                        case "ifsc":
+                        case "ifscCode":
+                          return "HDFC0000123"
+                        case "paymentMode":
+                          return "Bank Transfer"
+                        case "accountType":
+                          return "Savings"
+                        case "epfEnabled":
+                        case "esiEnabled":
+                        case "ptEnabled":
+                        case "lwfEnabled":
+                        case "eligibleForRehire":
+                        case "chauffeurProvided":
+                          return "Yes"
+                        case "pfNumber":
+                          return "MH/BAN/0012345/000/0001"
+                        case "uan":
+                          return "100904567890"
+                        case "esiNumber":
+                          return "31000987654321"
+                        case "basicPct":
+                          return "50"
+                        case "incrementPct":
+                          return "15.00"
+                        case "reason":
+                          return "Annual Appraisal"
+                        case "earningName":
+                          return "Performance Bonus"
+                        case "earningType":
+                          return "Bonus"
+                        case "amount":
+                        case "annualValue":
+                        case "fuelAllowance":
+                          return "25000"
+                        case "benefitName":
+                          return "Voluntary Provident Fund"
+                        case "benefitPlan":
+                          return "Standard VPF Plan"
+                        case "deductionName":
+                          return "Salary Advance Recovery"
+                        case "deductionType":
+                          return "Post-Tax"
+                        case "perquisiteName":
+                          return "Company Car"
+                        case "category":
+                          return "Vehicle"
+                        case "vehicleType":
+                          return "Four Wheeler"
+                        case "regNumber":
+                          return "KA-01-MJ-5678"
+                        case "model":
+                          return "Hyundai Creta"
+                        case "engineCapacity":
+                          return "Above 1600cc"
+                        case "noticePeriod":
+                          return "45"
+                        case "settlementStatus":
+                          return "Processed"
+                        default:
+                          return col.aliases[0] || ""
+                      }
+                    })
+                    return rowValues.join(delimiter)
+                  })
+
+                  const fileContent = `${headerRow}\n${dataRows.join("\n")}`
+                  const mimeType = isCsv ? "text/csv;charset=utf-8;" : "application/vnd.ms-excel;charset=utf-8;"
+                  const ext = isCsv ? "csv" : "xls"
+                  const blob = new Blob([fileContent], { type: mimeType })
+                  const url = URL.createObjectURL(blob)
+                  const link = document.createElement("a")
+                  link.href = url
+                  link.download = `${schema.filename}_${exportFilterBy.toLowerCase().replace(/\s+/g, "_")}.${ext}`
+                  document.body.appendChild(link)
+                  link.click()
+                  document.body.removeChild(link)
+                  URL.revokeObjectURL(url)
+
+                  toast(`Successfully exported ${targetEmps.length} records for ${exportDetailType}`, "success")
+                  setShowExportModal(false)
+                }}
+                style={{
+                  background: "#3B82F6",
+                  color: "#FFFFFF",
+                  border: "none",
+                  borderRadius: 6,
+                  padding: "9px 24px",
+                  fontSize: 14,
+                  fontWeight: 600,
+                  cursor: "pointer",
+                  boxShadow: "0 1px 2px rgba(59, 130, 246, 0.3)",
+                }}
+              >
+                Export
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowExportModal(false)}
+                style={{
+                  background: "#FFFFFF",
+                  color: "#475569",
+                  border: "1px solid #CBD5E1",
+                  borderRadius: 6,
+                  padding: "9px 18px",
+                  fontSize: 14,
+                  fontWeight: 500,
+                  cursor: "pointer",
+                }}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {confirm && (
         <Confirm
           msg={confirm.msg}
