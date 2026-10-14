@@ -5,29 +5,29 @@
 :root {
   --fiori-shell: #FFFFFF;
   --fiori-shell-text: #1D2D3E;
-  --fiori-brand: #0070F2;
-  --fiori-brand-hover: #0064D9;
-  --fiori-brand-active: #004FA3;
-  --fiori-page-bg: #F5F6F7;
+  --fiori-brand: #0B6ED0;
+  --fiori-brand-hover: #085CAF;
+  --fiori-brand-active: #064987;
+  --fiori-page-bg: #F5F7F9;
   --fiori-card: #FFFFFF;
   --fiori-text-1: #1D2D3E;
   --fiori-text-2: #475E75;
   --fiori-text-3: #5B738B;
-  --fiori-border: #D5DADD;
-  --fiori-border-strong: #8996A3;
+  --fiori-border: #D9E0E7;
+  --fiori-border-strong: #AAB7C4;
   --fiori-success: #188918;
   --fiori-success-bg: #F5FAE5;
   --fiori-warning: #E76500;
   --fiori-warning-bg: #FFF8D6;
   --fiori-error: #AA0808;
   --fiori-error-bg: #FFEAF4;
-  --fiori-info: #0070F2;
-  --fiori-info-bg: #E1F4FF;
-  --fiori-highlight: #E1F4FF;
-  --fiori-focus: #0070F2;
+  --fiori-info: #0B6ED0;
+  --fiori-info-bg: #EAF3FC;
+  --fiori-highlight: #EAF3FC;
+  --fiori-focus: #0B6ED0;
   --fiori-tile-bg: #FFFFFF;
   --fiori-nav-item-hover: #F5F6F7;
-  --fiori-nav-item-active: #E1F4FF;
+  --fiori-nav-item-active: #EAF3FC;
   --fiori-sidebar-width: 220px;
   --fiori-shell-height: 48px;
 }
@@ -1003,4 +1003,174 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--fiori-brand); 
     grid-template-columns: minmax(0, 1fr) !important;
     column-gap: 0 !important;
   }
+}
+
+/* Shared application scale and palette. Keep every workspace on the same
+   compact canvas; page-specific forms can still grow with their content. */
+html, body, #root { min-width: 320px; }
+body { font-size: 14px; line-height: 1.45; }
+.sap-app-shell { min-height: 100dvh; }
+.sap-workspace { min-width: 0; }
+.sap-main-content {
+  min-width: 0;
+  padding: 0 24px 24px !important;
+  scrollbar-gutter: stable;
+}
+.sap-main-content > * { min-width: 0; }
+.sap-main-content h1 { font-size: clamp(21px, 1.8vw, 28px) !important; line-height: 1.25; }
+.sap-main-content h2 { font-size: clamp(18px, 1.5vw, 22px) !important; line-height: 1.3; }
+.sap-main-content h3 { font-size: clamp(16px, 1.25vw, 19px) !important; line-height: 1.35; }
+.sap-main-content section,
+.sap-main-content .fiori-card,
+.sap-main-content .fiori-table-wrap { max-width: 100%; }
+.sap-main-content [style*="min-height: 560px"] { min-height: 0 !important; }
+.sap-main-content [style*="margin: -18px -22px"] {
+  margin: 0 !important;
+  border: 1px solid var(--fiori-border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.sap-main-content input:not([type="checkbox"]):not([type="radio"]),
+.sap-main-content select,
+.sap-main-content textarea,
+.sap-dialog input:not([type="checkbox"]):not([type="radio"]),
+.sap-dialog select,
+.sap-dialog textarea { accent-color: var(--fiori-brand); }
+.sap-shell-clock { background: var(--fiori-page-bg) !important; color: var(--fiori-text-1) !important; box-shadow: none !important; border-color: var(--fiori-border) !important; }
+.universal-column-trigger { background: var(--fiori-brand); border-color: var(--fiori-brand); }
+
+/* Settings is a separate workspace, so give it the same page canvas and
+   content width as the main application shell. */
+.settings-app {
+  width: 100% !important;
+  min-height: 100vh;
+  background: var(--fiori-page-bg) !important;
+  color: var(--fiori-text-1);
+  font-size: 14px;
+  line-height: 1.45;
+}
+.settings-app main {
+  min-width: 0;
+  padding: 24px clamp(16px, 2vw, 28px) 48px !important;
+}
+.settings-app main > div { width: 100%; max-width: 1280px !important; }
+.settings-app h1 { font-size: clamp(21px, 1.8vw, 28px) !important; line-height: 1.25; }
+.settings-app h2 { font-size: clamp(18px, 1.5vw, 22px) !important; line-height: 1.3; }
+.settings-app h3 { font-size: clamp(16px, 1.25vw, 19px) !important; line-height: 1.35; }
+.settings-category-title { font-size: 14px !important; font-weight: 700 !important; line-height: 1.3 !important; }
+.settings-section-title { font-size: 18px !important; font-weight: 700 !important; }
+.settings-category-item { font-size: 13px !important; line-height: 1.35 !important; }
+.settings-page-heading { font-size: 21px !important; line-height: 1.3; }
+.settings-app input:not([type="checkbox"]):not([type="radio"]),
+.settings-app select,
+.settings-app textarea {
+  max-width: 100%;
+  border-color: var(--fiori-border-strong) !important;
+  border-radius: 5px !important;
+  color: var(--fiori-text-1) !important;
+  accent-color: var(--fiori-brand);
+}
+.settings-app [style*="min-height: 560px"] { min-height: 0 !important; }
+.settings-app [style*="margin: -18px -22px"] {
+  margin: 0 !important;
+  border: 1px solid var(--fiori-border);
+  border-radius: 8px;
+}
+.settings-entity-workspace > div:first-child { align-items: center !important; gap: 12px !important; margin-bottom: 16px !important; }
+.settings-entity-workspace > div:first-child > div:last-child { flex-wrap: wrap; justify-content: flex-end; }
+.settings-entity-workspace > div:nth-child(2) { border-radius: 8px !important; }
+.settings-location-grid { grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr)) !important; gap: 14px !important; padding: 16px !important; }
+.settings-location-card { min-height: 210px !important; padding: 20px !important; border-color: var(--fiori-border) !important; box-shadow: 0 1px 4px rgba(29,45,62,.07) !important; }
+.settings-location-card > div:first-child > div:first-child { font-size: 17px !important; }
+.settings-location-card > div:nth-child(2), .settings-location-card > div:nth-child(3) { font-size: 14px !important; }
+.settings-location-card > div:nth-child(4) { font-size: 13px !important; }
+.settings-entity-workspace input { width: min(250px, 100%) !important; }
+
+/* Statutory Components follows the same card, tab, and spacing system used by
+   the other Settings modules. */
+.statutory-components-view { min-width: 0; }
+.statutory-components-tabs { padding: 0 4px; }
+.statutory-components-tabs > div { gap: 22px !important; margin-bottom: 14px !important; }
+.statutory-components-content {
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid var(--fiori-border);
+  border-radius: 8px;
+  background: var(--fiori-card);
+}
+.statutory-components-content > div {
+  max-width: 100% !important;
+  padding: 20px 24px !important;
+  color: var(--fiori-text-1);
+}
+.statutory-components-content > div[style*="minmax(360px"],
+.statutory-components-content > div[style*="minmax(340px"] {
+  grid-template-columns: minmax(0, 1.2fr) minmax(280px, .8fr) !important;
+  gap: 22px !important;
+}
+.statutory-components-content aside {
+  border-color: var(--fiori-border) !important;
+  border-top-color: var(--fiori-brand) !important;
+  border-radius: 8px !important;
+  background: var(--fiori-page-bg) !important;
+  box-shadow: none !important;
+}
+.statutory-components-content section { border-color: var(--fiori-border) !important; }
+.statutory-components-content input,
+.statutory-components-content select { max-width: 100%; }
+
+.employee-portal-settings { border: 1px solid var(--fiori-border); border-radius: 8px; }
+.employee-portal-settings > div:first-child { gap: 22px !important; border-bottom-color: var(--fiori-border) !important; }
+.employee-portal-preferences { width: min(100%, 960px); grid-template-columns: minmax(0, 1fr) !important; padding: 22px 20px 26px !important; }
+.employee-portal-preferences section { border-color: var(--fiori-border) !important; }
+.employee-portal-preferences section > div:first-child { font-size: 16px !important; }
+.employee-portal-web-tabs { width: min(100%, 940px); padding: 22px 20px 26px !important; }
+.employee-portal-web-tabs > div[style*="padding: 28px 32px"] { display: none; }
+.employee-portal-web-tabs > div:first-child { font-size: 20px !important; font-weight: 650 !important; }
+.employee-portal-tab-list > div { min-width: 0; }
+
+/* One responsive report toolbar layout, without fixed-width controls. */
+.report-toolbar-actions { display: flex !important; align-items: flex-end !important; flex-wrap: wrap !important; gap: 12px !important; }
+.report-toolbar-actions > .sap-date-filter {
+  display: grid !important;
+  grid-template-columns: auto repeat(2, minmax(130px, 1fr)) auto !important;
+  flex: 1 1 540px !important;
+  width: auto !important;
+  max-width: 100% !important;
+}
+.report-toolbar-actions > .sap-date-filter .sap-date-field,
+.report-toolbar-actions > .sap-date-filter .sap-date-field input { width: 100% !important; max-width: 100% !important; min-width: 0 !important; }
+.report-toolbar-actions > .report-period-field { flex: 0 1 180px !important; width: 180px !important; }
+
+@media (max-width: 760px) {
+  .sap-main-content { padding: 0 12px 18px !important; }
+  .sap-context-bar, .sap-dynamic-page-title { margin-left: -12px !important; margin-right: -12px !important; padding-left: 12px !important; padding-right: 12px !important; }
+  .sap-main-content [style*="margin: -18px -22px"] { margin: 0 !important; }
+  .report-toolbar-actions { align-items: stretch !important; }
+  .report-toolbar-actions > .sap-date-filter { grid-template-columns: 1fr 1fr !important; flex-basis: 100% !important; }
+  .report-toolbar-actions > .sap-date-filter > .sap-date-filter-title,
+  .report-toolbar-actions > .sap-date-filter > .sap-button { grid-column: 1 / -1; }
+  .report-toolbar-actions > .report-period-field,
+  .report-toolbar-actions > .sap-button { width: 100% !important; flex: 1 1 100% !important; }
+  .settings-app main { padding: 18px 12px 32px !important; }
+  .settings-app aside { max-width: 100%; }
+  .settings-app [style*="grid-template-columns: minmax(220px, 1.5fr)"] { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important; }
+  .settings-entity-workspace > div:first-child { align-items: flex-start !important; flex-direction: column; }
+  .settings-entity-workspace > div:first-child > div:last-child { justify-content: flex-start; }
+  .settings-location-grid { grid-template-columns: minmax(0, 1fr) !important; padding: 12px !important; }
+}
+
+@media (max-width: 1100px) {
+  .statutory-components-content > div[style*="minmax(360px"],
+  .statutory-components-content > div[style*="minmax(340px"] {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+}
+
+@media (max-width: 640px) {
+  .statutory-components-tabs { padding: 0; }
+  .statutory-components-tabs > div { gap: 16px !important; }
+  .statutory-components-content > div { padding: 16px !important; }
+  .employee-portal-preferences, .employee-portal-web-tabs { padding: 18px 14px 22px !important; }
+  .employee-portal-tab-list > div { align-items: flex-start !important; padding: 13px !important; }
 }
