@@ -33057,7 +33057,7 @@ function OrgDocumentsView({
           </div>
         </div>
       )}
-      <div style={{ order: 1, display: "flex", alignItems: "center", gap: 8, borderBottom: activeDocumentsTab === "organization" ? "none" : `1px solid ${F.border}` }}>
+      <div style={{ order: 1, display: "flex", alignItems: "center", gap: 8 }}>
         <Btn variant={activeDocumentsTab === "organization" ? "primary" : "secondary"} onClick={() => setActiveDocumentsTab("organization")}>Organization Documents</Btn>
         <Btn variant={activeDocumentsTab === "employee" ? "primary" : "secondary"} onClick={() => setActiveDocumentsTab("employee")}>Employee Documents</Btn>
         <div style={{ flex: 1 }} />
@@ -33109,10 +33109,6 @@ function OrgDocumentsView({
               </div>
             ))}
             {orgFolders.length === 0 && <div style={{ padding: "6px 10px", color: F.text3, fontSize: 12 }}>No folders yet</div>}
-          </div>
-          <div style={{ marginTop: "auto", padding: "12px 10px 10px", borderTop: `1px solid ${F.border}` }}>
-            <div style={{ color: F.text2, fontSize: 12, fontWeight: 700 }}>Storage Limit</div>
-            <div style={{ marginTop: 4, color: F.text3, fontSize: 11 }}>1 GB / 100 employees</div>
           </div>
           <button
             type="button"
@@ -34072,10 +34068,6 @@ function EmployeeDocumentsView({ active, employees, employeeDocumentSearch, setE
               </div>
             ))}
             {folders.length === 0 && <div style={{ padding: "6px 10px", color: F.text3, fontSize: 12 }}>No folders yet</div>}
-          </div>
-          <div style={{ marginTop: "auto", padding: "12px 10px 10px", borderTop: `1px solid ${F.border}` }}>
-            <div style={{ color: F.text2, fontSize: 12, fontWeight: 700 }}>Storage Limit</div>
-            <div style={{ marginTop: 4, color: F.text3, fontSize: 11 }}>1 GB / 100 employees</div>
           </div>
           <button
             type="button"
