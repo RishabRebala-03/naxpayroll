@@ -516,3 +516,5 @@ export const apiClient = {
       request<any>("/roles/assign", { method: "POST", body: JSON.stringify({ user_id: userId, role_id: roleId }) }),
   },
 }
+
+export default apiClient

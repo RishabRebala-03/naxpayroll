@@ -86,10 +86,10 @@ body {
 
 button, input, select, textarea { font: inherit; }
 button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible {
-  outline: 2px solid var(--z-border-focus) !important;
+  outline: 2px solid var(--z-border-focus, var(--fiori-focus, #0070F2)) !important;
   outline-offset: 2px;
 }
-input[type="checkbox"], input[type="radio"] { accent-color: var(--z-brand); }
+input[type="checkbox"], input[type="radio"] { accent-color: var(--z-brand, #0070F2); }
 
 /* ══════════════════════════════════════════════════════════════════
    SCROLLBAR — Zoho thin style
@@ -105,6 +105,10 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--z-brand); }
 .sap-app-shell {
   background: var(--z-app-bg) !important;
   font-family: 'Inter', sans-serif !important;
+}
+input:focus, input:focus-visible, select:focus, select:focus-visible, textarea:focus, textarea:focus-visible {
+  outline: none !important;
+  box-shadow: none !important;
 }
 
 /* ──────────────────────────────────────────────
