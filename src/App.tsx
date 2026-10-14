@@ -8,6 +8,12 @@ import React, {
   Fragment,
 } from "react"
 
+import AccessRoles from "./AccessRoles"
+import AccessUsers from "./AccessUsers"
+import type { AccessUser } from "./AccessUsers"
+import { loadRoles, ROLE_STORAGE, USER_STORAGE } from "./access-permissions"
+import type { AccessRole } from "./access-permissions"
+
 const F = {
   shell: "#FFFFFF",
   brand: "#0070F2",
@@ -27,6 +33,90 @@ const F = {
   errorBg: "#FFEAF4",
   infoBg: "#E1F4FF",
   highlight: "#E1F4FF",
+}
+
+type UiIconName =
+  | "edit"
+  | "check"
+  | "upload"
+  | "bolt"
+  | "warning"
+  | "columns"
+  | "grip"
+  | "crown"
+  | "building"
+  | "user"
+  | "chevronDown"
+
+function UiIcon({ name, size = 16 }: { name: UiIconName; size?: number }) {
+  const paths: Record<UiIconName, React.ReactNode> = {
+    edit: (
+      <>
+        <path d="M12 20h9" />
+        <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4Z" />
+      </>
+    ),
+    check: <path d="m5 12 4 4L19 6" />,
+    upload: (
+      <>
+        <path d="M12 16V4m0 0L7 9m5-5 5 5" />
+        <path d="M5 14a4 4 0 0 0 1 7h12a4 4 0 0 0 1-7" />
+      </>
+    ),
+    bolt: <path d="m13 2-8 12h7l-1 8 8-12h-7Z" />,
+    warning: (
+      <>
+        <path d="M10.3 3.6 2.4 18a2 2 0 0 0 1.8 3h15.6a2 2 0 0 0 1.8-3L13.7 3.6a2 2 0 0 0-3.4 0Z" />
+        <path d="M12 9v4m0 4h.01" />
+      </>
+    ),
+    columns: (
+      <>
+        <rect x="3" y="4" width="18" height="16" rx="2" />
+        <path d="M9 4v16m6-16v16" />
+      </>
+    ),
+    grip: (
+      <>
+        <circle cx="8" cy="6" r="1" fill="currentColor" stroke="none" />
+        <circle cx="16" cy="6" r="1" fill="currentColor" stroke="none" />
+        <circle cx="8" cy="12" r="1" fill="currentColor" stroke="none" />
+        <circle cx="16" cy="12" r="1" fill="currentColor" stroke="none" />
+        <circle cx="8" cy="18" r="1" fill="currentColor" stroke="none" />
+        <circle cx="16" cy="18" r="1" fill="currentColor" stroke="none" />
+      </>
+    ),
+    crown: <path d="m3 7 4 4 5-7 5 7 4-4-2 12H5Zm2 12h14" />,
+    building: (
+      <>
+        <path d="M3 21h18M6 21V6l6-3 6 3v15" />
+        <path d="M9 9h.01M15 9h.01M9 13h.01M15 13h.01M9 17h.01M15 17h.01" />
+      </>
+    ),
+    user: (
+      <>
+        <circle cx="12" cy="8" r="4" />
+        <path d="M4 21a8 8 0 0 1 16 0" />
+      </>
+    ),
+    chevronDown: <path d="m6 9 6 6 6-6" />,
+  }
+  return (
+    <svg
+      aria-hidden="true"
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      style={{ display: "inline-block", verticalAlign: "middle", flexShrink: 0 }}
+    >
+      {paths[name]}
+    </svg>
+  )
 }
 
 type ToastType = "success" | "error" | "info" | "warning"
@@ -352,7 +442,7 @@ function UniversalColumnCustomizer({ persona, inline = false }: { persona: strin
         </div>
         <div className="universal-column-list">
           {activeOrder.map((columnIndex) => <div key={`${activeTable?.columns[columnIndex]}-${columnIndex}`} className={`universal-column-option${draggedColumn === columnIndex ? " is-dragging" : ""}`} draggable onDragStart={(event) => { event.dataTransfer.effectAllowed = "move"; setDraggedColumn(columnIndex) }} onDragOver={(event) => event.preventDefault()} onDrop={(event) => { event.preventDefault(); if (draggedColumn !== null) reorderColumn(draggedColumn, columnIndex); setDraggedColumn(null) }} onDragEnd={() => setDraggedColumn(null)}>
-            <span className="universal-column-drag-handle" aria-hidden="true">⠿</span>
+            <span className="universal-column-drag-handle" aria-hidden="true"><UiIcon name="grip" /></span>
             <label><input type="checkbox" checked={!activeHidden.has(columnIndex)} onChange={() => toggleColumn(columnIndex)} /><span>{activeTable?.columns[columnIndex]}</span></label>
           </div>)}
         </div>
@@ -1639,19 +1729,21 @@ function IR({ label, value }: { label: string; value: string }) {
   )
 }
 
-// ── SAP F4 Value Help ─────────────────────────────────────────────────────────
+// ── Searchable value help ─────────────────────────────────────────────────────
 function ValueHelp({
   value,
   onChange,
   placeholder,
   values,
   label,
+  selectionOnly = false,
 }: {
   value: string
   onChange: (v: string) => void
   placeholder?: string
   values: string[]
   label?: string
+  selectionOnly?: boolean
 }) {
   const [open, setOpen] = useState(false)
   const [inner, setInner] = useState("")
@@ -1667,7 +1759,7 @@ function ValueHelp({
     setInner("")
   }
 
-  const optionQuery = inner || value
+  const optionQuery = inner || (selectionOnly ? "" : value)
   const filtered = values.filter((v) =>
     !optionQuery || !activeSearch(optionQuery)
       ? true
@@ -1693,6 +1785,7 @@ function ValueHelp({
       <div style={{ position: "relative" }}>
         <input
           value={value}
+          readOnly={selectionOnly}
           onChange={(e) => onChange(e.target.value)}
           onFocus={() => {
             setOpen(true)
@@ -1705,13 +1798,14 @@ function ValueHelp({
           style={{
             ...iSt,
             paddingLeft: 10,
-            paddingRight: value ? 28 : 10,
+            paddingRight: value || selectionOnly ? 32 : 10,
+            cursor: selectionOnly ? "pointer" : undefined,
             border: `1px solid ${open ? F.brand : F.border}`,
             boxShadow: open ? `0 0 0 2px ${F.brand}22` : undefined,
             transition: "border 0.12s, box-shadow 0.12s",
           }}
         />
-        {value && (
+        {value && !selectionOnly && (
           <button
             title="Clear search"
             onMouseDown={(e) => {
@@ -1734,6 +1828,22 @@ function ValueHelp({
           >
             ×
           </button>
+        )}
+        {selectionOnly && (
+          <span
+            aria-hidden="true"
+            style={{
+              position: "absolute",
+              right: 9,
+              top: "50%",
+              transform: "translateY(-50%)",
+              color: F.text3,
+              pointerEvents: "none",
+              display: "flex",
+            }}
+          >
+            <UiIcon name="chevronDown" size={15} />
+          </span>
         )}
       </div>
 
@@ -1848,7 +1958,7 @@ function ValueHelp({
               background: F.pageBg,
             }}
           >
-            <span>F4 Value Help</span>
+            <span>Available Values</span>
             <span>
               {filtered.length} of {values.length}
             </span>
@@ -4282,7 +4392,7 @@ function EmployeeDetailPage({
             <span>Basic Information</span>
             <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
               {editing && <Btn small variant="success" onClick={save}>Save</Btn>}
-              <button aria-label="Edit basic information" onClick={() => { setDraft({ ...emp }); setEditing(true) }} style={{ border: "none", background: "transparent", color: F.brand, cursor: "pointer", fontSize: 17 }}>✎</button>
+              <button aria-label="Edit basic information" onClick={() => { setDraft({ ...emp }); setEditing(true) }} style={{ border: "none", background: "transparent", color: F.brand, cursor: "pointer", fontSize: 17 }}><UiIcon name="edit" /></button>
             </span>
           </div>
           <div
@@ -4636,13 +4746,13 @@ function EmployeeDetailPage({
 
       {activeTab === "overview" && <>
         <div style={{ background: F.card, border: `1px solid ${F.border}`, borderRadius: 10, padding: "20px 22px", marginTop: 14 }}>
-          <div style={{ fontSize: 15, fontWeight: 800, marginBottom: 18, display: "flex", justifyContent: "space-between" }}><span>Statutory Information</span><span>{editingStatutory && <Btn small variant="success" onClick={() => { setEditingStatutory(false); toast("Statutory information saved", "success") }}>Save</Btn>} <button aria-label="Edit statutory information" onClick={() => setEditingStatutory(!editingStatutory)} style={{ border: "none", background: "transparent", color: F.brand, cursor: "pointer", fontSize: 17 }}>✎</button></span></div>
+          <div style={{ fontSize: 15, fontWeight: 800, marginBottom: 18, display: "flex", justifyContent: "space-between" }}><span>Statutory Information</span><span>{editingStatutory && <Btn small variant="success" onClick={() => { setEditingStatutory(false); toast("Statutory information saved", "success") }}>Save</Btn>} <button aria-label="Edit statutory information" onClick={() => setEditingStatutory(!editingStatutory)} style={{ border: "none", background: "transparent", color: F.brand, cursor: "pointer", fontSize: 17 }}><UiIcon name="edit" /></button></span></div>
           <div className="employee-information-grid" style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)", columnGap: 72, rowGap: 16 }}>
             {[ ["EPF rate (%)", "pfRate"], ["TDS rate (%)", "tdsRate"], ["Professional Tax", "professionalTax"], ["Payment Method", "paymentMethod"], ["Account Ending", "bankAccount"], ["IFSC Code", "ifsc"] ].map(([label, field]) => <div key={label} style={{ display: "grid", gridTemplateColumns: "235px 1fr", fontSize: 13, alignItems: "center" }}><span style={{ color: F.text2 }}>{label}</span>{editingStatutory ? (field === "paymentMethod" ? <select style={iSt} value={payroll.paymentMethod} onChange={(e) => setPayroll({ ...payroll, paymentMethod: e.target.value })}><option>Bank transfer</option><option>Cheque</option><option>Cash</option></select> : <input type={field === "ifsc" || field === "bankAccount" ? "text" : "number"} style={iSt} value={payroll[field as "pfRate" | "tdsRate" | "professionalTax" | "bankAccount" | "ifsc"]} onChange={(e) => setPayroll({ ...payroll, [field]: field === "ifsc" || field === "bankAccount" ? e.target.value : Number(e.target.value) })} />) : <strong>{String(payroll[field as "pfRate" | "tdsRate" | "professionalTax" | "paymentMethod" | "bankAccount" | "ifsc"])}</strong>}</div>)}
           </div>
         </div>
         <div style={{ background: F.card, border: `1px solid ${F.border}`, borderRadius: 10, padding: "20px 22px", marginTop: 14 }}>
-          <div style={{ fontSize: 15, fontWeight: 800, marginBottom: 18, display: "flex", justifyContent: "space-between" }}><span>Personal Information</span><span>{editingPersonal && <Btn small variant="success" onClick={() => { setEditingPersonal(false); toast("Personal information saved", "success") }}>Save</Btn>} <button aria-label="Edit personal information" onClick={() => setEditingPersonal(!editingPersonal)} style={{ border: "none", background: "transparent", color: F.brand, cursor: "pointer", fontSize: 17 }}>✎</button></span></div>
+          <div style={{ fontSize: 15, fontWeight: 800, marginBottom: 18, display: "flex", justifyContent: "space-between" }}><span>Personal Information</span><span>{editingPersonal && <Btn small variant="success" onClick={() => { setEditingPersonal(false); toast("Personal information saved", "success") }}>Save</Btn>} <button aria-label="Edit personal information" onClick={() => setEditingPersonal(!editingPersonal)} style={{ border: "none", background: "transparent", color: F.brand, cursor: "pointer", fontSize: 17 }}><UiIcon name="edit" /></button></span></div>
           <div className="employee-information-grid" style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)", columnGap: 72, rowGap: 16 }}>
             {[ ["Date of Birth", "dateOfBirth"], ["Personal Email", "personalEmail"], ["Father's Name", "fatherName"], ["Residential Address", "address"], ["PAN", "pan"], ["Differently Abled Type", "differentlyAbled"] ].map(([label, field]) => <div key={label} style={{ display: "grid", gridTemplateColumns: "235px 1fr", fontSize: 13, alignItems: "center" }}><span style={{ color: F.text2 }}>{label}</span>{editingPersonal ? <input style={iSt} maxLength={field === "dateOfBirth" ? 10 : undefined} value={personalInfo[field as keyof typeof personalInfo]} onChange={(e) => setPersonalInfo({ ...personalInfo, [field]: field === "dateOfBirth" ? limitDateYear(e.target.value) : e.target.value })} /> : <strong>{personalInfo[field as keyof typeof personalInfo]}</strong>}</div>)}
           </div>
@@ -4652,7 +4762,7 @@ function EmployeeDetailPage({
       {activeTab === "salary" && (
         <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1.35fr) minmax(280px, 0.65fr)", gap: 14 }}>
           <div style={{ gridColumn: "1 / -1", background: F.card, border: `1px solid ${F.border}`, borderRadius: 8, overflow: "hidden" }}>
-              <div style={{ padding: "18px 20px", fontSize: 22, fontWeight: 500, borderBottom: `1px solid ${F.border}`, display: "flex", justifyContent: "space-between" }}><span>{emp.name.split(" ")[0]}'s salary details</span><button aria-label="Edit salary details" onClick={() => setEditingPayroll(true)} style={{ border: "none", background: "transparent", color: F.brand, cursor: "pointer", fontSize: 18 }}>✎</button></div>
+              <div style={{ padding: "18px 20px", fontSize: 22, fontWeight: 500, borderBottom: `1px solid ${F.border}`, display: "flex", justifyContent: "space-between" }}><span>{emp.name.split(" ")[0]}'s salary details</span><button aria-label="Edit salary details" onClick={() => setEditingPayroll(true)} style={{ border: "none", background: "transparent", color: F.brand, cursor: "pointer", fontSize: 18 }}><UiIcon name="edit" /></button></div>
             <div style={{ padding: "18px 20px" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 22, marginBottom: 22 }}><strong>Annual CTC <span style={{ color: F.error }}>*</span></strong>{editingPayroll ? <input type="number" aria-label="Annual CTC" style={{ ...iSt, width: 310, fontSize: 16 }} value={annualCtc} onChange={(e) => setAnnualCtc(Number(e.target.value))} /> : <strong style={{ fontSize: 17 }}>{inr(annualCtc)} <span style={{ fontSize: 12, color: F.text3, fontWeight: 500 }}>per year</span></strong>}</div>
               <table style={{ width: "100%", borderCollapse: "collapse", border: `1px solid ${F.border}` }}><thead><tr><Th>Salary components</Th><Th>Calculation type</Th><Th right>Monthly amount</Th><Th right>Annual amount</Th></tr></thead><tbody><TrH><Td colSpan={4} style={{ fontWeight: 800, padding: "16px" }}>Earnings</Td></TrH>{([["Basic", "basic"], ["House Rent Allowance", "hra"], ["Fixed Allowance", "fixedAllowance"], ["Special Allowance", "specialAllowance"]] as [string, "basic" | "hra" | "fixedAllowance" | "specialAllowance"][]).map(([label, field]) => { const monthlyCtcBase = annualCtc / 12; const percentage = field === "basic" ? Math.round((payroll.basic / monthlyCtcBase) * 100) : field === "hra" ? Math.round((payroll.hra / payroll.basic) * 100) : 0; return <TrH key={field}><Td>{label}</Td><Td>{editingPayroll ? <div style={{ display: "flex", maxWidth: 260 }}><select aria-label={`${label} calculation type`} style={{ ...iSt, borderRadius: "6px 0 0 6px", minWidth: 130 }} value={calculationType[field]} onChange={(e) => setCalculationType({ ...calculationType, [field]: e.target.value })}><option>Fixed amount</option><option>% of CTC</option><option>% of Basic</option></select>{calculationType[field] !== "Fixed amount" && <input aria-label={`${label} percentage`} type="number" min="0" max="100" style={{ ...iSt, width: 75, borderRadius: "0 6px 6px 0", marginLeft: -1 }} value={percentage} onChange={(e) => { const pct = Number(e.target.value); if (field === "basic") setPayroll({ ...payroll, basic: Math.round(monthlyCtcBase * pct / 100) }); if (field === "hra") setPayroll({ ...payroll, hra: Math.round(payroll.basic * pct / 100) }) }} />}</div> : calculationType[field] === "Fixed amount" ? "Fixed amount" : `${percentage}% ${calculationType[field] === "% of CTC" ? "of CTC" : "of Basic"}`}</Td><Td right>{editingPayroll ? <input type="number" style={{ ...iSt, width: 150 }} value={payroll[field]} onChange={(e) => setPayroll({ ...payroll, [field]: Number(e.target.value) })} /> : inr(payroll[field])}</Td><Td right>{inr(payroll[field] * 12)}</Td></TrH>})}<TrH><Td colSpan={2} style={{ fontWeight: 800, background: "#EAF3FF", padding: "16px" }}>Cost to Company</Td><Td right style={{ fontWeight: 800, background: "#EAF3FF" }}>{inr(gross)}</Td><Td right style={{ fontWeight: 800, background: "#EAF3FF" }}>{inr(gross * 12)}</Td></TrH></tbody></table>
@@ -4981,7 +5091,7 @@ function AddEmployeeWizardPage({
                       fontWeight: 700,
                     }}
                   >
-                    {isDone ? "✓" : s.num}
+                    {isDone ? <UiIcon name="check" size={15} /> : s.num}
                   </div>
                   <span
                     style={{
@@ -6182,7 +6292,7 @@ Deepak Joshi,deepak.joshi@naxrita.in,Finance,Finance Analyst,2026-09-01,Full-Tim
                 >
                   {isDone ? (
                     <span style={{ color: "#FFFFFF", fontWeight: 800, fontSize: 14 }}>
-                      ✓
+                      <UiIcon name="check" size={16} />
                     </span>
                   ) : (
                     <span
@@ -6267,7 +6377,7 @@ Deepak Joshi,deepak.joshi@naxrita.in,Finance,Finance Analyst,2026-09-01,Full-Tim
                 color: F.brand,
               }}
             >
-              ☁️
+              <UiIcon name="upload" size={30} />
             </div>
             <div style={{ fontSize: 17, fontWeight: 800, color: F.text1, marginBottom: 6 }}>
               Drop your CSV file here
@@ -6292,7 +6402,7 @@ Deepak Joshi,deepak.joshi@naxrita.in,Finance,Finance Analyst,2026-09-01,Full-Tim
                 Browse CSV File
               </Btn>
               <Btn variant="secondary" onClick={loadDemoCSV}>
-                ⚡ Load Sample Demo CSV
+                <UiIcon name="bolt" /> Load Sample Demo CSV
               </Btn>
             </div>
           </div>
@@ -6341,7 +6451,7 @@ Deepak Joshi,deepak.joshi@naxrita.in,Finance,Finance Analyst,2026-09-01,Full-Tim
                     fontSize: 12,
                   }}
                 >
-                  <span style={{ color: F.success, fontWeight: 800 }}>✓</span>
+                  <span style={{ color: F.success, fontWeight: 800 }}><UiIcon name="check" size={15} /></span>
                   <span style={{ color: F.text1, fontWeight: 600 }}>{col}</span>
                 </div>
               ))}
@@ -6398,7 +6508,7 @@ Deepak Joshi,deepak.joshi@naxrita.in,Finance,Finance Analyst,2026-09-01,Full-Tim
                   color: F.success,
                 }}
               >
-                ✓ {validCount} Valid Records
+                <UiIcon name="check" size={15} /> {validCount} Valid Records
               </span>
               <span
                 style={{
@@ -6562,7 +6672,7 @@ Deepak Joshi,deepak.joshi@naxrita.in,Finance,Finance Analyst,2026-09-01,Full-Tim
                 fontSize: 28,
               }}
             >
-              ✓
+              <UiIcon name="check" size={30} />
             </div>
             <h2
               style={{
@@ -7184,7 +7294,7 @@ function EmployeesView({
           }}
         >
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <span style={{ fontSize: 15 }}>⚠️</span>
+            <span style={{ fontSize: 15 }}><UiIcon name="warning" size={17} /></span>
             <span>
               You have{" "}
               <strong>
@@ -7504,8 +7614,8 @@ function EmployeesView({
       )}
 
       <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 10, position: "relative" }}>
-        <Btn small variant="secondary" onClick={() => setShowColumnManager(!showColumnManager)}>☷ Columns</Btn>
-        {showColumnManager && <div style={{ position: "absolute", top: 34, right: 0, zIndex: 5, width: 330, background: F.card, border: `1px solid ${F.border}`, borderRadius: 8, padding: 12, boxShadow: "0 8px 24px rgba(15,23,42,0.18)" }}><div style={{ fontSize: 13, fontWeight: 800, marginBottom: 8 }}>Table columns</div><div style={{ fontSize: 11, color: F.text2, marginBottom: 10 }}>Drag the ⠿ handle to rearrange. Check columns to show or hide them.</div>{employeeColumns.map((column) => <div key={column.id} draggable onDragStart={() => setDraggedColumnId(column.id)} onDragOver={(event) => event.preventDefault()} onDrop={() => dropEmployeeColumn(column.id)} onDragEnd={() => setDraggedColumnId(null)} style={{ display: "grid", gridTemplateColumns: "18px 22px 1fr", alignItems: "center", gap: 7, padding: "8px 4px", borderRadius: 5, cursor: "grab", background: draggedColumnId === column.id ? F.infoBg : "transparent", border: `1px solid ${draggedColumnId === column.id ? F.brand : "transparent"}` }}><span title="Drag to rearrange" style={{ color: F.text3, fontSize: 16, letterSpacing: -2 }}>⠿</span><input type="checkbox" checked={column.visible} onClick={(event) => event.stopPropagation()} onChange={() => setEmployeeColumns(employeeColumns.map((item) => item.id === column.id ? { ...item, visible: !item.visible } : item))} /><span style={{ fontSize: 12, fontWeight: 600 }}>{column.label}</span></div>)}</div>}
+        <Btn small variant="secondary" onClick={() => setShowColumnManager(!showColumnManager)}><UiIcon name="columns" /> Columns</Btn>
+        {showColumnManager && <div style={{ position: "absolute", top: 34, right: 0, zIndex: 5, width: 330, background: F.card, border: `1px solid ${F.border}`, borderRadius: 8, padding: 12, boxShadow: "0 8px 24px rgba(15,23,42,0.18)" }}><div style={{ fontSize: 13, fontWeight: 800, marginBottom: 8 }}>Table columns</div><div style={{ fontSize: 11, color: F.text2, marginBottom: 10 }}>Drag the handle to rearrange. Check columns to show or hide them.</div>{employeeColumns.map((column) => <div key={column.id} draggable onDragStart={() => setDraggedColumnId(column.id)} onDragOver={(event) => event.preventDefault()} onDrop={() => dropEmployeeColumn(column.id)} onDragEnd={() => setDraggedColumnId(null)} style={{ display: "grid", gridTemplateColumns: "18px 22px 1fr", alignItems: "center", gap: 7, padding: "8px 4px", borderRadius: 5, cursor: "grab", background: draggedColumnId === column.id ? F.infoBg : "transparent", border: `1px solid ${draggedColumnId === column.id ? F.brand : "transparent"}` }}><span title="Drag to rearrange" style={{ color: F.text3, fontSize: 16 }}><UiIcon name="grip" /></span><input type="checkbox" checked={column.visible} onClick={(event) => event.stopPropagation()} onChange={() => setEmployeeColumns(employeeColumns.map((item) => item.id === column.id ? { ...item, visible: !item.visible } : item))} /><span style={{ fontSize: 12, fontWeight: 600 }}>{column.label}</span></div>)}</div>}
       </div>
 
       <div style={{ background: F.card, border: `1px solid ${F.border}`, borderRadius: 8, overflow: "hidden" }}>
@@ -10032,7 +10142,7 @@ function PayRunsView({
         ? `${runSelectedIds.length} selected employee${runSelectedIds.length !== 1 ? "s" : ""}`
         : "Full organization payroll batch"
 
-  const f4Periods = Array.from(new Set(payruns.map((p) => p.period)))
+  const availablePeriods = Array.from(new Set(payruns.map((p) => p.period)))
   const availableYears = Array.from(new Set(payruns.map((p) => String(p.year)))).sort().reverse()
 
   // Handle Filter Go Action
@@ -10505,7 +10615,7 @@ function PayRunsView({
                                 : "none",
                           }}
                         >
-                          {complete ? "✓" : index + 1}
+                          {complete ? <UiIcon name="check" size={15} /> : index + 1}
                         </div>
                         <div
                           style={{
@@ -10820,14 +10930,14 @@ function PayRunsView({
                   alignItems: "flex-end",
                 }}
               >
-                {/* 1. Search Pay Period (F4 Search) */}
+                {/* Search pay period */}
                 <div style={{ gridColumn: "span 2", minWidth: 260 }}>
                   <ValueHelp
-                    label="Search Pay Period (F4 Search)"
+                    label="Search Pay Period"
                     value={periodDraft}
                     onChange={setPeriodDraft}
                     placeholder="Search pay period (press Go to apply)…"
-                    values={f4Periods}
+                    values={availablePeriods}
                   />
                 </div>
                 <ContextDateRangeFilter />
@@ -12073,976 +12183,3045 @@ function PayslipsView({
   )
 }
 
+
+// ─────────────────────────────────────────────────────────────────────────────
+// REPORTS CENTRE
+// Uses only helpers already in your file: F, Btn, Badge, Th, Td, TrH, Tile, IR,
+// Pagination, iSt, Fld, inr, fmtD, searchMatches, activeSearch,
+// isFinalizedPayrun, useToast.
+// ─────────────────────────────────────────────────────────────────────────────
+
+type RptCol = {
+  label: string;
+  kind?: "text" | "money" | "num";
+  total?: boolean;
+};
+type RptResult =
+  | {
+      type: "table";
+      cols: RptCol[];
+      rows: (string | number)[][];
+      groupCol?: number;
+      groupLabel?: string;
+      headersWhenEmpty?: boolean;
+      emptyText?: string;
+    }
+  | {
+      type: "summary";
+      cards: { label: string; value: string; sub?: string; color?: string }[];
+      list?: [string, string][];
+    }
+  | { type: "message"; text: string };
+type RptItem = { run: Payrun; row: PayrunInputRow; emp?: Employee };
+interface RptCtx {
+  items: RptItem[];
+  emps: Employee[];
+  ss: SalaryStructure[];
+}
+type RptFilterKind = "month" | "range" | "none";
+interface RptDef {
+  id: string;
+  name: string;
+  category: string;
+  filter: RptFilterKind;
+  handlesEmpty?: boolean;
+  build: (c: RptCtx) => RptResult;
+}
+type RptCriteria = {
+  id: number;
+  field: string;
+  op: "is" | "is not";
+  value: string;
+};
+type RptFilters = { month: string; range: string; criteria: RptCriteria[] };
+
+const RPT_CATEGORIES = [
+  "Payroll Overview",
+  "Statutory Reports",
+  "Employee/Contractor Reports",
+  "Declarations & Investments",
+  "Deduction Reports",
+  "Taxes and Forms",
+  "Loan Reports",
+  "Payroll Journal",
+];
+const RPT_MONTHS = [
+  "January",
+  "February",
+  "March",
+  "April",
+  "May",
+  "June",
+  "July",
+  "August",
+  "September",
+  "October",
+  "November",
+  "December",
+].map((m) => `${m} 2026`);
+const RPT_RANGES = [
+  "Previous Month",
+  "Current Month",
+  "Last 3 Months",
+  "Current Financial Year",
+  "All Time",
+];
+
+const rptPad = (n: number) => String(n).padStart(2, "0");
+const rptDate = (d: Date) =>
+  `${rptPad(d.getDate())}/${rptPad(d.getMonth() + 1)}/${d.getFullYear()}`;
+function rptBounds(option: string): { s: Date; e: Date } | null {
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = now.getMonth();
+  if (option === "Previous Month")
+    return { s: new Date(y, m - 1, 1), e: new Date(y, m, 0) };
+  if (option === "Current Month")
+    return { s: new Date(y, m, 1), e: new Date(y, m + 1, 0) };
+  if (option === "Last 3 Months")
+    return { s: new Date(y, m - 2, 1), e: new Date(y, m + 1, 0) };
+  if (option === "Current Financial Year") {
+    const fy = m >= 3 ? y : y - 1;
+    return { s: new Date(fy, 3, 1), e: new Date(fy + 1, 3, 0) };
+  }
+  return null;
+}
+function rptRunInRange(run: Payrun, option: string) {
+  const b = rptBounds(option);
+  if (!b) return true;
+  const idx = run.year * 12 + run.month - 1;
+  return (
+    idx >= b.s.getFullYear() * 12 + b.s.getMonth() &&
+    idx <= b.e.getFullYear() * 12 + b.e.getMonth()
+  );
+}
+const rptSum = (items: RptItem[], f: (i: RptItem) => number) =>
+  items.reduce((s, i) => s + f(i), 0);
+
+const REPORTS: RptDef[] = [
+  // ── Payroll Overview ──
+  {
+    id: "payroll_summary",
+    name: "Payroll Summary",
+    category: "Payroll Overview",
+    filter: "month",
+    build: ({ items }) => ({
+      type: "table",
+      cols: [
+        { label: "Employee Number" },
+        { label: "Employee Name" },
+        { label: "Department" },
+        { label: "Gross Earnings", kind: "money", total: true },
+        { label: "Total Deductions", kind: "money", total: true },
+        { label: "Net Pay", kind: "money", total: true },
+      ],
+      rows: items.map((i) => [
+        i.row.empId,
+        i.row.empName,
+        i.row.department,
+        i.row.totalEarnings,
+        i.row.totalDeductions,
+        i.row.netSalary,
+      ]),
+      groupCol: 2,
+      groupLabel: "Department",
+    }),
+  },
+  {
+    id: "salary_register",
+    name: "Salary Register - Monthly",
+    category: "Payroll Overview",
+    filter: "month",
+    build: ({ items }) => ({
+      type: "table",
+      cols: [
+        { label: "Employee Number" },
+        { label: "Employee Name" },
+        { label: "Department" },
+        { label: "Gross Salary", kind: "money", total: true },
+        { label: "Bonus", kind: "money", total: true },
+        { label: "Incentive", kind: "money", total: true },
+        { label: "LOP Deduction", kind: "money", total: true },
+        { label: "Total Deductions", kind: "money", total: true },
+        { label: "Net Pay", kind: "money", total: true },
+      ],
+      rows: items.map((i) => [
+        i.row.empId,
+        i.row.empName,
+        i.row.department,
+        i.row.grossSalary,
+        i.row.bonus,
+        i.row.incentive,
+        i.row.lopDeduction,
+        i.row.totalDeductions,
+        i.row.netSalary,
+      ]),
+      groupCol: 2,
+      groupLabel: "Department",
+    }),
+  },
+  {
+    id: "salary_statement",
+    name: "Employees Salary Statement",
+    category: "Payroll Overview",
+    filter: "month",
+    build: ({ items, ss }) => ({
+      type: "table",
+      cols: [
+        { label: "Employee Number" },
+        { label: "Employee Name" },
+        { label: "Basic", kind: "money", total: true },
+        { label: "HRA", kind: "money", total: true },
+        { label: "Fixed Allowance", kind: "money", total: true },
+        { label: "Special Allowance", kind: "money", total: true },
+        { label: "Gross Salary", kind: "money", total: true },
+      ],
+      rows: items.map((i) => {
+        const s = ss.find((x) => x.name === i.emp?.salaryStructure);
+        return [
+          i.row.empId,
+          i.row.empName,
+          s?.basic ?? 0,
+          s?.hra ?? 0,
+          s?.fixedAllowance ?? 0,
+          s?.specialAllowance ?? 0,
+          i.row.grossSalary,
+        ];
+      }),
+    }),
+  },
+  {
+    id: "pay_summary",
+    name: "Employees Pay Summary",
+    category: "Payroll Overview",
+    filter: "range",
+    build: ({ items }) => ({
+      type: "table",
+      cols: [
+        { label: "Pay Period" },
+        { label: "Employee Number" },
+        { label: "Employee Name" },
+        { label: "Department" },
+        { label: "Gross Earnings", kind: "money", total: true },
+        { label: "Total Deductions", kind: "money", total: true },
+        { label: "Net Pay", kind: "money", total: true },
+      ],
+      rows: items.map((i) => [
+        i.run.period,
+        i.row.empId,
+        i.row.empName,
+        i.row.department,
+        i.row.totalEarnings,
+        i.row.totalDeductions,
+        i.row.netSalary,
+      ]),
+      groupCol: 3,
+      groupLabel: "Department",
+    }),
+  },
+  {
+    id: "liability_summary",
+    name: "Payroll Liability Summary",
+    category: "Payroll Overview",
+    filter: "month",
+    build: ({ items }) => {
+      const pf = rptSum(items, (i) => i.row.pf);
+      const esi = rptSum(items, (i) => i.row.esi);
+      const tds = rptSum(items, (i) => i.row.tds);
+      const pt = rptSum(items, (i) => i.row.profTax);
+      const net = rptSum(items, (i) => i.row.netSalary);
+      return {
+        type: "summary",
+        cards: [
+          {
+            label: "Net Salary Payable",
+            value: inr(net),
+            sub: "Payable to employees",
+            color: F.success,
+          },
+          {
+            label: "Statutory Liability",
+            value: inr(pf + esi + tds + pt),
+            sub: "PF, ESI, TDS and PT",
+            color: F.warning,
+          },
+          {
+            label: "Total Liability",
+            value: inr(net + pf + esi + tds + pt),
+            sub: "Salary plus statutory",
+            color: F.brand,
+          },
+        ],
+        list: [
+          ["Net salary payable", inr(net)],
+          ["Provident Fund payable", inr(pf)],
+          ["ESI payable", inr(esi)],
+          ["TDS payable", inr(tds)],
+          ["Professional Tax payable", inr(pt)],
+          ["Total liability", inr(net + pf + esi + tds + pt)],
+        ],
+      };
+    },
+  },
+  {
+    id: "leave_encashment",
+    name: "Leave Encashment Summary",
+    category: "Payroll Overview",
+    filter: "range",
+    handlesEmpty: true,
+    build: () => ({
+      type: "message",
+      text: "There are no leave encashments paid during this period.",
+    }),
+  },
+  {
+    id: "lop_summary",
+    name: "Loss Of Pay Summary",
+    category: "Payroll Overview",
+    filter: "range",
+    handlesEmpty: true,
+    build: ({ items }) => ({
+      type: "table",
+      cols: [
+        { label: "Employee Number" },
+        { label: "Employee Name" },
+        { label: "Employee Status" },
+        { label: "LOP Days", kind: "num", total: true },
+        { label: "Adjusted LOP Days", kind: "num", total: true },
+        { label: "Actual LOP Days", kind: "num", total: true },
+      ],
+      rows: items
+        .filter((i) => i.row.lopDays > 0)
+        .map((i) => [
+          i.row.empId,
+          i.row.empName,
+          i.emp?.status ?? "-",
+          i.row.lopDays,
+          0,
+          i.row.lopDays,
+        ]),
+      headersWhenEmpty: true,
+      emptyText: "There are no LOP for employees during this period",
+    }),
+  },
+  {
+    id: "variable_pay",
+    name: "Variable Pay Earnings Report",
+    category: "Payroll Overview",
+    filter: "range",
+    build: ({ items }) => {
+      const rows = items.filter((i) => i.row.bonus + i.row.incentive > 0);
+      if (rows.length === 0)
+        return {
+          type: "message",
+          text: "No variable pay earnings were paid during this period.",
+        };
+      return {
+        type: "table",
+        cols: [
+          { label: "Pay Period" },
+          { label: "Employee Number" },
+          { label: "Employee Name" },
+          { label: "Bonus", kind: "money", total: true },
+          { label: "Incentive", kind: "money", total: true },
+          { label: "Total Variable Pay", kind: "money", total: true },
+        ],
+        rows: rows.map((i) => [
+          i.run.period,
+          i.row.empId,
+          i.row.empName,
+          i.row.bonus,
+          i.row.incentive,
+          i.row.bonus + i.row.incentive,
+        ]),
+      };
+    },
+  },
+  {
+    id: "scheduled_earning",
+    name: "Scheduled Earning Summary",
+    category: "Payroll Overview",
+    filter: "range",
+    build: ({ items }) => {
+      const fixed = rptSum(items, (i) => i.row.grossSalary);
+      const bonus = rptSum(items, (i) => i.row.bonus);
+      const inc = rptSum(items, (i) => i.row.incentive);
+      const lop = rptSum(items, (i) => i.row.lopDeduction);
+      return {
+        type: "summary",
+        cards: [
+          {
+            label: "Fixed Earnings",
+            value: inr(fixed),
+            sub: "Scheduled monthly salary",
+            color: F.brand,
+          },
+          {
+            label: "Variable Earnings",
+            value: inr(bonus + inc),
+            sub: "Bonus and incentives",
+            color: F.success,
+          },
+          {
+            label: "LOP Impact",
+            value: `-${inr(lop)}`,
+            sub: "Loss of pay deduction",
+            color: F.error,
+          },
+        ],
+        list: [
+          ["Fixed earnings", inr(fixed)],
+          ["Bonus", inr(bonus)],
+          ["Incentive", inr(inc)],
+          ["Less: LOP deduction", `-${inr(lop)}`],
+          ["Total earnings", inr(rptSum(items, (i) => i.row.totalEarnings))],
+        ],
+      };
+    },
+  },
+  // ── Statutory Reports ──
+  {
+    id: "pf_summary",
+    name: "Provident Fund Summary",
+    category: "Statutory Reports",
+    filter: "month",
+    build: ({ items, ss }) => ({
+      type: "table",
+      cols: [
+        { label: "Employee Number" },
+        { label: "Employee Name" },
+        { label: "Department" },
+        { label: "PF Wage", kind: "money", total: true },
+        { label: "Employee PF (12%)", kind: "money", total: true },
+        { label: "Employer PF (12%)", kind: "money", total: true },
+        { label: "Total Contribution", kind: "money", total: true },
+      ],
+      rows: items.map((i) => {
+        const basic =
+          ss.find((x) => x.name === i.emp?.salaryStructure)?.basic ?? 0;
+        return [
+          i.row.empId,
+          i.row.empName,
+          i.row.department,
+          basic,
+          i.row.pf,
+          i.row.pf,
+          i.row.pf * 2,
+        ];
+      }),
+      groupCol: 2,
+      groupLabel: "Department",
+    }),
+  },
+  {
+    id: "esi_summary",
+    name: "ESI Summary",
+    category: "Statutory Reports",
+    filter: "month",
+    build: ({ items }) => {
+      const rows = items.filter((i) => i.row.esi > 0);
+      if (rows.length === 0)
+        return {
+          type: "message",
+          text: "No employees are covered under ESI in this period.",
+        };
+      return {
+        type: "table",
+        cols: [
+          { label: "Employee Number" },
+          { label: "Employee Name" },
+          { label: "Gross Salary", kind: "money", total: true },
+          { label: "Employee ESI", kind: "money", total: true },
+        ],
+        rows: rows.map((i) => [
+          i.row.empId,
+          i.row.empName,
+          i.row.grossSalary,
+          i.row.esi,
+        ]),
+      };
+    },
+  },
+  {
+    id: "pt_summary",
+    name: "Professional Tax Summary",
+    category: "Statutory Reports",
+    filter: "month",
+    build: ({ items }) => ({
+      type: "table",
+      cols: [
+        { label: "Employee Number" },
+        { label: "Employee Name" },
+        { label: "Department" },
+        { label: "Professional Tax", kind: "money", total: true },
+      ],
+      rows: items.map((i) => [
+        i.row.empId,
+        i.row.empName,
+        i.row.department,
+        i.row.profTax,
+      ]),
+      groupCol: 2,
+      groupLabel: "Department",
+    }),
+  },
+  {
+    id: "statutory_overview",
+    name: "Statutory Compliance Overview",
+    category: "Statutory Reports",
+    filter: "month",
+    build: ({ items }) => {
+      const pf = rptSum(items, (i) => i.row.pf * 2);
+      const esi = rptSum(items, (i) => i.row.esi);
+      const pt = rptSum(items, (i) => i.row.profTax);
+      const tds = rptSum(items, (i) => i.row.tds);
+      return {
+        type: "summary",
+        cards: [
+          {
+            label: "Provident Fund",
+            value: inr(pf),
+            sub: "Employee plus employer",
+            color: F.brand,
+          },
+          {
+            label: "ESI",
+            value: inr(esi),
+            sub: "Employee contribution",
+            color: "#00ACC1",
+          },
+          {
+            label: "Professional Tax",
+            value: inr(pt),
+            sub: "State levy",
+            color: "#8B5CF6",
+          },
+          {
+            label: "TDS",
+            value: inr(tds),
+            sub: "Income tax withheld",
+            color: F.warning,
+          },
+        ],
+        list: [
+          ["Provident Fund (due by 15th of next month)", inr(pf)],
+          ["ESI (due by 15th of next month)", inr(esi)],
+          ["Professional Tax (as per state schedule)", inr(pt)],
+          ["TDS (due by 7th of next month)", inr(tds)],
+        ],
+      };
+    },
+  },
+  // ── Employee / Contractor Reports ──
+  {
+    id: "employee_master",
+    name: "Employee Master Report",
+    category: "Employee/Contractor Reports",
+    filter: "none",
+    build: ({ emps }) => ({
+      type: "table",
+      cols: [
+        { label: "Employee Number" },
+        { label: "Employee Name" },
+        { label: "Department" },
+        { label: "Designation" },
+        { label: "Employment Type" },
+        { label: "Location" },
+        { label: "Date of Joining" },
+        { label: "Status" },
+        { label: "Gross Salary", kind: "money", total: true },
+      ],
+      rows: emps.map((e) => [
+        e.id,
+        e.name,
+        e.department,
+        e.designation,
+        e.empType,
+        e.location,
+        fmtD(e.doj),
+        e.status,
+        e.grossSalary,
+      ]),
+      groupCol: 2,
+      groupLabel: "Department",
+    }),
+  },
+  {
+    id: "headcount",
+    name: "Employee Headcount Summary",
+    category: "Employee/Contractor Reports",
+    filter: "none",
+    build: ({ emps }) => {
+      const depts = Array.from(new Set(emps.map((e) => e.department))).sort();
+      return {
+        type: "summary",
+        cards: [
+          {
+            label: "Total Employees",
+            value: String(emps.length),
+            color: F.brand,
+          },
+          {
+            label: "Active",
+            value: String(emps.filter((e) => e.status === "Active").length),
+            color: F.success,
+          },
+          {
+            label: "On Leave",
+            value: String(emps.filter((e) => e.status === "On Leave").length),
+            color: F.warning,
+          },
+          {
+            label: "Contract",
+            value: String(emps.filter((e) => e.empType === "Contract").length),
+            color: "#8B5CF6",
+          },
+        ],
+        list: depts.map(
+          (d) =>
+            [
+              d,
+              `${emps.filter((e) => e.department === d).length} employees`,
+            ] as [string, string],
+        ),
+      };
+    },
+  },
+  {
+    id: "contractor_payments",
+    name: "Contractor Payments Report",
+    category: "Employee/Contractor Reports",
+    filter: "range",
+    build: ({ items }) => {
+      const rows = items.filter((i) => i.emp?.empType === "Contract");
+      if (rows.length === 0)
+        return {
+          type: "message",
+          text: "No contractor payments were made during this period.",
+        };
+      return {
+        type: "table",
+        cols: [
+          { label: "Pay Period" },
+          { label: "Employee Number" },
+          { label: "Contractor Name" },
+          { label: "Gross Payment", kind: "money", total: true },
+          { label: "Deductions", kind: "money", total: true },
+          { label: "Net Payment", kind: "money", total: true },
+        ],
+        rows: rows.map((i) => [
+          i.run.period,
+          i.row.empId,
+          i.row.empName,
+          i.row.totalEarnings,
+          i.row.totalDeductions,
+          i.row.netSalary,
+        ]),
+      };
+    },
+  },
+  // ── Declarations & Investments ──
+  {
+    id: "investment_declarations",
+    name: "Investment Declaration Summary",
+    category: "Declarations & Investments",
+    filter: "range",
+    handlesEmpty: true,
+    build: () => ({
+      type: "message",
+      text: "No investment declarations have been submitted for this period.",
+    }),
+  },
+  {
+    id: "hra_declarations",
+    name: "HRA Declaration Report",
+    category: "Declarations & Investments",
+    filter: "range",
+    handlesEmpty: true,
+    build: () => ({
+      type: "message",
+      text: "No HRA declarations have been submitted for this period.",
+    }),
+  },
+  // ── Deduction Reports ──
+  {
+    id: "deductions",
+    name: "Deductions Report",
+    category: "Deduction Reports",
+    filter: "range",
+    build: ({ items }) => ({
+      type: "table",
+      cols: [
+        { label: "Pay Period" },
+        { label: "Employee Number" },
+        { label: "Employee Name" },
+        { label: "PF", kind: "money", total: true },
+        { label: "ESI", kind: "money", total: true },
+        { label: "TDS", kind: "money", total: true },
+        { label: "Professional Tax", kind: "money", total: true },
+        { label: "LOP Deduction", kind: "money", total: true },
+        { label: "Total Deductions", kind: "money", total: true },
+      ],
+      rows: items.map((i) => [
+        i.run.period,
+        i.row.empId,
+        i.row.empName,
+        i.row.pf,
+        i.row.esi,
+        i.row.tds,
+        i.row.profTax,
+        i.row.lopDeduction,
+        i.row.totalDeductions,
+      ]),
+    }),
+  },
+  {
+    id: "other_deductions",
+    name: "Other Deductions Summary",
+    category: "Deduction Reports",
+    filter: "range",
+    build: ({ items }) => {
+      const rows = items.filter((i) => i.row.otherDeduction > 0);
+      if (rows.length === 0)
+        return {
+          type: "message",
+          text: "No other deductions were applied during this period.",
+        };
+      return {
+        type: "table",
+        cols: [
+          { label: "Pay Period" },
+          { label: "Employee Number" },
+          { label: "Employee Name" },
+          { label: "Other Deduction", kind: "money", total: true },
+        ],
+        rows: rows.map((i) => [
+          i.run.period,
+          i.row.empId,
+          i.row.empName,
+          i.row.otherDeduction,
+        ]),
+      };
+    },
+  },
+  // ── Taxes and Forms ──
+  {
+    id: "tds_summary",
+    name: "TDS Summary",
+    category: "Taxes and Forms",
+    filter: "range",
+    build: ({ items }) => ({
+      type: "table",
+      cols: [
+        { label: "Pay Period" },
+        { label: "Employee Number" },
+        { label: "Employee Name" },
+        { label: "Taxable Earnings", kind: "money", total: true },
+        { label: "TDS Deducted", kind: "money", total: true },
+      ],
+      rows: items.map((i) => [
+        i.run.period,
+        i.row.empId,
+        i.row.empName,
+        i.row.totalEarnings,
+        i.row.tds,
+      ]),
+    }),
+  },
+  {
+    id: "form16_status",
+    name: "Form 16 Status",
+    category: "Taxes and Forms",
+    filter: "none",
+    build: () => {
+      const now = new Date();
+      const fyEnd =
+        now.getMonth() >= 3 ? now.getFullYear() + 1 : now.getFullYear();
+      return {
+        type: "message",
+        text: `Form 16 can be generated after the financial year ends on 31 March ${fyEnd}.`,
+      };
+    },
+  },
+  {
+    id: "form24q",
+    name: "Form 24Q Summary",
+    category: "Taxes and Forms",
+    filter: "range",
+    build: ({ items }) => {
+      const tds = rptSum(items, (i) => i.row.tds);
+      const taxable = rptSum(items, (i) => i.row.totalEarnings);
+      const count = new Set(items.map((i) => i.row.empId)).size;
+      return {
+        type: "summary",
+        cards: [
+          { label: "TDS Deducted", value: inr(tds), color: F.warning },
+          { label: "Taxable Earnings", value: inr(taxable), color: F.brand },
+          {
+            label: "Employees Covered",
+            value: String(count),
+            color: F.success,
+          },
+        ],
+        list: [
+          ["Total TDS deducted", inr(tds)],
+          ["Total taxable earnings", inr(taxable)],
+          ["Employees covered", String(count)],
+          ["Filing status", "Pending"],
+        ],
+      };
+    },
+  },
+  // ── Loan Reports ──
+  {
+    id: "loan_outstanding",
+    name: "Loan Outstanding Summary",
+    category: "Loan Reports",
+    filter: "none",
+    build: () => ({
+      type: "message",
+      text: "There are no active loans or salary advances to report.",
+    }),
+  },
+  {
+    id: "loan_recovery",
+    name: "Loan Recovery Report",
+    category: "Loan Reports",
+    filter: "range",
+    handlesEmpty: true,
+    build: () => ({
+      type: "message",
+      text: "No loan recoveries were made during this period.",
+    }),
+  },
+  // ── Payroll Journal ──
+  {
+    id: "payroll_journal",
+    name: "Payroll Journal",
+    category: "Payroll Journal",
+    filter: "month",
+    build: ({ items }) => {
+      const earn = rptSum(items, (i) => i.row.totalEarnings);
+      const pf = rptSum(items, (i) => i.row.pf);
+      const esi = rptSum(items, (i) => i.row.esi);
+      const tds = rptSum(items, (i) => i.row.tds);
+      const pt = rptSum(items, (i) => i.row.profTax);
+      const net = rptSum(items, (i) => i.row.netSalary);
+      return {
+        type: "table",
+        cols: [
+          { label: "Account" },
+          { label: "Account Type" },
+          { label: "Debit", kind: "money", total: true },
+          { label: "Credit", kind: "money", total: true },
+        ],
+        rows: [
+          ["Salaries & Wages Expense", "Expense", earn, ""],
+          ["Provident Fund Payable", "Liability", "", pf],
+          ["ESI Payable", "Liability", "", esi],
+          ["TDS Payable", "Liability", "", tds],
+          ["Professional Tax Payable", "Liability", "", pt],
+          ["Net Salary Payable", "Liability", "", net],
+        ],
+      };
+    },
+  },
+];
+
 function ReportsView({
   emps,
   ss,
   payruns,
 }: {
-  emps: Employee[]
-  ss: SalaryStructure[]
-  payruns: Payrun[]
+  emps: Employee[];
+  ss: SalaryStructure[];
+  payruns: Payrun[];
 }) {
-  const toast = useToast()
-  const [active, setActive] = useState<string | null>(null)
-  const [reportDraft, setReportDraft] = useState("payroll_summary")
-  const [period, setPeriod] = useState("July 2026")
-  const completedPeriods = payruns
+  const toast = useToast();
+  const orgName = "Naxrita Solutions Pvt. Ltd.";
+  const depts = Array.from(
+    new Set(emps.map((e) => e.department).filter(Boolean)),
+  ).sort();
+  const latestPaid = payruns
     .filter((p) => isFinalizedPayrun(p.status))
-    .map((p) => p.period)
-  const pr =
-    payruns.find((p) => p.period === period && isFinalizedPayrun(p.status)) ??
-    payruns.find((p) => isFinalizedPayrun(p.status))
-  const REPORT_LIST = [
-    { id: "payroll_summary", label: "Payroll Summary" },
-    { id: "employee_payroll", label: "Employee Payroll" },
-    { id: "earnings", label: "Earnings Report" },
-    { id: "deductions", label: "Deductions Report" },
-    { id: "lop", label: "LOP Report" },
-    { id: "payslip", label: "Payslip Report" },
-  ]
+    .sort((a, b) => (a.year !== b.year ? a.year - b.year : a.month - b.month))
+    .pop();
 
-  return (
-    <div>
-      <PH
-        title="Reports"
-        sub="Payroll, earnings, deduction, and LOP reports"
-        action={
-          <>
-            <Btn
-              variant="secondary"
-              onClick={() => toast("All reports exported", "success")}
+  const makeFilters = (kind: RptFilterKind): RptFilters => ({
+    month: latestPaid?.period ?? RPT_MONTHS[6],
+    range: "Current Financial Year",
+    criteria:
+      kind === "none"
+        ? []
+        : [{ id: 1, field: "Payroll Status", op: "is", value: "Paid" }],
+  });
+
+  const [section, setSection] = useState("home");
+  const [search, setSearch] = useState("");
+  const [favorites, setFavorites] = useState<string[]>([]);
+  const [lastVisited, setLastVisited] = useState<Record<string, string>>({});
+  const [activeId, setActiveId] = useState<string | null>(null);
+  const [draft, setDraft] = useState<RptFilters>(makeFilters("month"));
+  const [applied, setApplied] = useState<RptFilters>(makeFilters("month"));
+  const [showMore, setShowMore] = useState(false);
+  const [groupBy, setGroupBy] = useState("none");
+  const [hiddenCols, setHiddenCols] = useState<number[]>([]);
+  const [showCols, setShowCols] = useState(false);
+  const [showExport, setShowExport] = useState(false);
+  const [scheduleReport, setScheduleReport] = useState<RptDef | null>(null);
+  const [scheduledReports, setScheduledReports] = useState<
+    Array<{
+      id: string;
+      reportId: string;
+      name: string;
+      category: string;
+      frequency: string;
+      startDate: string;
+      time: string;
+      recipients: string;
+      format: string;
+    }>
+  >([]);
+  const [scheduleFrequency, setScheduleFrequency] = useState("Weekly");
+  const [scheduleDate, setScheduleDate] = useState(
+    new Date().toISOString().slice(0, 10),
+  );
+  const [scheduleHour, setScheduleHour] = useState("11");
+  const [scheduleMinute, setScheduleMinute] = useState("30");
+  const [scheduleRecipients, setScheduleRecipients] = useState("");
+  const [scheduleAdditional, setScheduleAdditional] = useState("");
+  const [scheduleFormat, setScheduleFormat] = useState("PDF");
+
+  const def = REPORTS.find((r) => r.id === activeId) ?? null;
+
+  const openReport = (r: RptDef) => {
+    const f = makeFilters(r.filter);
+    setActiveId(r.id);
+    setDraft(f);
+    setApplied(f);
+    setShowMore(false);
+    setShowCols(false);
+    setShowExport(false);
+    setGroupBy("none");
+    setHiddenCols([]);
+    const stamp = new Date()
+      .toLocaleString("en-GB", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: true,
+      })
+      .replace(",", "")
+      .toUpperCase();
+    setLastVisited((prev) => ({ ...prev, [r.id]: stamp }));
+    document.querySelector("main")?.scrollTo({ top: 0 });
+  };
+  const closeReport = () => setActiveId(null);
+  const toggleFavorite = (id: string) =>
+    setFavorites((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
+    );
+
+  // ── criteria helpers ──
+  const criteriaFields =
+    def?.filter === "none"
+      ? ["Department", "Employee Type"]
+      : ["Payroll Status", "Department", "Employee Type"];
+  const valuesFor = (field: string) =>
+    field === "Payroll Status"
+      ? ["Paid", "Unpaid"]
+      : field === "Department"
+        ? depts
+        : ["Full-Time", "Part-Time", "Contract"];
+  const addCriteria = () =>
+    setDraft((d) => ({
+      ...d,
+      criteria: [
+        ...d.criteria,
+        {
+          id: Date.now(),
+          field: criteriaFields[0],
+          op: "is",
+          value: valuesFor(criteriaFields[0])[0] ?? "",
+        },
+      ],
+    }));
+  const updateCriteria = (id: number, patch: Partial<RptCriteria>) =>
+    setDraft((d) => ({
+      ...d,
+      criteria: d.criteria.map((c) =>
+        c.id === id
+          ? {
+              ...c,
+              ...patch,
+              ...(patch.field
+                ? { value: valuesFor(patch.field)[0] ?? "" }
+                : {}),
+            }
+          : c,
+      ),
+    }));
+  const removeCriteria = (id: number) =>
+    setDraft((d) => ({
+      ...d,
+      criteria: d.criteria.filter((c) => c.id !== id),
+    }));
+  const runNow = () => {
+    setApplied(draft);
+    setShowMore(false);
+    toast(`${def?.name ?? "Report"} generated`, "success");
+  };
+  const cancelMore = () => {
+    setDraft(applied);
+    setShowMore(false);
+  };
+
+  // ── run the report ──
+  const runReport = (r: RptDef): RptResult => {
+    const f = applied;
+    const statusCrit = f.criteria.find(
+      (c) => c.field === "Payroll Status" && c.value,
+    );
+    const empOk = (e: Employee) =>
+      f.criteria.every((c) => {
+        if (!c.value) return true;
+        if (c.field === "Department")
+          return c.op === "is"
+            ? e.department === c.value
+            : e.department !== c.value;
+        if (c.field === "Employee Type")
+          return c.op === "is" ? e.empType === c.value : e.empType !== c.value;
+        return true;
+      });
+    const periodRuns = payruns.filter((run) =>
+      r.filter === "month"
+        ? run.period === f.month
+        : r.filter === "range"
+          ? rptRunInRange(run, f.range)
+          : false,
+    );
+    const scoped = periodRuns.filter((run) => {
+      if (!statusCrit) return true;
+      const paid = isFinalizedPayrun(run.status);
+      const match = statusCrit.value === "Paid" ? paid : !paid;
+      return statusCrit.op === "is" ? match : !match;
+    });
+    const items: RptItem[] = scoped
+      .flatMap((run) =>
+        run.rows.map((row) => ({
+          run,
+          row,
+          emp: emps.find((e) => e.id === row.empId),
+        })),
+      )
+      .filter((i) => (i.emp ? empOk(i.emp) : true));
+    const emptyMsg =
+      statusCrit && statusCrit.value === "Paid" && statusCrit.op === "is"
+        ? "You haven't paid any employees in this period."
+        : "There are no payroll records for this period.";
+    if (r.filter !== "none" && !r.handlesEmpty && items.length === 0) {
+      return { type: "message", text: emptyMsg };
+    }
+    return r.build({ items, emps: emps.filter(empOk), ss });
+  };
+  const result: RptResult | null = def ? runReport(def) : null;
+
+  // ── table view helpers ──
+  const isNumCol = (c: RptCol) => c.kind === "money" || c.kind === "num";
+  const cell = (c: RptCol, v: string | number) =>
+    v === ""
+      ? "—"
+      : c.kind === "money" && typeof v === "number"
+        ? inr(v)
+        : String(v);
+  const buildTableView = (res: Extract<RptResult, { type: "table" }>) => {
+    const vis = res.cols
+      .map((_, i) => i)
+      .filter((i) => !hiddenCols.includes(i));
+    const grouped = groupBy !== "none" && res.groupCol !== undefined;
+    const gc = res.groupCol ?? 0;
+    const rows = grouped
+      ? [...res.rows].sort((a, b) => String(a[gc]).localeCompare(String(b[gc])))
+      : res.rows;
+    const totals = vis.map((i) =>
+      res.cols[i].total
+        ? rows.reduce(
+            (s, r) => s + (typeof r[i] === "number" ? (r[i] as number) : 0),
+            0,
+          )
+        : null,
+    );
+    return { vis, rows, grouped, gc, totals };
+  };
+
+  const periodText = () => {
+    if (!def) return "";
+    if (def.filter === "month") return applied.month.replace(" ", ", ");
+    if (def.filter === "range") {
+      const b = rptBounds(applied.range);
+      return b ? `From ${rptDate(b.s)} To ${rptDate(b.e)}` : "All Time";
+    }
+    return `As of ${rptDate(new Date())}`;
+  };
+
+  // ── export ──
+  const csvEscape = (v: unknown) => {
+    const t = String(v ?? "");
+    return /[",\n]/.test(t) ? `"${t.replace(/"/g, '""')}"` : t;
+  };
+  const exportCsv = () => {
+    if (!def || !result) return;
+    let data: (string | number)[][] = [];
+    if (result.type === "table") {
+      const v = buildTableView(result);
+      data = [
+        v.vis.map((i) => result.cols[i].label),
+        ...v.rows.map((r) => v.vis.map((i) => r[i])),
+      ];
+    } else if (result.type === "summary") {
+      data = [
+        ["Metric", "Value"],
+        ...result.cards.map((c) => [c.label, c.value]),
+        ...(result.list ?? []),
+      ];
+    } else {
+      toast("This report has no data to export", "warning");
+      return;
+    }
+    const csv = data.map((r) => r.map(csvEscape).join(",")).join("\n");
+    const url = URL.createObjectURL(
+      new Blob([csv], { type: "text/csv;charset=utf-8;" }),
+    );
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${def.name.replace(/[^a-z0-9]+/gi, "_")}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    setShowExport(false);
+    toast(`${def.name} exported as CSV`, "success");
+  };
+  const exportPdf = () => {
+    if (!def || !result) return;
+    if (result.type === "message") {
+      toast("This report has no data to export", "warning");
+      return;
+    }
+    const w = window.open("", "_blank", "width=900,height=1000");
+    if (!w) return;
+    const esc = (s: unknown) =>
+      String(s)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;");
+    let body = "";
+    if (result.type === "table") {
+      const v = buildTableView(result);
+      body = `<table><thead><tr>${v.vis.map((i) => `<th>${esc(result.cols[i].label)}</th>`).join("")}</tr></thead><tbody>${v.rows
+        .map(
+          (r) =>
+            `<tr>${v.vis.map((i) => `<td>${esc(cell(result.cols[i], r[i]))}</td>`).join("")}</tr>`,
+        )
+        .join("")}</tbody></table>`;
+    } else {
+      body = `<table><tbody>${[
+        ...result.cards.map((c) => [c.label, c.value]),
+        ...(result.list ?? []),
+      ]
+        .map((r) => `<tr><td>${esc(r[0])}</td><td>${esc(r[1])}</td></tr>`)
+        .join("")}</tbody></table>`;
+    }
+    w.document.write(`<html><head><title>${esc(def.name)}</title><style>
+      body{font-family:Arial,sans-serif;padding:28px;color:#1D2D3E}
+      h1,h2,p{text-align:center;margin:4px 0} table{width:100%;border-collapse:collapse;margin-top:18px;font-size:12px}
+      th,td{border:1px solid #D5DADD;padding:7px 9px;text-align:left} th{background:#F5F6F7;text-transform:uppercase;font-size:11px}
+    </style></head><body><p>${esc(orgName)}</p><h2>${esc(def.name)}</h2><p>${esc(periodText())}</p>${body}
+    <script>window.onload=function(){window.print()}</script></body></html>`);
+    w.document.close();
+    setShowExport(false);
+  };
+
+  // ═════════════ REPORT VIEW ═════════════
+  if (def && result) {
+    const chip: React.CSSProperties = {
+      display: "inline-flex",
+      alignItems: "center",
+      gap: 6,
+      border: "none",
+      borderRadius: 6,
+      padding: "5px 10px",
+      fontSize: 12,
+      color: F.text2,
+      background: "transparent",
+      height: 32,
+      boxSizing: "border-box",
+    };
+    const bareSelect: React.CSSProperties = {
+      border: "none",
+      outline: "none",
+      background: "transparent",
+      fontSize: 12,
+      fontWeight: 700,
+      color: F.text1,
+      fontFamily: "inherit",
+      cursor: "pointer",
+    };
+    const tv = result.type === "table" ? buildTableView(result) : null;
+
+    return (
+      <>
+        {scheduleReport && (
+          <div
+            role="presentation"
+            onMouseDown={(e) => {
+              if (e.target === e.currentTarget) setScheduleReport(null);
+            }}
+            style={{
+              position: "fixed",
+              inset: 0,
+              zIndex: 1000,
+              background: "rgba(15,23,42,0.48)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              padding: 20,
+            }}
+          >
+            <section
+              role="dialog"
+              aria-modal="true"
+              aria-label="Schedule Report"
+              style={{
+                width: "min(560px, 100%)",
+                maxHeight: "90vh",
+                overflowY: "auto",
+                background: F.card,
+                borderRadius: 8,
+                boxShadow: "0 16px 48px rgba(15,23,42,0.25)",
+              }}
             >
-              Export All
-            </Btn>
-            <UniversalColumnCustomizer persona="reports" inline />
-          </>
-        }
-      />
-      <div className="report-type-selector">
-        <label>
-          Report type
-          <select value={reportDraft} onChange={(event) => setReportDraft(event.target.value)}>
-            {REPORT_LIST.map((report) => <option key={report.id} value={report.id}>{report.label}</option>)}
-          </select>
-        </label>
-        <Btn onClick={() => setActive(reportDraft)}>Go</Btn>
-      </div>
-      {active && <div className="report-content">
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "flex-start",
+                  padding: "20px 22px 14px",
+                  borderBottom: `1px solid ${F.border}`,
+                }}
+              >
+                <div>
+                  <h2 style={{ margin: 0, fontSize: 19, color: F.text1 }}>
+                    Schedule Report
+                  </h2>
+                  <div style={{ marginTop: 5, fontSize: 12, color: F.text2 }}>
+                    Report Name: {scheduleReport.name}
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setScheduleReport(null)}
+                  aria-label="Close schedule report"
+                  style={{
+                    border: 0,
+                    background: "transparent",
+                    color: F.text3,
+                    fontSize: 22,
+                    cursor: "pointer",
+                  }}
+                >
+                  ×
+                </button>
+              </div>
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  const recipients = [
+                    scheduleRecipients,
+                    ...scheduleAdditional.split(","),
+                  ]
+                    .map((email) => email.trim())
+                    .filter(Boolean);
+                  if (!scheduleReport || !recipients.length) {
+                    toast("Enter at least one email recipient.", "error");
+                    return;
+                  }
+                  const hour = Math.min(
+                    12,
+                    Math.max(1, Number(scheduleHour) || 1),
+                  );
+                  const minute = String(
+                    Math.min(59, Math.max(0, Number(scheduleMinute) || 0)),
+                  ).padStart(2, "0");
+                  setScheduledReports((prev) => [
+                    {
+                      id: `${scheduleReport.id}-${Date.now()}`,
+                      reportId: scheduleReport.id,
+                      name: scheduleReport.name,
+                      category: scheduleReport.category,
+                      frequency: scheduleFrequency,
+                      startDate: scheduleDate,
+                      time: `${String(hour).padStart(2, "0")}:${minute}`,
+                      recipients: recipients.join(", "),
+                      format: scheduleFormat,
+                    },
+                    ...prev,
+                  ]);
+                  toast(
+                    `${scheduleReport.name} scheduled ${scheduleFrequency.toLowerCase()} as ${scheduleFormat}.`,
+                    "success",
+                  );
+                  setScheduleReport(null);
+                }}
+                style={{ padding: "18px 22px 22px" }}
+              >
+                <label
+                  style={{
+                    display: "block",
+                    fontSize: 12,
+                    fontWeight: 700,
+                    color: F.text2,
+                    marginBottom: 14,
+                  }}
+                >
+                  Frequency <span style={{ color: F.error }}>*</span>
+                  <select
+                    required
+                    value={scheduleFrequency}
+                    onChange={(e) => setScheduleFrequency(e.target.value)}
+                    style={{ ...iSt, display: "block", marginTop: 6 }}
+                  >
+                    <option>Daily</option>
+                    <option>Weekly</option>
+                    <option>Monthly</option>
+                    <option>Quarterly</option>
+                  </select>
+                </label>
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "minmax(0,1fr) 90px 90px",
+                    gap: 10,
+                    marginBottom: 18,
+                  }}
+                >
+                  <label
+                    style={{ fontSize: 12, fontWeight: 700, color: F.text2 }}
+                  >
+                    Start Date <span style={{ color: F.error }}>*</span>
+                    <input
+                      required
+                      type="date"
+                      value={scheduleDate}
+                      onChange={(e) => setScheduleDate(e.target.value)}
+                      style={{ ...iSt, display: "block", marginTop: 6 }}
+                    />
+                  </label>
+                  <label
+                    style={{ fontSize: 12, fontWeight: 700, color: F.text2 }}
+                  >
+                    Hour
+                    <input
+                      type="number"
+                      min="1"
+                      max="12"
+                      required
+                      value={scheduleHour}
+                      onChange={(e) => setScheduleHour(e.target.value)}
+                      style={{ ...iSt, display: "block", marginTop: 6 }}
+                    />
+                  </label>
+                  <label
+                    style={{ fontSize: 12, fontWeight: 700, color: F.text2 }}
+                  >
+                    Minutes
+                    <input
+                      type="number"
+                      min="0"
+                      max="59"
+                      required
+                      value={scheduleMinute}
+                      onChange={(e) => setScheduleMinute(e.target.value)}
+                      style={{ ...iSt, display: "block", marginTop: 6 }}
+                    />
+                  </label>
+                </div>
+                <div
+                  style={{
+                    borderTop: `1px solid ${F.border}`,
+                    paddingTop: 16,
+                    marginBottom: 14,
+                    fontSize: 13,
+                    fontWeight: 800,
+                    color: F.text1,
+                  }}
+                >
+                  Recipient Details
+                </div>
+                <label
+                  style={{
+                    display: "block",
+                    fontSize: 12,
+                    fontWeight: 700,
+                    color: F.text2,
+                    marginBottom: 12,
+                  }}
+                >
+                  Email Recipients <span style={{ color: F.error }}>*</span>
+                  <input
+                    required
+                    type="email"
+                    placeholder="name@company.com"
+                    value={scheduleRecipients}
+                    onChange={(e) => setScheduleRecipients(e.target.value)}
+                    style={{ ...iSt, display: "block", marginTop: 6 }}
+                  />
+                </label>
+                <label
+                  style={{
+                    display: "block",
+                    fontSize: 12,
+                    fontWeight: 700,
+                    color: F.text2,
+                    marginBottom: 16,
+                  }}
+                >
+                  Additional Recipients
+                  <input
+                    type="text"
+                    placeholder="Separate multiple email addresses with commas"
+                    value={scheduleAdditional}
+                    onChange={(e) => setScheduleAdditional(e.target.value)}
+                    style={{ ...iSt, display: "block", marginTop: 6 }}
+                  />
+                </label>
+                <fieldset style={{ border: 0, padding: 0, margin: "0 0 20px" }}>
+                  <legend
+                    style={{
+                      fontSize: 12,
+                      fontWeight: 700,
+                      color: F.text2,
+                      marginBottom: 8,
+                    }}
+                  >
+                    Attach Report <span style={{ color: F.error }}>*</span>
+                  </legend>
+                  {[
+                    "PDF",
+                    "XLS (Microsoft Excel 1997-2004 Compatible)",
+                    "XLSX (Microsoft Excel)",
+                  ].map((format) => (
+                    <label
+                      key={format}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 8,
+                        fontSize: 12,
+                        margin: "7px 0",
+                        color: F.text1,
+                      }}
+                    >
+                      <input
+                        type="radio"
+                        name="scheduleFormat"
+                        checked={scheduleFormat === format.split(" ")[0]}
+                        onChange={() => setScheduleFormat(format.split(" ")[0])}
+                      />
+                      {format}
+                    </label>
+                  ))}
+                </fieldset>
+                <div
+                  style={{
+                    background: F.infoBg,
+                    borderRadius: 6,
+                    padding: 12,
+                    fontSize: 11,
+                    color: F.text2,
+                    marginBottom: 18,
+                  }}
+                >
+                  Note: The scheduled report uses the access permissions of the
+                  user who schedules it. Generated reports may be limited by
+                  system record limits.
+                </div>
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "flex-end",
+                    gap: 8,
+                  }}
+                >
+                  <Btn
+                    variant="secondary"
+                    onClick={() => setScheduleReport(null)}
+                  >
+                    Cancel
+                  </Btn>
+                  <button
+                    type="submit"
+                    style={{
+                      border: 0,
+                      borderRadius: 5,
+                      background: F.brand,
+                      color: "#fff",
+                      padding: "9px 16px",
+                      fontWeight: 700,
+                      cursor: "pointer",
+                    }}
+                  >
+                    Schedule
+                  </button>
+                </div>
+              </form>
+            </section>
+          </div>
+        )}
         <div
           style={{
             background: F.card,
             border: `1px solid ${F.border}`,
-            borderRadius: 4,
-            overflow: "hidden",
+            borderRadius: 8,
+            marginTop: 16,
+            minHeight: 540,
+            boxShadow: "0 1px 4px rgba(15,23,42,0.06)",
           }}
         >
+          {/* Header */}
           <div
-            className="report-toolbar"
             style={{
-              padding: "12px 18px",
-              borderBottom: `1px solid ${F.border}`,
+              padding: "14px 20px",
               display: "flex",
-              justifyContent: "space-between",
               alignItems: "center",
+              gap: 12,
+              flexWrap: "wrap",
+              borderBottom: `1px solid ${F.border}`,
             }}
           >
-            <span className="report-toolbar-title" style={{ fontSize: 14, fontWeight: 600, color: F.text1 }}>
-              {REPORT_LIST.find((r) => r.id === active)?.label}
+            <div style={{ flex: 1, minWidth: 240 }}>
+              <div style={{ fontSize: 11, color: F.text3 }}>{def.category}</div>
+              <div style={{ fontSize: 18, fontWeight: 800, color: F.text1 }}>
+                {def.name}{" "}
+                <span style={{ fontSize: 12, fontWeight: 500, color: F.text2 }}>
+                  • {periodText()}
+                </span>
+              </div>
+            </div>
+            <button
+              type="button"
+              title={`Schedule ${def.name}`}
+              aria-label={`Schedule ${def.name}`}
+              onClick={() => {
+                setScheduleReport(def);
+                setScheduleFrequency("Weekly");
+                setScheduleDate(new Date().toISOString().slice(0, 10));
+                setScheduleHour("11");
+                setScheduleMinute("30");
+                setScheduleRecipients("");
+                setScheduleAdditional("");
+                setScheduleFormat("PDF");
+              }}
+              style={{
+                border: "1px solid #C7DDF8",
+                background: "#F0F7FF",
+                color: F.brand,
+                borderRadius: 5,
+                padding: "7px 10px",
+                cursor: "pointer",
+                fontSize: 16,
+                lineHeight: 1,
+              }}
+            >
+              ◷
+            </button>
+            <div style={{ position: "relative" }}>
+              <Btn variant="secondary" onClick={() => setShowExport((v) => !v)}>
+                Export as ▾
+              </Btn>
+              {showExport && (
+                <>
+                  <div
+                    style={{ position: "fixed", inset: 0, zIndex: 20 }}
+                    onClick={() => setShowExport(false)}
+                  />
+                  <div
+                    style={{
+                      position: "absolute",
+                      right: 0,
+                      top: 40,
+                      zIndex: 21,
+                      minWidth: 150,
+                      background: F.card,
+                      border: `1px solid ${F.border}`,
+                      borderRadius: 6,
+                      boxShadow: "0 8px 24px rgba(15,23,42,0.16)",
+                      overflow: "hidden",
+                    }}
+                  >
+                    {[
+                      ["CSV", exportCsv],
+                      ["PDF (Print)", exportPdf],
+                    ].map(([label, fn]) => (
+                      <button
+                        key={label as string}
+                        onClick={fn as () => void}
+                        style={{
+                          display: "block",
+                          width: "100%",
+                          textAlign: "left",
+                          padding: "9px 14px",
+                          border: "none",
+                          background: "transparent",
+                          cursor: "pointer",
+                          fontSize: 13,
+                          fontFamily: "inherit",
+                          color: F.text1,
+                        }}
+                        onMouseEnter={(e) =>
+                          (e.currentTarget.style.background = F.highlight)
+                        }
+                        onMouseLeave={(e) =>
+                          (e.currentTarget.style.background = "transparent")
+                        }
+                      >
+                        {label as string}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+            <button
+              onClick={closeReport}
+              title="Close report"
+              aria-label="Close report"
+              style={{
+                border: "none",
+                background: "transparent",
+                color: F.error,
+                fontSize: 20,
+                cursor: "pointer",
+                lineHeight: 1,
+              }}
+            >
+              ✕
+            </button>
+          </div>
+
+          {/* Filter bar */}
+          <div
+            style={{
+              padding: "12px 20px",
+              display: "flex",
+              alignItems: "center",
+              gap: 10,
+              flexWrap: "wrap",
+            }}
+          >
+            <span style={{ fontSize: 12, color: F.text2, fontWeight: 700 }}>
+              ▽ Filters :
             </span>
-            <div className="report-toolbar-actions" style={{ display: "flex", gap: 8, alignItems: "flex-end", flexWrap: "wrap" }}>
-              <ContextDateRangeFilter />
-              <label className="report-period-field">
-                Pay period
+            {def.filter === "month" && (
+              <label style={chip}>
+                Month:
                 <select
-                  value={period}
-                  onChange={(e) => setPeriod(e.target.value)}
-                  style={{ ...iSt, width: 160 }}
+                  value={draft.month}
+                  onChange={(e) =>
+                    setDraft({ ...draft, month: e.target.value })
+                  }
+                  style={bareSelect}
                 >
-                  {completedPeriods.map((p) => (
-                    <option key={p}>{p}</option>
+                  {RPT_MONTHS.map((m) => (
+                    <option key={m}>{m}</option>
                   ))}
                 </select>
               </label>
-              <Btn
-                small
-                onClick={() =>
-                  toast(
-                    `${REPORT_LIST.find((r) => r.id === active)?.label} exported`,
-                    "success",
-                  )
-                }
-              >
-                Export CSV
-              </Btn>
-            </div>
-          </div>
-          {!pr && (
-            <div
-              style={{
-                padding: 32,
-                textAlign: "center",
-                color: F.text3,
-                fontSize: 13,
-              }}
-            >
-              No completed pay runs for the selected period.
-            </div>
-          )}
-          {pr &&
-            (active === "payroll_summary" || active === "employee_payroll") && (
-              <table style={{ width: "100%", borderCollapse: "collapse" }}>
-                <thead>
-                  <tr>
-                    <Th>Employee</Th>
-                    <Th>Department</Th>
-                    <Th right>Gross</Th>
-                    <Th right>Bonus</Th>
-                    <Th right>Total Earnings</Th>
-                    <Th right>Total Deductions</Th>
-                    <Th right>Net Salary</Th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {pr.rows.map((r) => (
-                    <TrH key={r.empId}>
-                      <Td>
-                        <div style={{ fontWeight: 600 }}>{r.empName}</div>
-                        <div style={{ fontSize: 11, color: F.text3 }}>
-                          {r.empId}
-                        </div>
-                      </Td>
-                      <Td>{r.department}</Td>
-                      <Td right>{inr(r.grossSalary)}</Td>
-                      <Td
-                        right
-                        style={{ color: r.bonus > 0 ? F.success : F.text3 }}
-                      >
-                        {r.bonus > 0 ? inr(r.bonus) : "--"}
-                      </Td>
-                      <Td right>{inr(r.totalEarnings)}</Td>
-                      <Td right style={{ color: F.error }}>
-                        {inr(r.totalDeductions)}
-                      </Td>
-                      <Td right>
-                        <strong style={{ color: F.success }}>
-                          {inr(r.netSalary)}
-                        </strong>
-                      </Td>
-                    </TrH>
-                  ))}
-                </tbody>
-              </table>
             )}
-          {pr && active === "deductions" && (
-            <table style={{ width: "100%", borderCollapse: "collapse" }}>
-              <thead>
-                <tr>
-                  <Th>Employee</Th>
-                  <Th right>PF</Th>
-                  <Th right>ESI</Th>
-                  <Th right>TDS</Th>
-                  <Th right>Prof. Tax</Th>
-                  <Th right>LOP Ded.</Th>
-                  <Th right>Total</Th>
-                </tr>
-              </thead>
-              <tbody>
-                {pr.rows.map((r) => (
-                  <TrH key={r.empId}>
-                    <Td>
-                      <div style={{ fontWeight: 600 }}>{r.empName}</div>
-                    </Td>
-                    <Td right>{inr(r.pf)}</Td>
-                    <Td right>{r.esi > 0 ? inr(r.esi) : "--"}</Td>
-                    <Td right>{inr(r.tds)}</Td>
-                    <Td right>{inr(r.profTax)}</Td>
-                    <Td
-                      right
-                      style={{ color: r.lopDeduction > 0 ? F.error : F.text3 }}
-                    >
-                      {r.lopDeduction > 0 ? inr(r.lopDeduction) : "Nil"}
-                    </Td>
-                    <Td right>
-                      <strong>{inr(r.totalDeductions)}</strong>
-                    </Td>
-                  </TrH>
-                ))}
-              </tbody>
-            </table>
-          )}
-          {pr && active === "earnings" && (
-            <table style={{ width: "100%", borderCollapse: "collapse" }}>
-              <thead>
-                <tr>
-                  <Th>Employee</Th>
-                  <Th right>Basic</Th>
-                  <Th right>HRA</Th>
-                  <Th right>Fixed Allow.</Th>
-                  <Th right>Special Allow.</Th>
-                  <Th right>Bonus</Th>
-                  <Th right>Gross</Th>
-                </tr>
-              </thead>
-              <tbody>
-                {pr.rows.map((r) => {
-                  const s = ss.find(
-                    (x) =>
-                      x.name ===
-                      emps.find((e) => e.id === r.empId)?.salaryStructure,
-                  )!
-                  return (
-                    <TrH key={r.empId}>
-                      <Td>
-                        <div style={{ fontWeight: 600 }}>{r.empName}</div>
-                      </Td>
-                      <Td right>{inr(s?.basic ?? 0)}</Td>
-                      <Td right>{inr(s?.hra ?? 0)}</Td>
-                      <Td right>{inr(s?.fixedAllowance ?? 0)}</Td>
-                      <Td right>{inr(s?.specialAllowance ?? 0)}</Td>
-                      <Td
-                        right
-                        style={{ color: r.bonus > 0 ? F.success : F.text3 }}
-                      >
-                        {r.bonus > 0 ? inr(r.bonus) : "--"}
-                      </Td>
-                      <Td right>
-                        <strong>{inr(r.totalEarnings)}</strong>
-                      </Td>
-                    </TrH>
-                  )
-                })}
-              </tbody>
-            </table>
-          )}
-          {pr && active === "lop" && (
-            <table style={{ width: "100%", borderCollapse: "collapse" }}>
-              <thead>
-                <tr>
-                  <Th>Employee</Th>
-                  <Th>Department</Th>
-                  <Th right>LOP Days</Th>
-                  <Th right>Per-Day Salary</Th>
-                  <Th right>LOP Deduction</Th>
-                  <Th right>Net After LOP</Th>
-                </tr>
-              </thead>
-              <tbody>
-                {pr.rows.map((r) => {
-                  const emp = emps.find((e) => e.id === r.empId)!
-                  return (
-                    <TrH key={r.empId}>
-                      <Td>
-                        <div style={{ fontWeight: 600 }}>{r.empName}</div>
-                      </Td>
-                      <Td>{emp?.department}</Td>
-                      <Td
-                        right
-                        style={{ color: r.lopDays > 0 ? F.error : F.text3 }}
-                      >
-                        {r.lopDays > 0 ? r.lopDays : "--"}
-                      </Td>
-                      <Td right>
-                        {inr(Math.round((emp?.grossSalary ?? 0) / 26))}
-                      </Td>
-                      <Td
-                        right
-                        style={{
-                          color: r.lopDeduction > 0 ? F.error : F.text3,
-                        }}
-                      >
-                        {r.lopDeduction > 0 ? inr(r.lopDeduction) : "Nil"}
-                      </Td>
-                      <Td right>
-                        <strong>{inr(r.netSalary)}</strong>
-                      </Td>
-                    </TrH>
-                  )
-                })}
-              </tbody>
-            </table>
-          )}
-          {active === "payslip" && (
-            <div style={{ padding: 24 }}>
-              <p style={{ fontSize: 13, color: F.text2, marginBottom: 16 }}>
-                Generate individual payslips for any employee and period.
-              </p>
-              <div style={{ display: "flex", gap: 8 }}>
-                <select style={{ ...iSt, width: 200 }}>
-                  <option>All Employees</option>
-                  {emps.map((e) => (
-                    <option key={e.id}>{e.name}</option>
+            {def.filter === "range" && (
+              <label style={chip}>
+                Date Range:
+                <select
+                  value={draft.range}
+                  onChange={(e) =>
+                    setDraft({ ...draft, range: e.target.value })
+                  }
+                  style={bareSelect}
+                >
+                  {RPT_RANGES.map((m) => (
+                    <option key={m}>{m}</option>
                   ))}
                 </select>
-                <Btn
-                  onClick={() =>
-                    toast("Payslips generated and ready to download", "success")
-                  }
+              </label>
+            )}
+            <button
+              onClick={() => setShowMore((v) => !v)}
+              style={{
+                ...chip,
+                cursor: "pointer",
+                color: F.brand,
+                fontWeight: 700,
+                fontFamily: "inherit",
+                background: showMore ? F.infoBg : F.card,
+              }}
+            >
+              ✚ More Filters
+              {draft.criteria.length > 0 ? ` (${draft.criteria.length})` : ""}
+            </button>
+            {!showMore && (
+              <Btn variant="success" style={{ height: 32 }} onClick={runNow}>
+                Run Report
+              </Btn>
+            )}
+          </div>
+
+          {/* More filters / criteria */}
+          {showMore && (
+            <div
+              style={{
+                margin: "0 20px 14px",
+                border: `1px solid ${F.border}`,
+                borderRadius: 8,
+                padding: "16px 18px",
+                background: "#FBFCFD",
+              }}
+            >
+              {draft.criteria.map((c, idx) => (
+                <div
+                  key={c.id}
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "24px 1.1fr 0.8fr 1.6fr 24px",
+                    gap: 10,
+                    alignItems: "center",
+                    marginBottom: 10,
+                  }}
                 >
-                  Generate Payslips
+                  <span style={{ fontSize: 12, color: F.text3 }}>
+                    {idx + 1}
+                  </span>
+                  <select
+                    value={c.field}
+                    onChange={(e) =>
+                      updateCriteria(c.id, { field: e.target.value })
+                    }
+                    style={iSt}
+                  >
+                    {criteriaFields.map((f) => (
+                      <option key={f}>{f}</option>
+                    ))}
+                  </select>
+                  <select
+                    value={c.op}
+                    onChange={(e) =>
+                      updateCriteria(c.id, {
+                        op: e.target.value as RptCriteria["op"],
+                      })
+                    }
+                    style={iSt}
+                  >
+                    <option>is</option>
+                    <option>is not</option>
+                  </select>
+                  <select
+                    value={c.value}
+                    onChange={(e) =>
+                      updateCriteria(c.id, { value: e.target.value })
+                    }
+                    style={iSt}
+                  >
+                    {valuesFor(c.field).map((v) => (
+                      <option key={v}>{v}</option>
+                    ))}
+                  </select>
+                  <button
+                    onClick={() => removeCriteria(c.id)}
+                    title="Remove criteria"
+                    style={{
+                      border: "none",
+                      background: "transparent",
+                      color: F.text3,
+                      cursor: "pointer",
+                      fontSize: 16,
+                    }}
+                  >
+                    🗑
+                  </button>
+                </div>
+              ))}
+              <button
+                onClick={addCriteria}
+                style={{
+                  border: "none",
+                  background: "transparent",
+                  color: F.brand,
+                  cursor: "pointer",
+                  fontWeight: 700,
+                  fontSize: 12,
+                  fontFamily: "inherit",
+                  padding: 0,
+                }}
+              >
+                ⊕ Add Criteria
+              </button>
+              <div style={{ display: "flex", gap: 8, marginTop: 18 }}>
+                <Btn variant="success" onClick={runNow}>
+                  Run Report
                 </Btn>
-                <Btn
-                  variant="secondary"
-                  onClick={() =>
-                    toast("Payslip report exported as PDF", "success")
-                  }
-                >
-                  Export PDF
+                <Btn variant="secondary" onClick={cancelMore}>
+                  Cancel
                 </Btn>
               </div>
             </div>
           )}
-        </div>
-      </div>}
-    </div>
-  )
-}
 
-interface UserRow {
-  name: string
-  role: "Org Admin" | "Employee"
-  status: "Active" | "Locked"
-}
-interface UserRow {
-  name: string
-  role: "Org Admin" | "Employee"
-  status: "Active" | "Locked"
-  department?: string
-  scope?: string
+          {/* Report body */}
+          <div
+            style={{
+              margin: "0 20px 20px",
+              border: `1px solid ${F.border}`,
+              borderRadius: 8,
+              background: F.card,
+            }}
+          >
+            {tv && result.type === "table" && (
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "flex-end",
+                  alignItems: "center",
+                  gap: 14,
+                  padding: "10px 14px",
+                  position: "relative",
+                }}
+              >
+                {result.groupCol !== undefined && (
+                  <label
+                    style={{
+                      fontSize: 12,
+                      color: F.text2,
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 6,
+                    }}
+                  >
+                    Group By :
+                    <select
+                      value={groupBy}
+                      onChange={(e) => setGroupBy(e.target.value)}
+                      style={{ ...bareSelect, color: F.brand }}
+                    >
+                      <option value="none">None</option>
+                      <option value="group">{result.groupLabel}</option>
+                    </select>
+                  </label>
+                )}
+                <button
+                  onClick={() => setShowCols((v) => !v)}
+                  style={{
+                    border: "none",
+                    background: "transparent",
+                    color: F.text1,
+                    fontSize: 12,
+                    fontWeight: 600,
+                    cursor: "pointer",
+                    fontFamily: "inherit",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 6,
+                  }}
+                >
+                  ☷ Customize Report Columns
+                  <span
+                    style={{
+                      background: F.infoBg,
+                      color: F.brand,
+                      borderRadius: 8,
+                      padding: "0 6px",
+                      fontSize: 10,
+                      fontWeight: 800,
+                    }}
+                  >
+                    {tv.vis.length}
+                  </span>
+                </button>
+                {showCols && (
+                  <>
+                    <div
+                      style={{ position: "fixed", inset: 0, zIndex: 20 }}
+                      onClick={() => setShowCols(false)}
+                    />
+                    <div
+                      style={{
+                        position: "absolute",
+                        right: 10,
+                        top: 42,
+                        zIndex: 21,
+                        width: 260,
+                        maxHeight: 320,
+                        overflowY: "auto",
+                        background: F.card,
+                        border: `1px solid ${F.border}`,
+                        borderRadius: 8,
+                        padding: 10,
+                        boxShadow: "0 8px 24px rgba(15,23,42,0.18)",
+                      }}
+                    >
+                      <div
+                        style={{
+                          fontSize: 12,
+                          fontWeight: 800,
+                          marginBottom: 8,
+                        }}
+                      >
+                        Show / hide columns
+                      </div>
+                      {result.cols.map((c, i) => (
+                        <label
+                          key={c.label}
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 8,
+                            padding: "6px 2px",
+                            fontSize: 12,
+                            cursor: "pointer",
+                          }}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={!hiddenCols.includes(i)}
+                            onChange={() => {
+                              if (!hiddenCols.includes(i)) {
+                                if (tv.vis.length <= 1) return;
+                                setHiddenCols([...hiddenCols, i]);
+                              } else
+                                setHiddenCols(
+                                  hiddenCols.filter((x) => x !== i),
+                                );
+                            }}
+                          />
+                          {c.label}
+                        </label>
+                      ))}
+                      <div style={{ marginTop: 8, textAlign: "right" }}>
+                        <Btn
+                          small
+                          variant="secondary"
+                          onClick={() => setHiddenCols([])}
+                        >
+                          Reset
+                        </Btn>
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
+
+            <div
+              style={{
+                textAlign: "center",
+                padding: tv ? "10px 16px 16px" : "26px 16px 16px",
+              }}
+            >
+              <div style={{ fontSize: 12, color: F.text2 }}>{orgName}</div>
+              <div
+                style={{
+                  fontSize: 16,
+                  fontWeight: 800,
+                  color: F.text1,
+                  marginTop: 4,
+                }}
+              >
+                {def.name}
+              </div>
+              <div style={{ fontSize: 12, color: F.text3, marginTop: 2 }}>
+                {periodText()}
+              </div>
+            </div>
+
+            {/* TABLE — only for reports that are genuinely tabular */}
+            {result.type === "table" && tv && (
+              <>
+                {(tv.rows.length > 0 || result.headersWhenEmpty) && (
+                  <div style={{ overflowX: "auto" }}>
+                    <table
+                      style={{ width: "100%", borderCollapse: "collapse" }}
+                    >
+                      <thead>
+                        <tr>
+                          {tv.vis.map((i) => (
+                            <Th key={i} right={isNumCol(result.cols[i])}>
+                              {result.cols[i].label}
+                            </Th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {tv.rows.map((r, ri) => {
+                          const prev = ri > 0 ? tv.rows[ri - 1] : null;
+                          const newGroup =
+                            tv.grouped &&
+                            (!prev || String(prev[tv.gc]) !== String(r[tv.gc]));
+                          return (
+                            <Fragment key={ri}>
+                              {newGroup && (
+                                <tr>
+                                  <td
+                                    colSpan={tv.vis.length}
+                                    style={{
+                                      padding: "8px 14px",
+                                      background: F.infoBg,
+                                      color: F.brand,
+                                      fontWeight: 800,
+                                      fontSize: 12,
+                                    }}
+                                  >
+                                    {result.groupLabel}: {String(r[tv.gc])} (
+                                    {
+                                      tv.rows.filter(
+                                        (x) =>
+                                          String(x[tv.gc]) === String(r[tv.gc]),
+                                      ).length
+                                    }
+                                    )
+                                  </td>
+                                </tr>
+                              )}
+                              <TrH>
+                                {tv.vis.map((i) => (
+                                  <Td key={i} right={isNumCol(result.cols[i])}>
+                                    {cell(result.cols[i], r[i])}
+                                  </Td>
+                                ))}
+                              </TrH>
+                            </Fragment>
+                          );
+                        })}
+                      </tbody>
+                      {tv.rows.length > 0 &&
+                        tv.totals.some((t) => t !== null) && (
+                          <tfoot>
+                            <tr
+                              style={{
+                                background: F.pageBg,
+                                borderTop: `2px solid ${F.border}`,
+                                fontWeight: 800,
+                              }}
+                            >
+                              {tv.vis.map((i, k) => (
+                                <Td
+                                  key={i}
+                                  right={isNumCol(result.cols[i])}
+                                  style={{ fontWeight: 800 }}
+                                >
+                                  {k === 0
+                                    ? "Total"
+                                    : tv.totals[k] !== null
+                                      ? result.cols[i].kind === "money"
+                                        ? inr(tv.totals[k] as number)
+                                        : String(tv.totals[k])
+                                      : ""}
+                                </Td>
+                              ))}
+                            </tr>
+                          </tfoot>
+                        )}
+                    </table>
+                  </div>
+                )}
+                {tv.rows.length === 0 && (
+                  <div
+                    style={{
+                      padding: "44px 16px 70px",
+                      textAlign: "center",
+                      fontSize: 12.5,
+                      color: F.text2,
+                    }}
+                  >
+                    {result.emptyText ?? "There is no data for this period."}
+                  </div>
+                )}
+              </>
+            )}
+
+            {/* SUMMARY — cards and key figures, no table */}
+            {result.type === "summary" && (
+              <div style={{ padding: "4px 20px 28px" }}>
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))",
+                    gap: 12,
+                    marginBottom: 18,
+                  }}
+                >
+                  {result.cards.map((c) => (
+                    <Tile
+                      key={c.label}
+                      label={c.label}
+                      value={c.value}
+                      sub={c.sub}
+                      accent={c.color}
+                    />
+                  ))}
+                </div>
+                {result.list && (
+                  <div style={{ maxWidth: 620, margin: "0 auto" }}>
+                    {result.list.map(([l, v]) => (
+                      <IR key={l} label={l} value={v} />
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* MESSAGE — empty / not applicable */}
+            {result.type === "message" && (
+              <div
+                style={{
+                  padding: "44px 16px 80px",
+                  textAlign: "center",
+                  fontSize: 12.5,
+                  color: F.text2,
+                }}
+              >
+                {result.text}
+              </div>
+            )}
+          </div>
+        </div>
+      </>
+    );
+  }
+
+  // ═════════════ REPORTS CENTRE (list) ═════════════
+  const searching = activeSearch(search);
+  const catalog = REPORTS.filter((r) =>
+    searching
+      ? searchMatches(search, [r.name, r.category])
+      : section === "home"
+        ? true
+        : section === "favorites"
+          ? favorites.includes(r.id)
+          : RPT_CATEGORIES.includes(section)
+            ? r.category === section
+            : false,
+  );
+  const pagedCatalog = catalog;
+  const listTitle = searching
+    ? "Search Results"
+    : section === "home"
+      ? "All Reports"
+      : section === "favorites"
+        ? "Favorites"
+        : section === "shared"
+          ? "Shared Reports"
+          : section === "scheduled"
+            ? "Scheduled Reports"
+            : section;
+
+  const goSection = (s: string) => {
+    setSection(s);
+    setSearch("");
+  };
+
+  const emptyState = (title: string, sub: string) => (
+    <div style={{ padding: "70px 20px 90px", textAlign: "center" }}>
+      <div
+        style={{
+          width: 64,
+          height: 64,
+          margin: "0 auto 14px",
+          borderRadius: 14,
+          background: F.infoBg,
+          border: `1px solid ${F.brand}30`,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          fontSize: 28,
+          color: F.brand,
+        }}
+      >
+        ▤
+      </div>
+      <div style={{ fontSize: 12.5, color: F.text2 }}>{title}</div>
+      <div style={{ fontSize: 12, color: F.text3, marginTop: 3 }}>{sub}</div>
+    </div>
+  );
+
+  const sideItem = (id: string, label: string, icon: string) => {
+    const active = !searching && section === id;
+    return (
+      <button
+        key={id}
+        onClick={() => goSection(id)}
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 10,
+          width: "100%",
+          textAlign: "left",
+          padding: "9px 12px",
+          border: "none",
+          borderRadius: 6,
+          cursor: "pointer",
+          fontFamily: "inherit",
+          fontSize: 12.5,
+          fontWeight: active ? 700 : 500,
+          background: active ? F.highlight : "transparent",
+          color: active ? F.brand : F.text1,
+        }}
+        onMouseEnter={(e) => {
+          if (!active) e.currentTarget.style.background = F.pageBg;
+        }}
+        onMouseLeave={(e) => {
+          if (!active) e.currentTarget.style.background = "transparent";
+        }}
+      >
+        <span
+          style={{
+            width: 16,
+            textAlign: "center",
+            color: active ? F.brand : F.text3,
+          }}
+        >
+          {icon}
+        </span>
+        <span style={{ lineHeight: 1.25 }}>{label}</span>
+      </button>
+    );
+  };
+
+  const showEmptyShared = !searching && section === "shared";
+  const showScheduledSection = section === "scheduled";
+  const visibleScheduledReports = scheduledReports.filter(
+    (item) =>
+      !searching ||
+      `${item.name} ${item.category} ${item.frequency} ${item.recipients}`
+        .toLowerCase()
+        .includes(search.trim().toLowerCase()),
+  );
+  const showEmptyFav =
+    !searching && section === "favorites" && favorites.length === 0;
+
+  const saveScheduledReport = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!scheduleReport) return;
+    const recipients = [scheduleRecipients, ...scheduleAdditional.split(",")]
+      .map((email) => email.trim())
+      .filter(Boolean);
+    if (!recipients.length) {
+      toast("Enter at least one email recipient.", "error");
+      return;
+    }
+    const hour = Math.min(12, Math.max(1, Number(scheduleHour) || 1));
+    const minute = String(
+      Math.min(59, Math.max(0, Number(scheduleMinute) || 0)),
+    ).padStart(2, "0");
+    setScheduledReports((prev) => [
+      {
+        id: `${scheduleReport.id}-${Date.now()}`,
+        reportId: scheduleReport.id,
+        name: scheduleReport.name,
+        category: scheduleReport.category,
+        frequency: scheduleFrequency,
+        startDate: scheduleDate,
+        time: `${String(hour).padStart(2, "0")}:${minute}`,
+        recipients: recipients.join(", "),
+        format: scheduleFormat,
+      },
+      ...prev,
+    ]);
+    toast(
+      `${scheduleReport.name} scheduled ${scheduleFrequency.toLowerCase()} as ${scheduleFormat}.`,
+      "success",
+    );
+    setScheduleReport(null);
+  };
+
+  return (
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        gap: 14,
+        paddingTop: 16,
+      }}
+    >
+      {scheduleReport && (
+        <div
+          role="presentation"
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget) setScheduleReport(null);
+          }}
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 1000,
+            background: "rgba(15,23,42,0.48)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: 20,
+          }}
+        >
+          <section
+            role="dialog"
+            aria-modal="true"
+            aria-label="Schedule Report"
+            style={{
+              width: "min(560px, 100%)",
+              maxHeight: "90vh",
+              overflowY: "auto",
+              background: F.card,
+              borderRadius: 8,
+              boxShadow: "0 16px 48px rgba(0,0,0,0.25)",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "flex-start",
+                padding: "20px 22px 14px",
+                borderBottom: `1px solid ${F.border}`,
+              }}
+            >
+              <div>
+                <h2 style={{ margin: 0, fontSize: 19, color: F.text1 }}>
+                  Schedule Report
+                </h2>
+                <div style={{ marginTop: 5, fontSize: 12, color: F.text2 }}>
+                  Report Name: {scheduleReport.name}
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setScheduleReport(null)}
+                aria-label="Close schedule report"
+                style={{
+                  border: 0,
+                  background: "transparent",
+                  color: F.text3,
+                  fontSize: 22,
+                  cursor: "pointer",
+                }}
+              >
+                ×
+              </button>
+            </div>
+            <form
+              onSubmit={saveScheduledReport}
+              style={{ padding: "18px 22px 22px" }}
+            >
+              <label
+                style={{
+                  display: "block",
+                  fontSize: 12,
+                  fontWeight: 700,
+                  color: F.text2,
+                  marginBottom: 14,
+                }}
+              >
+                Frequency <span style={{ color: F.error }}>*</span>
+                <select
+                  required
+                  value={scheduleFrequency}
+                  onChange={(e) => setScheduleFrequency(e.target.value)}
+                  style={{ ...iSt, display: "block", marginTop: 6 }}
+                >
+                  <option>Daily</option>
+                  <option>Weekly</option>
+                  <option>Monthly</option>
+                  <option>Quarterly</option>
+                </select>
+              </label>
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "minmax(0,1fr) 90px 90px",
+                  gap: 10,
+                  marginBottom: 18,
+                }}
+              >
+                <label
+                  style={{ fontSize: 12, fontWeight: 700, color: F.text2 }}
+                >
+                  Start Date <span style={{ color: F.error }}>*</span>
+                  <input
+                    required
+                    type="date"
+                    value={scheduleDate}
+                    onChange={(e) => setScheduleDate(e.target.value)}
+                    style={{ ...iSt, display: "block", marginTop: 6 }}
+                  />
+                </label>
+                <label
+                  style={{ fontSize: 12, fontWeight: 700, color: F.text2 }}
+                >
+                  Hour
+                  <input
+                    type="number"
+                    min="1"
+                    max="12"
+                    required
+                    value={scheduleHour}
+                    onChange={(e) => setScheduleHour(e.target.value)}
+                    style={{ ...iSt, display: "block", marginTop: 6 }}
+                  />
+                </label>
+                <label
+                  style={{ fontSize: 12, fontWeight: 700, color: F.text2 }}
+                >
+                  Minutes
+                  <input
+                    type="number"
+                    min="0"
+                    max="59"
+                    required
+                    value={scheduleMinute}
+                    onChange={(e) => setScheduleMinute(e.target.value)}
+                    style={{ ...iSt, display: "block", marginTop: 6 }}
+                  />
+                </label>
+              </div>
+              <div
+                style={{
+                  borderTop: `1px solid ${F.border}`,
+                  paddingTop: 16,
+                  marginBottom: 14,
+                  fontSize: 13,
+                  fontWeight: 800,
+                  color: F.text1,
+                }}
+              >
+                Recipient Details
+              </div>
+              <label
+                style={{
+                  display: "block",
+                  fontSize: 12,
+                  fontWeight: 700,
+                  color: F.text2,
+                  marginBottom: 12,
+                }}
+              >
+                Email Recipients <span style={{ color: F.error }}>*</span>
+                <input
+                  required
+                  type="email"
+                  placeholder="name@company.com"
+                  value={scheduleRecipients}
+                  onChange={(e) => setScheduleRecipients(e.target.value)}
+                  style={{ ...iSt, display: "block", marginTop: 6 }}
+                />
+              </label>
+              <label
+                style={{
+                  display: "block",
+                  fontSize: 12,
+                  fontWeight: 700,
+                  color: F.text2,
+                  marginBottom: 16,
+                }}
+              >
+                Additional Recipients
+                <input
+                  type="text"
+                  placeholder="Separate multiple email addresses with commas"
+                  value={scheduleAdditional}
+                  onChange={(e) => setScheduleAdditional(e.target.value)}
+                  style={{ ...iSt, display: "block", marginTop: 6 }}
+                />
+              </label>
+              <fieldset style={{ border: 0, padding: 0, margin: "0 0 20px" }}>
+                <legend
+                  style={{
+                    fontSize: 12,
+                    fontWeight: 700,
+                    color: F.text2,
+                    marginBottom: 8,
+                  }}
+                >
+                  Attach Report <span style={{ color: F.error }}>*</span>
+                </legend>
+                {[
+                  "PDF",
+                  "XLS (Microsoft Excel 1997-2004 Compatible)",
+                  "XLSX (Microsoft Excel)",
+                ].map((format) => (
+                  <label
+                    key={format}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 8,
+                      fontSize: 12,
+                      margin: "7px 0",
+                      color: F.text1,
+                    }}
+                  >
+                    <input
+                      type="radio"
+                      name="scheduleFormat"
+                      checked={scheduleFormat === format.split(" ")[0]}
+                      onChange={() => setScheduleFormat(format.split(" ")[0])}
+                    />
+                    {format}
+                  </label>
+                ))}
+              </fieldset>
+              <div
+                style={{
+                  background: F.infoBg,
+                  borderRadius: 6,
+                  padding: 12,
+                  fontSize: 11,
+                  color: F.text2,
+                  marginBottom: 18,
+                }}
+              >
+                Note: The scheduled report uses the access permissions of the
+                user who schedules it. Generated reports may be limited by
+                system record limits.
+              </div>
+              <div
+                style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}
+              >
+                <Btn
+                  variant="secondary"
+                  onClick={() => setScheduleReport(null)}
+                >
+                  Cancel
+                </Btn>
+                <button
+                  type="submit"
+                  style={{
+                    border: 0,
+                    borderRadius: 5,
+                    background: F.brand,
+                    color: "#fff",
+                    padding: "9px 16px",
+                    fontWeight: 700,
+                    cursor: "pointer",
+                  }}
+                >
+                  Schedule
+                </button>
+              </div>
+            </form>
+          </section>
+        </div>
+      )}
+      {/* Page header with search */}
+      <div
+        style={{
+          background: F.card,
+          border: `1px solid ${F.border}`,
+          borderRadius: 8,
+          padding: "16px 22px",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: 16,
+          flexWrap: "wrap",
+          boxShadow: "0 1px 4px rgba(15,23,42,0.06)",
+        }}
+      >
+        <h1
+          style={{ margin: 0, fontSize: 20, fontWeight: 800, color: F.text1 }}
+        >
+          Reports Centre
+        </h1>
+        <div style={{ flex: "0 1 420px", minWidth: 240 }}>
+          <input
+            value={search}
+            onChange={(e) => {
+              setSearch(e.target.value);
+            }}
+            placeholder="Search reports (min. 3 characters)"
+            style={{
+              ...iSt,
+              height: 36,
+              borderColor: search ? F.brand : F.border,
+            }}
+          />
+        </div>
+      </div>
+
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "230px minmax(0, 1fr)",
+          gap: 14,
+          alignItems: "stretch",
+          height: "calc(100vh - 230px)",
+          minHeight: 420,
+        }}
+      >
+        {/* Fixed (non-collapsible) category sidebar */}
+        <div
+          style={{
+            background: F.card,
+            border: `1px solid ${F.border}`,
+            borderRadius: 8,
+            padding: 8,
+            boxShadow: "0 1px 3px rgba(0,0,0,0.03)",
+            overflowY: "auto",
+            minHeight: 0,
+          }}
+        >
+          {sideItem("home", "Home", "⌂")}
+          {sideItem("favorites", "Favorites", "☆")}
+          {sideItem("shared", "Shared Reports", "⇄")}
+          {sideItem("scheduled", "Scheduled Reports", "◷")}
+          <div
+            style={{
+              fontSize: 10.5,
+              fontWeight: 700,
+              color: F.text3,
+              letterSpacing: "0.08em",
+              textTransform: "uppercase",
+              padding: "14px 12px 6px",
+            }}
+          >
+            Report Category
+          </div>
+          {RPT_CATEGORIES.map((c) => sideItem(c, c, "▭"))}
+        </div>
+
+        {/* Main list */}
+        <div
+          style={{
+            background: F.card,
+            border: `1px solid ${F.border}`,
+            borderRadius: 8,
+            overflow: "hidden",
+            boxShadow: "0 1px 3px rgba(0,0,0,0.03)",
+            display: "flex",
+            flexDirection: "column",
+            minHeight: 0,
+          }}
+        >
+          <div
+            style={{
+              flexShrink: 0,
+              padding: "14px 18px",
+              borderBottom: `1px solid ${F.border}`,
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+            }}
+          >
+            <h2
+              style={{
+                margin: 0,
+                fontSize: 15,
+                fontWeight: 800,
+                color: F.text1,
+              }}
+            >
+              {listTitle}
+            </h2>
+            {!showEmptyShared && !showEmptyFav && (
+              <span
+                style={{
+                  background: F.infoBg,
+                  color: F.brand,
+                  borderRadius: 10,
+                  padding: "1px 8px",
+                  fontSize: 11,
+                  fontWeight: 800,
+                }}
+              >
+                {showScheduledSection
+                  ? visibleScheduledReports.length
+                  : catalog.length}
+              </span>
+            )}
+          </div>
+
+          {search.trim().length > 0 && !searching && (
+            <div
+              style={{
+                padding: "8px 18px",
+                fontSize: 12,
+                color: F.text3,
+                background: F.infoBg,
+              }}
+            >
+              Type at least 3 characters to search.
+            </div>
+          )}
+
+          {showScheduledSection ? (
+            visibleScheduledReports.length === 0 ? (
+              emptyState(
+                searching
+                  ? "No scheduled reports match your search."
+                  : "Currently, you don't have any scheduled reports.",
+                searching
+                  ? "Try another keyword."
+                  : "Open any report and use the schedule icon to add it here.",
+              )
+            ) : (
+              <div style={{ overflow: "auto", flex: 1, minHeight: 0 }}>
+                <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                  <thead style={{ position: "sticky", top: 0, zIndex: 1 }}>
+                    <tr>
+                      <Th>Report Name</Th>
+                      <Th>Report Category</Th>
+                      <Th>Frequency</Th>
+                      <Th>Start Date</Th>
+                      <Th>Time</Th>
+                      <Th>Recipients</Th>
+                      <Th>Format</Th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {visibleScheduledReports.map((item) => (
+                      <TrH
+                        key={item.id}
+                        onClick={() => {
+                          const report = REPORTS.find(
+                            (r) => r.id === item.reportId,
+                          );
+                          if (report) openReport(report);
+                        }}
+                      >
+                        <Td>
+                          <span style={{ color: F.brand, fontWeight: 600 }}>
+                            {item.name}
+                          </span>
+                        </Td>
+                        <Td>{item.category}</Td>
+                        <Td>{item.frequency}</Td>
+                        <Td>{item.startDate}</Td>
+                        <Td>{item.time}</Td>
+                        <Td>{item.recipients}</Td>
+                        <Td>{item.format}</Td>
+                      </TrH>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )
+          ) : showEmptyShared ? (
+            emptyState(
+              "Currently, you don't have any shared reports.",
+              "If someone shares a report with you, you will be able to view it here.",
+            )
+          ) : showEmptyFav ? (
+            emptyState(
+              "You haven't marked any reports as favorite.",
+              "Click the star icon next to a report to view it here.",
+            )
+          ) : catalog.length === 0 ? (
+            emptyState(
+              "No reports match your search.",
+              "Try a different keyword or category.",
+            )
+          ) : (
+            <>
+              <div style={{ overflow: "auto", flex: 1, minHeight: 0 }}>
+                <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                  <thead style={{ position: "sticky", top: 0, zIndex: 1 }}>
+                    <tr>
+                      <Th>Report Name</Th>
+                      <Th>Report Category</Th>
+                      <Th>Created By</Th>
+                      <Th>Last Visited</Th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {pagedCatalog.map((r) => {
+                      const fav = favorites.includes(r.id);
+                      return (
+                        <TrH key={r.id} onClick={() => openReport(r)}>
+                          <Td>
+                            <div
+                              style={{
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 8,
+                              }}
+                            >
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  toggleFavorite(r.id);
+                                }}
+                                title={
+                                  fav
+                                    ? "Remove from favorites"
+                                    : "Add to favorites"
+                                }
+                                aria-label={
+                                  fav
+                                    ? "Remove from favorites"
+                                    : "Add to favorites"
+                                }
+                                style={{
+                                  border: "none",
+                                  background: "transparent",
+                                  cursor: "pointer",
+                                  fontSize: 14,
+                                  color: fav ? F.warning : F.text3,
+                                  padding: 0,
+                                }}
+                              >
+                                {fav ? "★" : "☆"}
+                              </button>
+                              <span style={{ color: F.brand, fontWeight: 600 }}>
+                                {r.name}
+                              </span>
+                            </div>
+                          </Td>
+                          <Td>{r.category}</Td>
+                          <Td>System Generated</Td>
+                          <Td>{lastVisited[r.id] ?? "-"}</Td>
+                        </TrH>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
 }
 
 function AccessManagementView({ emps }: { emps: Employee[] }) {
   const toast = useToast()
+  const [accessTab, setAccessTab] = useState<"users" | "roles">("users")
+  const [roles, setRoles] = useState<AccessRole[]>(loadRoles)
+  const roleOptions = [
+    "Org Admin",
+    "Employee",
+    ...roles.filter((role) => role.id !== "admin").map((role) => role.name),
+  ]
+  const roleScope = (role: string) =>
+    role === "Org Admin"
+      ? "Full Admin Access"
+      : role === "Employee"
+        ? "Self-Service Only"
+        : `Role: ${role}`
 
-  // Initialize users roster with rich metadata
-  const [users, setUsers] = useState<UserRow[]>([
-    {
-      name: "Meena Iyer",
-      role: "Org Admin",
-      status: "Active",
-      department: "Executive & Admin",
-      scope: "Full Admin Access",
-    },
-    ...emps
-      .filter((e) => e.id !== "EMP-003")
-      .map((e) => ({
-        name: e.name,
-        role: "Employee" as const,
-        status: e.id === "EMP-006" ? ("Locked" as const) : ("Active" as const),
-        department: e.department || "Operations",
-        scope: "Self-Service Only",
-      })),
-  ])
-
-  // Filter Bar state: Draft inputs + Applied filters
-  const [showFilterBar, setShowFilterBar] = useState(true)
-
-  const [searchDraft, setSearchDraft] = useState("")
-  const [roleDraft, setRoleDraft] = useState("all")
-  const [statusDraft, setStatusDraft] = useState("all")
-  const [deptDraft, setDeptDraft] = useState("all")
-  const [scopeDraft, setScopeDraft] = useState("all")
-  const [userPage, setUserPage] = useState(1)
-  const [hasRunUserSearch, setHasRunUserSearch] = useState(false)
-
-  const [appliedSearch, setAppliedSearch] = useState("")
-  const [appliedRole, setAppliedRole] = useState("all")
-  const [appliedStatus, setAppliedStatus] = useState("all")
-  const [appliedDept, setAppliedDept] = useState("all")
-  const [appliedScope, setAppliedScope] = useState("all")
-
-  const [showAdd, setShowAdd] = useState(false)
-  const [newUser, setNewUser] = useState({
-    name: "",
-    role: "Employee" as UserRow["role"],
-    department: "Engineering",
-  })
-  const [editUser, setEditUser] = useState<UserRow | null>(null)
-  const [confirm, setConfirm] = useState<{
-    msg: string
-    onOk: () => void
-  } | null>(null)
-
-  const f4UserNames = Array.from(new Set(users.map((u) => u.name)))
-  const availableDepts = Array.from(new Set(users.map((u) => u.department || "Operations")))
-
-  // Execute filter search on "Go"
-  const handleGo = () => {
-    setHasRunUserSearch(true)
-    setUserPage(1)
-    setAppliedSearch(searchDraft)
-    setAppliedRole(roleDraft)
-    setAppliedStatus(statusDraft)
-    setAppliedDept(deptDraft)
-    setAppliedScope(scopeDraft)
-    toast("Filters applied", "info")
-  }
-
-  // Clear all filters
-  const handleClear = () => {
-    setHasRunUserSearch(false)
-    setUserPage(1)
-    setSearchDraft("")
-    setRoleDraft("all")
-    setStatusDraft("all")
-    setDeptDraft("all")
-    setScopeDraft("all")
-
-    setAppliedSearch("")
-    setAppliedRole("all")
-    setAppliedStatus("all")
-    setAppliedDept("all")
-    setAppliedScope("all")
-
-    toast("All filters cleared", "info")
-  }
-
-  // Filter evaluation logic
-  const filteredUsers = hasRunUserSearch ? users.filter((u) => {
-    if (!searchMatches(appliedSearch, [u.name, u.role])) {
-      return false
-    }
-    if (appliedRole !== "all" && u.role !== appliedRole) {
-      return false
-    }
-    if (appliedStatus !== "all" && u.status !== appliedStatus) {
-      return false
-    }
-    if (appliedDept !== "all" && u.department !== appliedDept) {
-      return false
-    }
-    if (appliedScope !== "all" && u.scope !== appliedScope) {
-      return false
-    }
-    return true
-  }) : []
-  const paginatedUsers = filteredUsers.slice((userPage - 1) * 10, userPage * 10)
-
-  const toggleLock = (u: UserRow) => {
-    const next = u.status === "Active" ? "Locked" : "Active"
-    setConfirm({
-      msg: `${next === "Locked" ? "Lock" : "Unlock"} access for ${u.name}?`,
-      onOk: () => {
-        setUsers(
-          users.map((x) => (x.name === u.name ? { ...x, status: next } : x)),
+  const [users, setUsers] = useState<AccessUser[]>(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem(USER_STORAGE) || "null")
+      if (
+        Array.isArray(saved) &&
+        saved.every(
+          (user) =>
+            user &&
+            typeof user.name === "string" &&
+            typeof user.role === "string" &&
+            ["Active", "Locked"].includes(user.status),
         )
-        toast(
-          `${u.name} ${next === "Locked" ? "locked" : "unlocked"}`,
-          "success",
-        )
-        setConfirm(null)
-      },
-    })
-  }
+      ) {
+        return saved.map((user, index) => ({
+          ...user,
+          id:
+            user.id ||
+            `access-user-${index}-${user.name
+              .toLowerCase()
+              .replace(/[^a-z0-9]+/g, "-")}`,
+          email:
+            user.email ||
+            emps.find((employee) => employee.name === user.name)?.email ||
+            `${user.name
+              .toLowerCase()
+              .replace(/[^a-z0-9]+/g, ".")}@naxpayroll.com`,
+        }))
+      }
+    } catch {
+      // Use the application roster when stored user data is unavailable.
+    }
 
-  const addUser = () => {
-    if (!newUser.name) return toast("Name is required", "error")
-    setUsers([
-      ...users,
+    return [
       {
-        ...newUser,
+        id: "access-admin-meena-iyer",
+        name: "Meena Iyer",
+        email:
+          emps.find((employee) => employee.name === "Meena Iyer")?.email ||
+          "meena.iyer@naxpayroll.com",
+        role: "Org Admin",
         status: "Active",
-        scope: newUser.role === "Org Admin" ? "Full Admin Access" : "Self-Service Only",
+        department: "Executive & Admin",
+        scope: "Full Admin Access",
+        isOrganizationAdmin: true,
       },
-    ])
-    setShowAdd(false)
-    setNewUser({ name: "", role: "Employee", department: "Engineering" })
-    toast(`${newUser.name} added as ${newUser.role}`, "success")
+      ...emps
+        .filter((employee) => employee.id !== "EMP-003")
+        .map((employee) => ({
+          id: `access-${employee.id.toLowerCase()}`,
+          name: employee.name,
+          email: employee.email,
+          role: "Employee",
+          status:
+            employee.id === "EMP-006"
+              ? ("Locked" as const)
+              : ("Active" as const),
+          department: employee.department || "Operations",
+          scope: "Self-Service Only",
+        })),
+    ]
+  })
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(USER_STORAGE, JSON.stringify(users))
+    } catch {
+      toast("User changes could not be saved in this browser.", "error")
+    }
+  }, [users])
+
+  const assignedCount = (role: AccessRole) =>
+    users.filter(
+      (user) =>
+        user.role === (role.id === "admin" ? "Org Admin" : role.name),
+    ).length
+
+  const saveRole = (role: AccessRole) => {
+    const previous = roles.find((item) => item.id === role.id)
+    if (previous?.builtin) return false
+
+    const nextRoles = previous
+      ? roles.map((item) => (item.id === role.id ? role : item))
+      : [...roles, role]
+    const nextUsers = previous
+      ? users.map((user) =>
+          user.role === previous.name
+            ? { ...user, role: role.name, scope: roleScope(role.name) }
+            : user,
+        )
+      : users
+
+    try {
+      localStorage.setItem(
+        ROLE_STORAGE,
+        JSON.stringify(nextRoles.filter((item) => !item.builtin)),
+      )
+      localStorage.setItem(USER_STORAGE, JSON.stringify(nextUsers))
+    } catch {
+      toast("Unable to save this role. Check browser storage and try again.", "error")
+      return false
+    }
+
+    setRoles(nextRoles)
+    setUsers(nextUsers)
+    toast("Role saved successfully", "success")
+    return true
   }
 
-  const saveEditUser = () => {
-    if (!editUser) return
-    setUsers(users.map((u) => (u.name === editUser.name ? editUser : u)))
-    setEditUser(null)
-    toast("User role updated successfully", "success")
-  }
+  const deleteRole = (role: AccessRole) => {
+    if (role.builtin) return false
+    if (assignedCount(role)) {
+      toast("Reassign all users before deleting this role.", "error")
+      return false
+    }
 
-  const orgAdminsCount = users.filter((u) => u.role === "Org Admin").length
-  const employeesCount = users.filter((u) => u.role === "Employee").length
-  const lockedCount = users.filter((u) => u.status === "Locked").length
-  const activeFiltersCount =
-    (activeSearch(appliedSearch) ? 1 : 0) +
-    (appliedRole !== "all" ? 1 : 0) +
-    (appliedStatus !== "all" ? 1 : 0) +
-    (appliedDept !== "all" ? 1 : 0) +
-    (appliedScope !== "all" ? 1 : 0)
+    const nextRoles = roles.filter((item) => item.id !== role.id)
+    try {
+      localStorage.setItem(
+        ROLE_STORAGE,
+        JSON.stringify(nextRoles.filter((item) => !item.builtin)),
+      )
+    } catch {
+      toast("Unable to delete this role from browser storage.", "error")
+      return false
+    }
+
+    setRoles(nextRoles)
+    toast("Role deleted", "success")
+    return true
+  }
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
       <PH
         title="Access Management & Roles"
         sub="Configure user accounts, role assignments, and security permissions"
-        action={
-          <>
-          <Btn onClick={() => setShowAdd(true)}>+ Add User</Btn>
-          <Btn variant="secondary" onClick={() => toast("User roster exported", "info")}>
-            Download User List
-          </Btn>
-          </>
-        }
       />
 
-      {/* 4 KPI Summary Cards */}
       <div
+        role="tablist"
+        aria-label="Access management"
         style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-          gap: 16,
+          display: "flex",
+          gap: 4,
+          borderBottom: `1px solid ${F.border}`,
         }}
       >
-        <EmployeeMetricCard
-          label="Total Users"
-          value={`${users.length} Users`}
-          sub="Registered organization platform logins"
-          accent={F.brand}
-          badgeText="Active Roster"
-          badgeBg={F.infoBg}
-          badgeColor={F.brand}
-          progress={100}
-        />
-        <EmployeeMetricCard
-          label="Organization Admins"
-          value={`${orgAdminsCount} Admin`}
-          sub="Full administrative & payroll execution rights"
-          accent="#8B5CF6"
-          badgeText="Admin"
-          badgeBg="#F5F3FF"
-          badgeColor="#7C3AED"
-          progress={100}
-        />
-        <EmployeeMetricCard
-          label="Employee Self-Service"
-          value={`${employeesCount} Employees`}
-          sub="Restricted to own salary, payslips & tax data"
-          accent={F.success}
-          badgeText="Standard Access"
-          badgeBg={F.successBg}
-          badgeColor={F.success}
-          progress={100}
-        />
-        <EmployeeMetricCard
-          label="Account Security"
-          value={`${lockedCount} Locked`}
-          sub={lockedCount > 0 ? "Accounts restricted from sign-in" : "All user accounts active"}
-          accent={lockedCount > 0 ? F.warning : F.text3}
-          badgeText={lockedCount > 0 ? "Security Alert" : "Protected"}
-          badgeBg={lockedCount > 0 ? F.warningBg : F.pageBg}
-          badgeColor={lockedCount > 0 ? F.warning : F.text2}
-          progress={100}
-        />
-      </div>
-
-      {/* SAP Fiori Filter Bar Panel */}
-      <div
-        style={{
-          background: F.card,
-          border: `1px solid ${F.border}`,
-          borderRadius: 8,
-          boxShadow: "0 1px 3px rgba(0,0,0,0.02)",
-          // Let the value-help suggestions extend beyond the filter row.
-          // The filter panel stays above the results card while the menu is open.
-          overflow: "visible",
-          position: "relative",
-          zIndex: 2,
-        }}
-      >
-        {/* Filter Bar Action Bar Header */}
-        <div
-          style={{
-            padding: "12px 18px",
-            borderBottom: showFilterBar ? `1px solid ${F.border}` : "none",
-            background: F.card,
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            flexWrap: "wrap",
-            gap: 12,
-          }}
-        >
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <span style={{ fontSize: 13, fontWeight: 700, color: F.text1 }}>
-              Filter Bar
-            </span>
-            {activeFiltersCount > 0 && (
-              <span
-                style={{
-                  fontSize: 11,
-                  fontWeight: 700,
-                  color: F.brand,
-                  background: F.infoBg,
-                  padding: "2px 8px",
-                  borderRadius: 12,
-                }}
-              >
-                {activeFiltersCount} Active Filter{activeFiltersCount !== 1 ? "s" : ""}
-              </span>
-            )}
-          </div>
-
-          {/* Action Row: Go, Clear Filters, Hide/Show Filter Bar */}
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <Btn onClick={handleGo} style={{ height: 34, padding: "0 18px", fontWeight: 700 }}>
-              Go
-            </Btn>
-            <Btn variant="secondary" onClick={handleClear} style={{ height: 34 }}>
-              Clear Filters
-            </Btn>
-            <Btn
-              variant="secondary"
-              onClick={() => setShowFilterBar(!showFilterBar)}
-              style={{ height: 34 }}
-            >
-              {showFilterBar ? "Hide Filter Bar" : "Show Filter Bar"}
-            </Btn>
-          </div>
-        </div>
-
-        {/* Collapsible Filter Inputs Panel */}
-        {showFilterBar && (
-          <div
+        {(["users", "roles"] as const).map((tab) => (
+          <button
+            key={tab}
+            id={`access-tab-${tab}`}
+            role="tab"
+            aria-selected={accessTab === tab}
+            aria-controls={`access-panel-${tab}`}
+            onClick={() => setAccessTab(tab)}
             style={{
-              padding: "16px 18px",
-              background: F.card,
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
-              gap: 14,
-              alignItems: "flex-end",
+              padding: "12px 22px",
+              border: "none",
+              borderBottom: `3px solid ${
+                accessTab === tab ? F.brand : "transparent"
+              }`,
+              background: "transparent",
+              color: accessTab === tab ? F.brand : F.text2,
+              fontWeight: 700,
+              cursor: "pointer",
+              fontFamily: "inherit",
             }}
           >
-            {/* 1. Search User (F4 Search) */}
-            <div style={{ gridColumn: "span 2", minWidth: 260 }}>
-              <ValueHelp
-                label="Search User (F4 Search)"
-                value={searchDraft}
-                onChange={setSearchDraft}
-                placeholder="Search user name or role (press Go to apply)…"
-                values={f4UserNames}
-              />
-            </div>
-
-            {/* 2. Role Filter */}
-            <div>
-              <div
-                style={{
-                  fontSize: 11,
-                  fontWeight: 600,
-                  color: F.text2,
-                  marginBottom: 3,
-                  textTransform: "uppercase",
-                  letterSpacing: "0.06em",
-                }}
-              >
-                Role Filter
-              </div>
-              <select
-                value={roleDraft}
-                onChange={(e) => setRoleDraft(e.target.value)}
-                style={{ ...iSt, cursor: "pointer" }}
-              >
-                <option value="all">All Roles</option>
-                <option value="Org Admin">Org Admin</option>
-                <option value="Employee">Employee</option>
-              </select>
-            </div>
-
-            {/* 3. Account Status Filter */}
-            <div>
-              <div
-                style={{
-                  fontSize: 11,
-                  fontWeight: 600,
-                  color: F.text2,
-                  marginBottom: 3,
-                  textTransform: "uppercase",
-                  letterSpacing: "0.06em",
-                }}
-              >
-                Account Status
-              </div>
-              <select
-                value={statusDraft}
-                onChange={(e) => setStatusDraft(e.target.value)}
-                style={{ ...iSt, cursor: "pointer" }}
-              >
-                <option value="all">All Statuses</option>
-                <option value="Active">Active</option>
-                <option value="Locked">Locked</option>
-              </select>
-            </div>
-
-            {/* 4. Department Filter */}
-            <div>
-              <div
-                style={{
-                  fontSize: 11,
-                  fontWeight: 600,
-                  color: F.text2,
-                  marginBottom: 3,
-                  textTransform: "uppercase",
-                  letterSpacing: "0.06em",
-                }}
-              >
-                Department
-              </div>
-              <select
-                value={deptDraft}
-                onChange={(e) => setDeptDraft(e.target.value)}
-                style={{ ...iSt, cursor: "pointer" }}
-              >
-                <option value="all">All Departments</option>
-                {availableDepts.map((d) => (
-                  <option key={d} value={d}>
-                    {d}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* 5. Permission Scope Filter */}
-            <div>
-              <div
-                style={{
-                  fontSize: 11,
-                  fontWeight: 600,
-                  color: F.text2,
-                  marginBottom: 3,
-                  textTransform: "uppercase",
-                  letterSpacing: "0.06em",
-                }}
-              >
-                Access Scope
-              </div>
-              <select
-                value={scopeDraft}
-                onChange={(e) => setScopeDraft(e.target.value)}
-                style={{ ...iSt, cursor: "pointer" }}
-              >
-                <option value="all">All Scopes</option>
-                <option value="Full Admin Access">Full Admin Access</option>
-                <option value="Self-Service Only">Self-Service Only</option>
-              </select>
-            </div>
-          </div>
-        )}
+            {tab === "users"
+              ? `Users (${users.length})`
+              : `Roles (${roles.length})`}
+          </button>
+        ))}
       </div>
 
-      {/* User Roster Table */}
       <div
-        style={{
-          background: F.card,
-          border: `1px solid ${F.border}`,
-          borderRadius: 8,
-          overflow: "hidden",
-          boxShadow: "0 1px 3px rgba(0,0,0,0.03)",
-        }}
+        id="access-panel-roles"
+        role="tabpanel"
+        aria-labelledby="access-tab-roles"
+        hidden={accessTab !== "roles"}
       >
-        <div
-          style={{
-            padding: "16px 20px",
-            borderBottom: `1px solid ${F.border}`,
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-          }}
-        >
-          <div>
-            <h2 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: F.text1 }}>
-              Platform User Roster
-            </h2>
-            <div style={{ fontSize: 12, color: F.text2, marginTop: 2 }}>
-              Showing {filteredUsers.length} of {users.length} registered user accounts
-            </div>
-          </div>
-        </div>
-
-        <div style={{ overflowX: "auto" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 700, fontSize: 13 }}>
-            <thead>
-              <tr
-                style={{
-                  borderBottom: `1px solid ${F.border}`,
-                  background: F.pageBg,
-                  color: F.text2,
-                  fontSize: 11,
-                  fontWeight: 700,
-                  textTransform: "uppercase",
-                }}
-              >
-                <th style={{ padding: "12px 18px", textAlign: "left" }}>Platform User</th>
-                <th style={{ padding: "12px 14px", textAlign: "left" }}>Assigned Role</th>
-                <th style={{ padding: "12px 14px", textAlign: "left" }}>Department</th>
-                <th style={{ padding: "12px 14px", textAlign: "left" }}>Permission Scope</th>
-                <th style={{ padding: "12px 14px", textAlign: "center" }}>Account Status</th>
-                <th style={{ padding: "12px 18px", textAlign: "right" }}>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredUsers.length === 0 ? (
-                <tr>
-                  <td colSpan={6} style={{ padding: 44, textAlign: "center", color: F.text3 }}>
-                    No platform users match your filter criteria. Click "Clear Filters" or adjust search.
-                  </td>
-                </tr>
-              ) : (
-                paginatedUsers.map((u) => (
-                  <tr
-                    key={u.name}
-                    style={{
-                      borderBottom: `1px solid ${F.border}60`,
-                      transition: "background 0.12s ease",
-                    }}
-                    onMouseEnter={(e) => (e.currentTarget.style.background = F.pageBg)}
-                    onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
-                  >
-                    <td style={{ padding: "14px 18px" }}>
-                      <strong style={{ color: F.text1 }}>{u.name}</strong>
-                    </td>
-                    <td style={{ padding: "14px 14px" }}>
-                      <Badge
-                        label={u.role}
-                        color={u.role === "Org Admin" ? F.brand : F.text2}
-                        bg={u.role === "Org Admin" ? F.infoBg : F.pageBg}
-                      />
-                    </td>
-                    <td style={{ padding: "14px 14px", color: F.text2 }}>
-                      {u.department || "Operations"}
-                    </td>
-                    <td style={{ padding: "14px 14px", color: F.text3, fontSize: 12 }}>
-                      {u.scope || "Self-Service Only"}
-                    </td>
-                    <td style={{ padding: "14px 14px", textAlign: "center" }}>
-                      <Badge
-                        label={u.status}
-                        color={u.status === "Active" ? F.success : F.error}
-                        bg={u.status === "Active" ? F.successBg : F.errorBg}
-                        dot={u.status === "Active" ? F.success : F.error}
-                      />
-                    </td>
-                    <td style={{ padding: "14px 18px", textAlign: "right" }}>
-                      <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-                        <Btn small variant="secondary" onClick={() => setEditUser({ ...u })}>
-                          Edit Role
-                        </Btn>
-                        <Btn
-                          small
-                          variant="secondary"
-                          onClick={() => toggleLock(u)}
-                          style={{
-                            color: u.status === "Active" ? F.error : F.success,
-                          }}
-                        >
-                          {u.status === "Active" ? "Lock" : "Unlock"}
-                        </Btn>
-                        <Btn
-                          small
-                          variant="secondary"
-                          onClick={() => toast(`Password reset email sent to ${u.name}`, "info")}
-                        >
-                          Reset Pwd
-                        </Btn>
-                      </div>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-        <Pagination page={userPage} pageSize={10} total={filteredUsers.length} onPageChange={setUserPage} />
+        <AccessRoles
+          roles={roles}
+          onSave={saveRole}
+          onDelete={deleteRole}
+          assignedCount={assignedCount}
+        />
       </div>
 
-      {/* Add User Modal */}
-      {showAdd && (
-        <Modal title="Add New Platform User" onClose={() => setShowAdd(false)}>
-          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-            <Fld label="User Full Name">
-              <input
-                value={newUser.name}
-                onChange={(e) => setNewUser({ ...newUser, name: e.target.value })}
-                placeholder="Enter name (e.g. Ananya Roy)"
-                style={iSt}
-              />
-            </Fld>
-            <Fld label="Department">
-              <select
-                value={newUser.department}
-                onChange={(e) => setNewUser({ ...newUser, department: e.target.value })}
-                style={{ ...iSt, cursor: "pointer" }}
-              >
-                <option value="Engineering">Engineering</option>
-                <option value="HR & Payroll">HR & Payroll</option>
-                <option value="Operations">Operations</option>
-                <option value="Finance">Finance</option>
-                <option value="Executive & Admin">Executive & Admin</option>
-              </select>
-            </Fld>
-            <Fld label="Assign Role">
-              <select
-                value={newUser.role}
-                onChange={(e) =>
-                  setNewUser({ ...newUser, role: e.target.value as UserRow["role"] })
-                }
-                style={{ ...iSt, cursor: "pointer" }}
-              >
-                <option value="Employee">Employee (Self-Service)</option>
-                <option value="Org Admin">Organization Admin</option>
-              </select>
-            </Fld>
-            <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 10 }}>
-              <Btn variant="secondary" onClick={() => setShowAdd(false)}>
-                Cancel
-              </Btn>
-              <Btn onClick={addUser}>Add User</Btn>
-            </div>
-          </div>
-        </Modal>
-      )}
-
-      {/* Edit Role Modal */}
-      {editUser && (
-        <Modal title={`Edit Role — ${editUser.name}`} onClose={() => setEditUser(null)}>
-          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-            <Fld label="User Role">
-              <select
-                value={editUser.role}
-                onChange={(e) =>
-                  setEditUser({
-                    ...editUser,
-                    role: e.target.value as UserRow["role"],
-                    scope: e.target.value === "Org Admin" ? "Full Admin Access" : "Self-Service Only",
-                  })
-                }
-                style={{ ...iSt, cursor: "pointer" }}
-              >
-                <option value="Employee">Employee (Self-Service)</option>
-                <option value="Org Admin">Organization Admin</option>
-              </select>
-            </Fld>
-            <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 10 }}>
-              <Btn variant="secondary" onClick={() => setEditUser(null)}>
-                Cancel
-              </Btn>
-              <Btn onClick={saveEditUser}>Save Role Changes</Btn>
-            </div>
-          </div>
-        </Modal>
-      )}
-
-      {/* Confirm Action Dialog */}
-      {confirm && (
-        <Modal title="Confirm Security Action" onClose={() => setConfirm(null)}>
-          <p style={{ color: F.text2, fontSize: 13 }}>{confirm.msg}</p>
-          <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 16 }}>
-            <Btn variant="secondary" onClick={() => setConfirm(null)}>
-              Cancel
-            </Btn>
-            <Btn onClick={confirm.onOk}>Confirm Action</Btn>
-          </div>
-        </Modal>
+      {accessTab === "users" && (
+        <div
+          id="access-panel-users"
+          role="tabpanel"
+          aria-labelledby="access-tab-users"
+        >
+          <AccessUsers
+            users={users}
+            roles={roles}
+            roleOptions={roleOptions}
+            roleScope={roleScope}
+            onChange={setUsers}
+            notify={toast}
+          />
+        </div>
       )}
     </div>
   )
 }
-
 function AuditHistoryView({
   logs,
   errorLogs = [],
@@ -16360,11 +18539,21 @@ function UnifiedProfileView({
                 border: `1px solid ${roleBadgeBorder}`,
               }}
             >
+              <UiIcon
+                name={
+                  persona === "product_admin"
+                    ? "crown"
+                    : persona === "org_admin"
+                      ? "building"
+                      : "user"
+                }
+                size={14}
+              />{" "}
               {persona === "product_admin"
-                ? "👑 Superuser Account"
+                ? "Superuser Account"
                 : persona === "org_admin"
-                  ? "🏢 Org Administrator"
-                  : "👤 Employee Self-Service"}
+                  ? "Org Administrator"
+                  : "Employee Self-Service"}
             </span>
           </div>
           {roleSubtitle && (
@@ -17539,7 +19728,7 @@ function UnifiedProfileView({
                   </div>
                 </div>
                 <span style={{ fontSize: 11, fontWeight: 700, color: F.success }}>
-                  Configured ✓
+                  Configured <UiIcon name="check" size={13} />
                 </span>
               </div>
 
@@ -17563,7 +19752,7 @@ function UnifiedProfileView({
                   </div>
                 </div>
                 <span style={{ fontSize: 11, fontWeight: 700, color: F.brand }}>
-                  Active ✓
+                  Active <UiIcon name="check" size={13} />
                 </span>
               </div>
             </div>
@@ -21111,8 +23300,8 @@ function MySalaryView({
     },
   ]
 
-  // F4 Value Help list
-  const f4Values = [
+  // Searchable value list
+  const componentValues = [
     "Basic Salary",
     "House Rent Allowance (HRA)",
     "Fixed Allowance",
@@ -21368,7 +23557,7 @@ function MySalaryView({
         </div>
       </div>
 
-      {/* ── Filters & F4 Search Bar ── */}
+      {/* Filters and search bar */}
       <div
         style={{
           background: F.card,
@@ -21382,14 +23571,14 @@ function MySalaryView({
           boxShadow: "0 1px 3px rgba(0,0,0,0.03)",
         }}
       >
-        {/* F4 Value Help Search */}
+        {/* Searchable value field */}
         <div style={{ flex: 2, minWidth: 260 }}>
           <ValueHelp
-            label="Search Salary Component (F4 Search)"
+            label="Search Salary Component"
             value={componentSearch}
             onChange={setComponentSearch}
-            placeholder="Type or pick from F4 value help…"
-            values={f4Values}
+            placeholder="Type or choose an available value…"
+            values={componentValues}
           />
         </div>
 
@@ -21833,8 +24022,8 @@ function PayrollHistoryView({
     }))
     .filter((item) => Boolean(item.row))
 
-  // F4 Value Help list for periods
-  const f4Periods = Array.from(new Set(runs.map((r) => r.run.period)))
+  // Searchable value list for periods
+  const availablePeriods = Array.from(new Set(runs.map((r) => r.run.period)))
   const availableYears = Array.from(new Set(runs.map((r) => String(r.run.year)))).sort().reverse()
 
   // Apply filters
@@ -21842,7 +24031,7 @@ function PayrollHistoryView({
   const maxNet = Number(appliedHistoryFilters.maxNetFilter) || Number.POSITIVE_INFINITY
   const filteredRuns = (hasRunPayrollHistorySearch ? runs : [])
     .filter(({ run, row }) => {
-      // F4 Period filter / search
+      // Period filter and search
       if (!searchMatches(appliedHistoryFilters.periodSearch, [run.period])) {
         return false
       }
@@ -22109,7 +24298,7 @@ function PayrollHistoryView({
         />
       </div>
 
-      {/* ── Filters & F4 Value Search Bar ── */}
+      {/* Filters and value search bar */}
       <div
         style={{
           background: F.card,
@@ -22123,14 +24312,14 @@ function PayrollHistoryView({
           boxShadow: "0 1px 3px rgba(0,0,0,0.03)",
         }}
       >
-        {/* F4 Value Help Search for Pay Period */}
+        {/* Searchable pay-period field */}
         <div style={{ flex: 2, minWidth: 260 }}>
           <ValueHelp
-            label="Search Pay Period (F4 Search)"
+            label="Search Pay Period"
             value={periodSearch}
             onChange={setPeriodSearch}
             placeholder="Search or pick pay period (e.g. July 2026)…"
-            values={f4Periods}
+            values={availablePeriods}
           />
         </div>
 
@@ -22414,7 +24603,7 @@ function PayrollHistoryView({
                       No payroll records match your filter criteria
                     </div>
                     <div style={{ fontSize: 12, color: F.text3 }}>
-                      Try selecting another period with F4 search or reset your filters.
+                      Try selecting another period or reset your filters.
                     </div>
                   </td>
                 </tr>
@@ -22709,7 +24898,7 @@ function EmployeePayslipsView({
     (r) => isFinalizedPayrun(r.status),
   )
 
-  const f4Periods = Array.from(new Set(runs.map((r) => r.period)))
+  const availablePeriods = Array.from(new Set(runs.map((r) => r.period)))
   const availableYears = Array.from(
     new Set(runs.map((r) => String(r.year))),
   ).sort().reverse()
@@ -22804,7 +24993,7 @@ function EmployeePayslipsView({
         </div>
       </div>
 
-      {/* Filter & F4 Search Toolbar */}
+      {/* Filter and search toolbar */}
       <div
         style={{
           background: F.card,
@@ -22820,11 +25009,11 @@ function EmployeePayslipsView({
       >
         <div style={{ flex: 2, minWidth: 240 }}>
           <ValueHelp
-            label="Search Pay Period (F4 Search)"
+            label="Search Pay Period"
             value={periodSearch}
             onChange={setPeriodSearch}
             placeholder="Search period (e.g. July 2026)…"
-            values={f4Periods}
+            values={availablePeriods}
           />
         </div>
 
@@ -23577,7 +25766,7 @@ function DocumentsView({
   ]
 
   const categories = Array.from(new Set(docs.map((d) => d.type)))
-  const f4DocNames = docs.map((d) => d.name)
+  const availableDocumentNames = docs.map((d) => d.name)
 
   const filteredDocs = (hasRunDocumentSearch ? docs : []).filter((doc) => {
     if (!searchMatches(appliedDocumentFilters.docSearch, [doc.name])) {
@@ -23715,7 +25904,7 @@ function DocumentsView({
         <Tile label="Managed Sources" value={String(documentSources.length)} sub="HR, payroll, and employee file" accent="#00A389" />
       </div>
 
-      {/* Filter & F4 Search Toolbar */}
+      {/* Filter and search toolbar */}
       <div
         style={{
           background: F.card,
@@ -23731,11 +25920,11 @@ function DocumentsView({
       >
         <div style={{ flex: 2, minWidth: 240 }}>
           <ValueHelp
-            label="Search Document Name (F4 Search)"
+            label="Search Document Name"
             value={docSearch}
             onChange={setDocSearch}
             placeholder="Search document name (e.g. Offer Letter)…"
-            values={f4DocNames}
+            values={availableDocumentNames}
           />
         </div>
 
