@@ -2369,10 +2369,210 @@ function Stepper({ current }: { current: PayrunStatus }) {
   )
 }
 
+function numberToWordsIndian(amount: number): string {
+  const num = Math.round(Number(amount) || 0)
+  if (num <= 0) return "Rupees Zero Only"
+
+  const ones = [
+    "", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine",
+    "Ten", "Eleven", "Twelve", "Thirteen", "Fourteen", "Fifteen", "Sixteen",
+    "Seventeen", "Eighteen", "Nineteen",
+  ]
+  const tens = ["", "", "Twenty", "Thirty", "Forty", "Fifty", "Sixty", "Seventy", "Eighty", "Ninety"]
+
+  const convertTwoDigits = (n: number): string => {
+    if (n === 0) return ""
+    if (n < 20) return ones[n]
+    const t = tens[Math.floor(n / 10)]
+    const o = ones[n % 10]
+    return t + (o ? `-${o}` : "")
+  }
+
+  const convertThreeDigits = (n: number): string => {
+    const h = Math.floor(n / 100)
+    const rest = n % 100
+    const parts: string[] = []
+    if (h > 0) parts.push(`${ones[h]} Hundred`)
+    if (rest > 0) parts.push(convertTwoDigits(rest))
+    return parts.join(" ")
+  }
+
+  let remaining = num
+  const parts: string[] = []
+
+  const crore = Math.floor(remaining / 10000000)
+  if (crore > 0) {
+    parts.push(`${convertThreeDigits(crore)} Crore`)
+    remaining %= 10000000
+  }
+
+  const lakh = Math.floor(remaining / 100000)
+  if (lakh > 0) {
+    parts.push(`${convertTwoDigits(lakh)} Lakh`)
+    remaining %= 100000
+  }
+
+  const thousand = Math.floor(remaining / 1000)
+  if (thousand > 0) {
+    parts.push(`${convertTwoDigits(thousand)} Thousand`)
+    remaining %= 1000
+  }
+
+  if (remaining > 0) {
+    parts.push(convertThreeDigits(remaining))
+  }
+
+  return `Rupees ${parts.join(" ")} Only`
+}
+
+interface PayslipBreakdown {
+  earnings: {
+    basic: number
+    hra: number
+    fixedAllowance: number
+    specialAllowance: number
+  }
+  earningsList: { label: string; amount: number }[]
+  totalEarnings: number
+  deductions: {
+    pf: number
+    esi: number
+    profTax: number
+    tds: number
+  }
+  deductionsList: { label: string; amount: number }[]
+  totalDeductions: number
+  netSalary: number
+}
+
+function getEmployeePayslipBreakdown(
+  emp: Pick<Employee, "id" | "grossSalary" | "salaryStructure">,
+  period: string,
+  gross?: number,
+  deductionsTotal?: number,
+  ssList: SalaryStructure[] = [],
+  statutory?: { epf?: boolean; esi?: boolean; pt?: boolean },
+  payroll?: { tdsRate?: number },
+): PayslipBreakdown {
+  const targetGross = typeof gross === "number" && !isNaN(gross) ? Math.max(0, gross) : Math.max(0, emp.grossSalary || 0)
+  const s = ssList.find((item) => item.name === emp.salaryStructure)
+
+  let basic = 0
+  let hra = 0
+  let fixedAllowance = 0
+  let specialAllowance = 0
+
+  if (targetGross > 0) {
+    if (s && s.gross > 0) {
+      if (targetGross === s.gross) {
+        basic = s.basic
+        hra = s.hra
+        fixedAllowance = s.fixedAllowance
+        specialAllowance = s.specialAllowance
+      } else {
+        basic = Math.round((targetGross * s.basic) / s.gross)
+        hra = Math.round((targetGross * s.hra) / s.gross)
+        fixedAllowance = Math.round((targetGross * s.fixedAllowance) / s.gross)
+        specialAllowance = Math.max(0, targetGross - (basic + hra + fixedAllowance))
+      }
+    } else {
+      basic = Math.round(targetGross * 0.5)
+      hra = Math.round(targetGross * 0.2)
+      fixedAllowance = Math.round(targetGross * 0.15)
+      specialAllowance = Math.max(0, targetGross - (basic + hra + fixedAllowance))
+    }
+
+    const currentSum = basic + hra + fixedAllowance + specialAllowance
+    if (currentSum !== targetGross) {
+      const diff = targetGross - currentSum
+      if (specialAllowance + diff >= 0) {
+        specialAllowance += diff
+      } else if (fixedAllowance + diff >= 0) {
+        fixedAllowance += diff
+      } else {
+        basic = Math.max(0, basic + diff)
+      }
+    }
+  }
+
+  const totalEarnings = basic + hra + fixedAllowance + specialAllowance
+
+  const isEpf = statutory ? statutory.epf !== false : true
+  const isPt = statutory ? statutory.pt !== false : true
+  const isEsi = statutory ? Boolean(statutory.esi) : (targetGross > 0 && targetGross <= 21000)
+  const tdsRate = payroll?.tdsRate ?? 10
+
+  let pf = isEpf && basic > 0 ? Math.round(basic * 0.12) : 0
+  let esi = isEsi && targetGross > 0 ? Math.round(targetGross * 0.0075) : 0
+  let profTax = isPt && targetGross > 0 ? (targetGross > 15000 ? 200 : 150) : 0
+  let tds = targetGross > 25000 ? Math.round((targetGross * tdsRate) / 100) : 0
+
+  if (typeof deductionsTotal === "number" && !isNaN(deductionsTotal) && deductionsTotal >= 0) {
+    const targetDed = Math.min(totalEarnings, deductionsTotal)
+    const baseStatutory = pf + esi + profTax
+    if (targetDed >= baseStatutory) {
+      tds = targetDed - baseStatutory
+    } else {
+      tds = 0
+      const scale = baseStatutory > 0 ? targetDed / baseStatutory : 0
+      pf = Math.round(pf * scale)
+      esi = Math.round(esi * scale)
+      profTax = Math.max(0, targetDed - pf - esi)
+    }
+    const currentDedSum = pf + esi + profTax + tds
+    if (currentDedSum !== targetDed) {
+      tds = Math.max(0, tds + (targetDed - currentDedSum))
+    }
+  }
+
+  let totalDeductions = pf + esi + profTax + tds
+  if (totalDeductions > totalEarnings) {
+    totalDeductions = totalEarnings
+    tds = Math.max(0, totalDeductions - pf - esi - profTax)
+  }
+
+  const netSalary = Math.max(0, totalEarnings - totalDeductions)
+
+  const earningsList = [
+    { label: "Basic Pay", amount: basic },
+    { label: "House Rent Allowance", amount: hra },
+    { label: "Fixed Allowance", amount: fixedAllowance },
+    { label: "Special Allowance", amount: specialAllowance },
+  ]
+
+  const deductionsList = [
+    { label: "Provident Fund (EPF)", amount: pf },
+    ...(esi > 0 ? [{ label: "Employees' State Insurance (ESI)", amount: esi }] : []),
+    { label: "Professional Tax", amount: profTax },
+    { label: "Income Tax (TDS)", amount: tds },
+  ]
+
+  return {
+    earnings: { basic, hra, fixedAllowance, specialAllowance },
+    earningsList,
+    totalEarnings,
+    deductions: { pf, esi, profTax, tds },
+    deductionsList,
+    totalDeductions,
+    netSalary,
+  }
+}
+
 type PayslipPdfEntry = {
-  row: Pick<PayrunInputRow, "grossSalary" | "totalEarnings" | "pf" | "tds" | "profTax" | "totalDeductions" | "netSalary">
+  row: Pick<PayrunInputRow, "grossSalary" | "totalEarnings" | "pf" | "tds" | "profTax" | "totalDeductions" | "netSalary"> & {
+    bonus?: number
+    incentive?: number
+    esi?: number
+    lopDeduction?: number
+    otherDeduction?: number
+    status?: string
+    netInWords?: string
+    earningsBreakdown?: { label: string; amount: number }[]
+    deductionsBreakdown?: { label: string; amount: number }[]
+  }
   run: Pick<Payrun, "period" | "generatedOn">
-  emp: Pick<Employee, "name" | "id" | "department" | "designation" | "salaryStructure">
+  emp: Pick<Employee, "name" | "id" | "department" | "designation" | "salaryStructure"> &
+    Partial<Pick<Employee, "code" | "empType" | "location" | "doj" | "bankName" | "bankAccount" | "ifsc">>
 }
 
 function downloadPayslipsPdf(entries: PayslipPdfEntry[]) {
@@ -2382,45 +2582,104 @@ function downloadPayslipsPdf(entries: PayslipPdfEntry[]) {
   const title = entries.length === 1
     ? `${entries[0].emp.name} Payslip ${entries[0].run.period}`
     : `${entries.length} Selected Payslips`
-  const payslipSections = entries.map(({ row, run, emp }) => `
+  const payslipSections = entries.map(({ row, run, emp }) => {
+    const earningsItems = row.earningsBreakdown && row.earningsBreakdown.length > 0
+      ? row.earningsBreakdown
+      : [
+          { label: "Gross Salary", amount: row.grossSalary },
+          ...(Number(row.bonus) > 0 ? [{ label: "Bonus", amount: Number(row.bonus) }] : []),
+          ...(Number(row.incentive) > 0 ? [{ label: "Incentive", amount: Number(row.incentive) }] : []),
+        ]
+    const deductionsItems = row.deductionsBreakdown && row.deductionsBreakdown.length > 0
+      ? row.deductionsBreakdown
+      : [
+          { label: "Provident Fund (EPF)", amount: row.pf },
+          ...(Number(row.esi) > 0 ? [{ label: "Employees' State Insurance (ESI)", amount: Number(row.esi) }] : []),
+          { label: "Professional Tax", amount: row.profTax },
+          { label: "Income Tax (TDS)", amount: row.tds },
+          ...(Number(row.lopDeduction) > 0 ? [{ label: "LOP Deduction", amount: Number(row.lopDeduction) }] : []),
+          ...(Number(row.otherDeduction) > 0 ? [{ label: "Other Deduction", amount: Number(row.otherDeduction) }] : []),
+        ]
+
+    const netWords = row.netInWords || numberToWordsIndian(row.netSalary)
+    const bankDetails = emp.bankAccount
+      ? `Bank Transfer (${emp.bankName ? emp.bankName + " " : ""}•••• ${emp.bankAccount.slice(-4)})`
+      : "Bank Transfer"
+
+    return `
     <section class="payslip">
-      <div class="header"><div><h1>Naxpayroll</h1><div>Naxrita Solutions Pvt. Ltd.</div></div><div><div>Payslip Period</div><h2>${run.period}</h2></div></div>
+      <div class="header">
+        <div>
+          <h1>Naxpayroll</h1>
+          <div>Naxrita Solutions Pvt. Ltd.</div>
+        </div>
+        <div style="text-align:right;">
+          <div style="font-size:12px;opacity:0.85;">Payslip Period</div>
+          <h2>${run.period}</h2>
+          <div style="font-size:11px;opacity:0.85;">Pay Date: ${fmtD(run.generatedOn)}</div>
+        </div>
+      </div>
       <div class="grid">
-        <div class="row"><span>Employee</span><strong>${emp.name} (${emp.id})</strong></div>
-        <div class="row"><span>Department</span><strong>${emp.department}</strong></div>
+        <div class="row"><span>Employee Name</span><strong>${emp.name}</strong></div>
+        <div class="row"><span>Employee ID</span><strong>${emp.code || emp.id}</strong></div>
         <div class="row"><span>Designation</span><strong>${emp.designation}</strong></div>
-        <div class="row"><span>Pay Date</span><strong>${fmtD(run.generatedOn)}</strong></div>
-        <div class="row"><span>Salary Structure</span><strong>${emp.salaryStructure}</strong></div>
-        <div class="row"><span>Status</span><strong>Completed</strong></div>
+        <div class="row"><span>Department</span><strong>${emp.department}</strong></div>
+        <div class="row"><span>Employment Type</span><strong>${emp.empType || "Full-Time"}</strong></div>
+        <div class="row"><span>Work Location</span><strong>${emp.location || "Bangalore"}</strong></div>
+        <div class="row"><span>Joining Date</span><strong>${emp.doj ? fmtD(emp.doj) : "—"}</strong></div>
+        <div class="row"><span>Salary Structure</span><strong>${emp.salaryStructure || "Standard CTC Structure"}</strong></div>
+        <div class="row"><span>Payment Method</span><strong>${bankDetails}</strong></div>
+        <div class="row"><span>Status</span><strong>${row.status || "Paid"}</strong></div>
       </div>
       <div class="cols">
-        <div class="col"><h3>Earnings</h3><div class="row"><span>Gross Salary</span><strong>${inr(row.grossSalary)}</strong></div><div class="row"><span>Total Earnings</span><strong>${inr(row.totalEarnings)}</strong></div></div>
-        <div class="col ded"><h3>Deductions</h3><div class="row"><span>PF</span><strong>${inr(row.pf)}</strong></div><div class="row"><span>TDS</span><strong>${inr(row.tds)}</strong></div><div class="row"><span>Professional Tax</span><strong>${inr(row.profTax)}</strong></div><div class="row"><span>Total Deductions</span><strong>${inr(row.totalDeductions)}</strong></div></div>
+        <div class="col">
+          <h3>Earnings</h3>
+          ${earningsItems.map((e) => `<div class="row"><span>${e.label}</span><strong>${inr(e.amount)}</strong></div>`).join("")}
+          <div class="row" style="border-top:2px solid #D9D9D9;margin-top:6px;padding-top:8px;"><span>Total Earnings</span><strong style="color:#107E3E;">${inr(row.totalEarnings)}</strong></div>
+        </div>
+        <div class="col ded">
+          <h3>Deductions</h3>
+          ${deductionsItems.map((d) => `<div class="row"><span>${d.label}</span><strong>${inr(d.amount)}</strong></div>`).join("")}
+          <div class="row" style="border-top:2px solid #D9D9D9;margin-top:6px;padding-top:8px;"><span>Total Deductions</span><strong style="color:#BB0000;">${inr(row.totalDeductions)}</strong></div>
+        </div>
       </div>
-      <div class="net"><span>Net Pay</span><span>${inr(row.netSalary)}</span></div>
+      <div class="net">
+        <div>
+          <span style="font-size:12px;display:block;opacity:0.85;">NET TAKE HOME PAY</span>
+          <span>${inr(row.netSalary)}</span>
+        </div>
+        <div style="text-align:right;">
+          <div style="font-size:12px;color:#065F46;font-style:italic;">${netWords}</div>
+        </div>
+      </div>
     </section>
-  `).join("")
+  `
+  }).join("")
+
   printWindow.document.write(`
     <html>
       <head>
         <title>${title}</title>
         <style>
           body { font-family: Arial, sans-serif; padding: 28px; color: #32363A; }
-          .payslip { break-after: page; page-break-after: always; }
+          .payslip { break-after: page; page-break-after: always; margin-bottom: 24px; border: 1px solid #D9D9D9; border-radius: 8px; overflow: hidden; }
           .payslip:last-child { break-after: auto; page-break-after: auto; }
-          .header { background: #354A5E; color: white; padding: 22px; display: flex; justify-content: space-between; }
-          .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 24px; margin: 22px 0; }
-          .row { display: flex; justify-content: space-between; border-bottom: 1px solid #D9D9D9; padding: 8px 0; }
-          .cols { display: grid; grid-template-columns: 1fr 1fr; border: 1px solid #D9D9D9; }
-          .col { padding: 18px; }
-          .net { margin-top: 0; padding: 18px; background: #F1FDF6; display: flex; justify-content: space-between; font-size: 24px; font-weight: 800; color: #107E3E; }
-          h3 { margin: 0 0 12px; color: #107E3E; }
+          .header { background: #1D2D3E; color: white; padding: 20px 24px; display: flex; justify-content: space-between; align-items: center; }
+          .header h1 { margin: 0 0 4px; font-size: 22px; }
+          .header h2 { margin: 2px 0 0; font-size: 18px; }
+          .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 24px; padding: 18px 24px; background: #F8FAFC; border-bottom: 1px solid #D9D9D9; font-size: 13px; }
+          .row { display: flex; justify-content: space-between; border-bottom: 1px solid #E2E8F0; padding: 6px 0; font-size: 13px; }
+          .cols { display: grid; grid-template-columns: 1fr 1fr; }
+          .col { padding: 18px 24px; }
+          .col:first-child { border-right: 1px solid #D9D9D9; }
+          .net { padding: 18px 24px; background: #F1FDF6; display: flex; justify-content: space-between; align-items: center; font-size: 22px; font-weight: 800; color: #107E3E; border-top: 1px solid #D9D9D9; }
+          h3 { margin: 0 0 12px; color: #107E3E; font-size: 14px; text-transform: uppercase; letter-spacing: 0.04em; }
           .ded h3 { color: #BB0000; }
-          @media print { button { display: none; } body { padding: 0; } }
+          @media print { button { display: none; } body { padding: 0; } .payslip { border: 1px solid #ccc; } }
         </style>
       </head>
       <body>
-        <button onclick="window.print()" style="margin-bottom:16px;padding:10px 16px;background:#0070F2;color:white;border:0;border-radius:4px;font-weight:700;">Download / Save ${entries.length} PDF${entries.length === 1 ? "" : "s"}</button>
+        <button onclick="window.print()" style="margin-bottom:16px;padding:10px 18px;background:#0070F2;color:white;border:0;border-radius:6px;font-weight:700;cursor:pointer;">Download / Save ${entries.length} PDF${entries.length === 1 ? "" : "s"}</button>
         ${payslipSections}
         <script>window.onload = () => window.print()</script>
       </body>
@@ -6486,6 +6745,123 @@ function OtherBenefitsModal({ isOpen, onClose, onSave }: OtherBenefitsModalProps
     </div>
   )
 }
+
+// ── Employees Module Frontend Validation Helpers ──────────────────────────────
+const isValidEmail = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())
+const cleanIndianMobile = (mobile: string) => mobile.trim().replace(/[\s\-()]/g, "").replace(/^(\+91|91|0)/, "")
+const isValidIndianMobile = (mobile: string) => /^[6-9]\d{9}$/.test(cleanIndianMobile(mobile))
+const isValidPAN = (pan: string) => /^[A-Z]{5}[0-9]{4}[A-Z]$/.test(pan.trim().toUpperCase())
+const isValidPIN = (pin: string) => /^[1-9]\d{5}$/.test(pin.trim())
+const isValidIFSC = (ifsc: string) => /^[A-Z]{4}0[A-Z0-9]{6}$/.test(ifsc.trim().toUpperCase())
+const isValidBankAccount = (acc: string) => /^\d{9,18}$/.test(acc.trim())
+const parseFlexibleDate = (dStr: string): Date | null => {
+  if (!dStr || !dStr.trim()) return null
+  const s = dStr.trim()
+  let y = 0, m = 0, day = 0
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) {
+    const parts = s.split("-").map(Number)
+    y = parts[0]
+    m = parts[1]
+    day = parts[2]
+  } else {
+    const parts = s.split(/[/-]/)
+    if (parts.length === 3) {
+      if (parts[0].length === 4) {
+        y = Number(parts[0])
+        m = Number(parts[1])
+        day = Number(parts[2])
+      } else if (parts[2].length === 4) {
+        y = Number(parts[2])
+        m = Number(parts[1])
+        day = Number(parts[0])
+      }
+    }
+  }
+  if (y > 1900 && m >= 1 && m <= 12 && day >= 1 && day <= 31) {
+    const d = new Date(y, m - 1, day)
+    if (d.getFullYear() === y && d.getMonth() === m - 1 && d.getDate() === day) {
+      return d
+    }
+    return null
+  }
+  const d = new Date(s)
+  return isNaN(d.getTime()) ? null : d
+}
+
+// ── Real-Time Input Restriction Helpers (Zoho Payroll Behavior) ───────────────
+const restrictMobileInput = (raw: string): string => {
+  if (!raw) return ""
+  let s = raw.replace(/[\s\-()]/g, "")
+  if (s.startsWith("+91")) s = s.slice(3)
+  else if (s.startsWith("91") && s.length > 10) s = s.slice(2)
+  else if (s.startsWith("0") && s.length > 10) s = s.slice(1)
+  return s.replace(/\D/g, "").slice(0, 10)
+}
+
+const restrictPANInput = (raw: string): string => {
+  if (!raw) return ""
+  let result = ""
+  for (let i = 0; i < raw.length && result.length < 10; i++) {
+    const ch = raw[i].toUpperCase()
+    const pos = result.length
+    if (pos < 5) {
+      if (/[A-Z]/.test(ch)) result += ch
+    } else if (pos < 9) {
+      if (/[0-9]/.test(ch)) result += ch
+    } else if (pos === 9) {
+      if (/[A-Z]/.test(ch)) result += ch
+    }
+  }
+  return result
+}
+
+const restrictPINInput = (raw: string): string => {
+  if (!raw) return ""
+  return raw.replace(/\D/g, "").slice(0, 6)
+}
+
+const restrictAgeInput = (raw: string): string => {
+  if (!raw) return ""
+  const digits = raw.replace(/\D/g, "").slice(0, 3)
+  if (!digits) return ""
+  const n = parseInt(digits, 10)
+  if (n > 100) return "100"
+  return digits
+}
+
+const restrictDigitsOnly = (raw: string, maxLen = 18): string => {
+  if (!raw) return ""
+  return raw.replace(/\D/g, "").slice(0, maxLen)
+}
+
+const restrictIFSCInput = (raw: string): string => {
+  if (!raw) return ""
+  let result = ""
+  for (let i = 0; i < raw.length && result.length < 11; i++) {
+    const ch = raw[i].toUpperCase()
+    const pos = result.length
+    if (pos < 4) {
+      if (/[A-Z]/.test(ch)) result += ch
+    } else if (pos === 4) {
+      if (ch === "0") result += "0"
+    } else {
+      if (/[A-Z0-9]/.test(ch)) result += ch
+    }
+  }
+  return result
+}
+
+const restrictEmailInput = (raw: string): string => {
+  if (!raw) return ""
+  return raw.replace(/\s+/g, "")
+}
+
+const handleNonNegativeKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+  if (e.key === "-" || e.key === "+" || e.key === "e" || e.key === "E") {
+    e.preventDefault()
+  }
+}
+
 function EmployeeDetailPage({
   emp,
   ss,
@@ -6532,7 +6908,7 @@ function EmployeeDetailPage({
     lwf: false,
   })
   const [statutoryBonusCategory, setStatutoryBonusCategory] = useState("None")
-
+  type CalcType = "percent_ctc" | "percent_basic" | "fixed"
   const [earnings, setEarnings] = useState<
     { id: string; name: string; calcType: CalcType; value: number; isBasic?: boolean; isFixed?: boolean }[]
   >([
@@ -6544,6 +6920,8 @@ function EmployeeDetailPage({
       id: string
       name: string
       planType: "epf" | "esi"
+      employerRate?: number
+      employeeRate?: number
       enabled: boolean
       epsEnabled: boolean
       epsActualWages: boolean
@@ -6554,6 +6932,8 @@ function EmployeeDetailPage({
       id: "epf-emp",
       name: "EPF - Employer Contribution",
       planType: "epf",
+      employerRate: 12,
+      employeeRate: 12,
       enabled: true,
       epsEnabled: false,
       epsActualWages: false,
@@ -6563,6 +6943,8 @@ function EmployeeDetailPage({
       id: "esi-emp",
       name: "ESI - Employer Contribution",
       planType: "esi",
+      employerRate: 3.25,
+      employeeRate: 0.75,
       enabled: false,
       epsEnabled: false,
       epsActualWages: false,
@@ -6632,7 +7014,41 @@ function EmployeeDetailPage({
     .filter((e) => !e.isBasic)
     .reduce((acc, curr) => acc + curr.monthly, 0)
 
-  const monthlyFixed = Math.max(0, monthlyCTC - monthlyBasic - otherEarningsSum)
+  const pfWageMonthly = monthlyBasic
+  const esiWageMonthly = monthlyBasic + otherEarningsSum
+
+  const calculatedBenefits = benefits.map((b) => {
+    let employerMonthly = 0
+    let employeeMonthly = 0
+
+    if (b.enabled) {
+      if (b.planType === "epf") {
+        employerMonthly = Math.round((pfWageMonthly * (b.employerRate ?? 12)) / 100)
+        employeeMonthly = Math.round((pfWageMonthly * (b.employeeRate ?? 12)) / 100)
+      } else if (b.planType === "esi") {
+        employerMonthly = Math.round((esiWageMonthly * (b.employerRate ?? 3.25)) / 100)
+        employeeMonthly = Math.round((esiWageMonthly * (b.employeeRate ?? 0.75)) / 100)
+      }
+    }
+
+    return {
+      ...b,
+      employerMonthly,
+      employerAnnual: employerMonthly * 12,
+      employeeMonthly,
+      employeeAnnual: employeeMonthly * 12,
+    }
+  })
+
+  const totalEmployerBenefitsMonthly = calculatedBenefits.reduce(
+    (acc, curr) => acc + curr.employerMonthly,
+    0,
+  )
+
+  const monthlyFixed = Math.max(
+    0,
+    monthlyCTC - monthlyBasic - otherEarningsSum - totalEmployerBenefitsMonthly,
+  )
   const annualFixed = monthlyFixed * 12
 
   const handleUpdateEarning = (id: string, updates: Partial<{ value: number; calcType: CalcType }>) => {
@@ -6711,6 +7127,23 @@ function EmployeeDetailPage({
   }
 
   const saveSalaryDetails = () => {
+    if (isNaN(annualCTC) || annualCTC <= 0) {
+      toast("Annual CTC must be greater than 0.", "error")
+      return
+    }
+    for (const e of earnings) {
+      if (isNaN(e.value) || e.value < 0) {
+        toast(`Value for ${e.name} cannot be negative.`, "error")
+        return
+      }
+      if (
+        (e.calcType === "percent_basic" || e.calcType === "percent_ctc") &&
+        e.value > 100
+      ) {
+        toast(`Percentage for ${e.name} cannot exceed 100%.`, "error")
+        return
+      }
+    }
     setEmps(
       emps.map((item) =>
         item.id === emp.id
@@ -6727,7 +7160,49 @@ function EmployeeDetailPage({
   }
 
   const [editingPayslips, setEditingPayslips] = useState(false)
-  const [payslipRows, setPayslipRows] = useState(() => ["August 2026", "July 2026", "June 2026", "May 2026"].map((period, index) => ({ period, gross: emp.grossSalary, deductions: Math.round(emp.grossSalary * 0.22) + (emp.grossSalary > 15000 ? 200 : 150), status: index === 0 ? "Available" : "Paid" })))
+  const [payslipRows, setPayslipRows] = useState(() => {
+    const periods = ["August 2026", "July 2026", "June 2026", "May 2026"]
+    return periods.map((period, index) => {
+      const breakdown = getEmployeePayslipBreakdown(
+        emp,
+        period,
+        emp.grossSalary,
+        undefined,
+        ss,
+        statutory,
+        payroll,
+      )
+      return {
+        period,
+        gross: breakdown.totalEarnings,
+        deductions: breakdown.totalDeductions,
+        status: index === 0 ? "Available" : "Paid",
+      }
+    })
+  })
+
+  useEffect(() => {
+    const periods = ["August 2026", "July 2026", "June 2026", "May 2026"]
+    setPayslipRows(
+      periods.map((period, index) => {
+        const breakdown = getEmployeePayslipBreakdown(
+          emp,
+          period,
+          emp.grossSalary,
+          undefined,
+          ss,
+          statutory,
+          payroll,
+        )
+        return {
+          period,
+          gross: breakdown.totalEarnings,
+          deductions: breakdown.totalDeductions,
+          status: index === 0 ? "Available" : "Paid",
+        }
+      }),
+    )
+  }, [emp.id, emp.grossSalary, emp.salaryStructure])
   const [editingDocuments, setEditingDocuments] = useState(false)
   const [editingLeave, setEditingLeave] = useState(false)
   const [leaveBalances, setLeaveBalances] = useState({ annualEntitlement: 20, annualUsed: 6, sickEntitlement: 12, sickUsed: 2, attendance: 96 })
@@ -6774,14 +7249,57 @@ function EmployeeDetailPage({
   const net = gross - pf - tds - pt
 
   const savePayroll = () => {
+    if (isNaN(annualCTC) || annualCTC <= 0) {
+      toast("Annual CTC must be greater than 0.", "error")
+      return
+    }
     setEmps(emps.map((item) => item.id === emp.id ? { ...item, salaryStructure: payroll.salaryStructure, grossSalary: gross } : item))
     setEditingPayroll(false)
     toast("Compensation and payroll settings saved", "success")
   }
 
   const save = () => {
+    const name = draft.name.trim()
+    if (!name) {
+      toast("Name is required.", "error")
+      return
+    }
+    const email = draft.email.trim()
+    if (!email) {
+      toast("Email address is required.", "error")
+      return
+    }
+    if (!isValidEmail(email)) {
+      toast("Please enter a valid email address.", "error")
+      return
+    }
+    if (emps.some((e) => e.id !== emp.id && e.email && e.email.trim().toLowerCase() === email.toLowerCase())) {
+      toast("An employee with this email address already exists.", "error")
+      return
+    }
+    if (draft.mobile && draft.mobile.trim()) {
+      if (!isValidIndianMobile(draft.mobile)) {
+        toast("Please enter a valid 10-digit Indian mobile number starting with 6, 7, 8, or 9.", "error")
+        return
+      }
+      const cleanMob = cleanIndianMobile(draft.mobile)
+      if (emps.some((e) => e.id !== emp.id && e.mobile && cleanIndianMobile(e.mobile) === cleanMob)) {
+        toast("An employee with this mobile number already exists.", "error")
+        return
+      }
+    }
+    if (draft.doj && draft.doj.trim()) {
+      const parsedDoj = parseFlexibleDate(draft.doj)
+      if (!parsedDoj) {
+        toast("Please enter a valid Date of Joining.", "error")
+        return
+      }
+    }
+
     const updated = {
       ...draft,
+      name,
+      email,
       grossSalary:
         ss.find((x) => x.name === draft.salaryStructure)?.gross ??
         draft.grossSalary,
@@ -7104,7 +7622,12 @@ function EmployeeDetailPage({
                   <input
                     style={iSt}
                     value={draft.email}
-                    onChange={(e) => setDraft({ ...draft, email: e.target.value })}
+                    onChange={(e) => setDraft({ ...draft, email: restrictEmailInput(e.target.value) })}
+                    onBlur={() => {
+                      if (draft.email && !isValidEmail(draft.email)) {
+                        toast("Please enter a valid email address.", "error")
+                      }
+                    }}
                   />
                 </Fld>
                 <Fld label="Designation">
@@ -7118,7 +7641,7 @@ function EmployeeDetailPage({
                   <input
                     style={iSt}
                     value={draft.mobile || "6304852672"}
-                    onChange={(e) => setDraft({ ...draft, mobile: e.target.value })}
+                    onChange={(e) => setDraft({ ...draft, mobile: restrictMobileInput(e.target.value) })}
                   />
                 </Fld>
                 <Fld label="Department">
@@ -7129,10 +7652,10 @@ function EmployeeDetailPage({
                   />
                 </Fld>
                 <Fld label="Date of Joining">
-                  <input
+                  <StrictDateInput
                     style={iSt}
                     value={draft.doj}
-                    onChange={(e) => setDraft({ ...draft, doj: e.target.value })}
+                    onChange={(val) => setDraft({ ...draft, doj: val })}
                   />
                 </Fld>
                 <Fld label="Gender">
@@ -7698,6 +8221,47 @@ function EmployeeDetailPage({
                   small
                   variant="success"
                   onClick={() => {
+                    if (personalInfo.dateOfBirth && personalInfo.dateOfBirth.trim()) {
+                      const parsedDob = parseFlexibleDate(personalInfo.dateOfBirth)
+                      if (!parsedDob) {
+                        toast("Please enter a valid Date of Birth.", "error")
+                        return
+                      }
+                      if (parsedDob.getTime() > Date.now()) {
+                        toast("Date of Birth cannot be in the future.", "error")
+                        return
+                      }
+                    }
+                    if (personalInfo.personalEmail && personalInfo.personalEmail.trim()) {
+                      if (!isValidEmail(personalInfo.personalEmail.trim())) {
+                        toast("Please enter a valid personal email address.", "error")
+                        return
+                      }
+                    }
+                    if (personalInfo.pan && personalInfo.pan.trim()) {
+                      const panUpper = personalInfo.pan.trim().toUpperCase()
+                      if (!isValidPAN(panUpper)) {
+                        toast("Please enter a valid PAN format (e.g., AAAAA0000A).", "error")
+                        return
+                      }
+                      if (emps.some((e) => e.id !== emp.id && e.pan && e.pan.trim().toUpperCase() === panUpper)) {
+                        toast("An employee with this PAN already exists.", "error")
+                        return
+                      }
+                    }
+                    setEmps(
+                      emps.map((e) =>
+                        e.id === emp.id
+                          ? {
+                              ...e,
+                              dob: personalInfo.dateOfBirth.trim() || e.dob,
+                              fatherName: personalInfo.fatherName.trim() || e.fatherName,
+                              pan: personalInfo.pan ? personalInfo.pan.trim().toUpperCase() : e.pan,
+                              address: personalInfo.address.trim() || e.address,
+                            }
+                          : e,
+                      ),
+                    )
                     setEditingPersonal(false)
                     toast("Personal information saved", "success")
                   }}
@@ -7717,11 +8281,11 @@ function EmployeeDetailPage({
                 }}
               >
                 <Fld label="Date of Birth">
-                  <input
+                  <StrictDateInput
                     style={iSt}
                     value={personalInfo.dateOfBirth}
-                    onChange={(e) =>
-                      setPersonalInfo({ ...personalInfo, dateOfBirth: e.target.value })
+                    onChange={(val) =>
+                      setPersonalInfo({ ...personalInfo, dateOfBirth: val })
                     }
                   />
                 </Fld>
@@ -7730,8 +8294,13 @@ function EmployeeDetailPage({
                     style={iSt}
                     value={personalInfo.personalEmail}
                     onChange={(e) =>
-                      setPersonalInfo({ ...personalInfo, personalEmail: e.target.value })
+                      setPersonalInfo({ ...personalInfo, personalEmail: restrictEmailInput(e.target.value) })
                     }
+                    onBlur={() => {
+                      if (personalInfo.personalEmail && !isValidEmail(personalInfo.personalEmail)) {
+                        toast("Please enter a valid personal email address.", "error")
+                      }
+                    }}
                   />
                 </Fld>
                 <Fld label="Father's Name">
@@ -7757,7 +8326,7 @@ function EmployeeDetailPage({
                     style={iSt}
                     value={personalInfo.pan}
                     onChange={(e) =>
-                      setPersonalInfo({ ...personalInfo, pan: e.target.value })
+                      setPersonalInfo({ ...personalInfo, pan: restrictPANInput(e.target.value) })
                     }
                   />
                 </Fld>
@@ -7867,6 +8436,41 @@ function EmployeeDetailPage({
                   small
                   variant="success"
                   onClick={() => {
+                    if (payroll.paymentMethod !== "Cash" && payroll.paymentMethod !== "Cheque") {
+                      const bankNameVal = (emp.bankName !== undefined ? emp.bankName : "HDFC Bank").trim()
+                      if (!bankNameVal) {
+                        toast("Bank Name is required.", "error")
+                        return
+                      }
+                      if (!payroll.bankAccount || !payroll.bankAccount.trim()) {
+                        toast("Account Number is required.", "error")
+                        return
+                      }
+                      if (!isValidBankAccount(payroll.bankAccount)) {
+                        toast("Please enter a valid bank account number (9 to 18 digits).", "error")
+                        return
+                      }
+                      if (!payroll.ifsc || !payroll.ifsc.trim()) {
+                        toast("IFSC code is required.", "error")
+                        return
+                      }
+                      if (!isValidIFSC(payroll.ifsc)) {
+                        toast("Please enter a valid IFSC code (e.g., HDFC0001234).", "error")
+                        return
+                      }
+                    }
+                    setEmps(
+                      emps.map((e) =>
+                        e.id === emp.id
+                          ? {
+                              ...e,
+                              bankName: (emp.bankName !== undefined ? emp.bankName : "HDFC Bank").trim(),
+                              bankAccount: payroll.bankAccount.trim(),
+                              ifsc: payroll.ifsc.trim().toUpperCase(),
+                            }
+                          : e,
+                      ),
+                    )
                     setEditingPayment(false)
                     toast("Payment information saved", "success")
                   }}
@@ -7912,14 +8516,14 @@ function EmployeeDetailPage({
                       <input
                         style={iSt}
                         value={payroll.bankAccount}
-                        onChange={(e) => setPayroll({ ...payroll, bankAccount: e.target.value })}
+                        onChange={(e) => setPayroll({ ...payroll, bankAccount: restrictDigitsOnly(e.target.value) })}
                       />
                     </Fld>
                     <Fld label="IFSC Code">
                       <input
                         style={iSt}
                         value={payroll.ifsc}
-                        onChange={(e) => setPayroll({ ...payroll, ifsc: e.target.value })}
+                        onChange={(e) => setPayroll({ ...payroll, ifsc: restrictIFSCInput(e.target.value) })}
                       />
                     </Fld>
                   </>
@@ -8190,7 +8794,15 @@ function EmployeeDetailPage({
                   }}
                   value={annualCTC || ""}
                   placeholder="0"
-                  onChange={(e) => setAnnualCTC(Math.max(0, Number(e.target.value) || 0))}
+                  onKeyDown={handleNonNegativeKeyDown}
+                  onPaste={(e) => {
+                    const text = e.clipboardData.getData("text")
+                    if (text.includes("-") || Number(text) < 0) {
+                      e.preventDefault()
+                      setAnnualCTC(Math.max(0, parseFloat(text.replace(/[^0-9.]/g, "")) || 0))
+                    }
+                  }}
+                  onChange={(e) => setAnnualCTC(Math.max(0, parseFloat(e.target.value) || 0))}
                 />
                 <span style={{ padding: "6px 12px", color: F.text3, fontSize: 12, whiteSpace: "nowrap" }}>
                   per year
@@ -8253,7 +8865,19 @@ function EmployeeDetailPage({
                       type="number"
                       min="0"
                       value={basicRow.value}
-                      onChange={(e) => handleUpdateEarning(basicRow.id, { value: Number(e.target.value) || 0 })}
+                      onKeyDown={handleNonNegativeKeyDown}
+                      onPaste={(e) => {
+                        const text = e.clipboardData.getData("text")
+                        if (text.includes("-") || Number(text) < 0) {
+                          e.preventDefault()
+                          const n = Math.max(0, parseFloat(text.replace(/[^0-9.]/g, "")) || 0)
+                          handleUpdateEarning(basicRow.id, { value: basicRow.calcType !== "fixed" ? Math.min(100, n) : n })
+                        }
+                      }}
+                      onChange={(e) => {
+                        const n = Math.max(0, parseFloat(e.target.value) || 0)
+                        handleUpdateEarning(basicRow.id, { value: basicRow.calcType !== "fixed" ? Math.min(100, n) : n })
+                      }}
                       style={{
                         width: 65,
                         border: "none",
@@ -8389,7 +9013,19 @@ function EmployeeDetailPage({
                             type="number"
                             min="0"
                             value={earning.value}
-                            onChange={(e) => handleUpdateEarning(earning.id, { value: Number(e.target.value) || 0 })}
+                            onKeyDown={handleNonNegativeKeyDown}
+                            onPaste={(e) => {
+                              const text = e.clipboardData.getData("text")
+                              if (text.includes("-") || Number(text) < 0) {
+                                e.preventDefault()
+                                const n = Math.max(0, parseFloat(text.replace(/[^0-9.]/g, "")) || 0)
+                                handleUpdateEarning(earning.id, { value: earning.calcType !== "fixed" ? Math.min(100, n) : n })
+                              }
+                            }}
+                            onChange={(e) => {
+                              const n = Math.max(0, parseFloat(e.target.value) || 0)
+                              handleUpdateEarning(earning.id, { value: earning.calcType !== "fixed" ? Math.min(100, n) : n })
+                            }}
                             style={{
                               width: 65,
                               border: "none",
@@ -8552,7 +9188,7 @@ function EmployeeDetailPage({
                 Benefits
               </div>
 
-              {benefits
+              {calculatedBenefits
                 .filter((b) => b.enabled)
                 .map((benefit) => (
                   <div
@@ -8630,12 +9266,12 @@ function EmployeeDetailPage({
                       </span>
                     </div>
 
-                    <div style={{ textAlign: "right", fontSize: 13, color: F.text3, paddingTop: 2 }}>
-                      System Calculated
+                    <div style={{ textAlign: "right", fontSize: 13, color: F.text1, paddingTop: 2 }}>
+                      {benefit.employerMonthly.toLocaleString("en-IN")}
                     </div>
 
-                    <div style={{ textAlign: "right", fontSize: 13, color: F.text3, paddingTop: 2 }}>
-                      System Calculated
+                    <div style={{ textAlign: "right", fontSize: 13, color: F.text1, paddingTop: 2 }}>
+                      {benefit.employerAnnual.toLocaleString("en-IN")}
                     </div>
 
                     <div style={{ textAlign: "center", paddingTop: 2 }}>
@@ -8922,7 +9558,7 @@ function EmployeeDetailPage({
       {activeTab === "payslips" && (
         <div style={{ background: F.card, border: `1px solid ${F.border}`, borderRadius: 10, overflow: "hidden" }}>
           <div style={{ padding: "16px 20px", borderBottom: `1px solid ${F.border}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}><div><div style={{ fontWeight: 800 }}>Payslips & tax forms</div><div style={{ fontSize: 12, color: F.text2, marginTop: 3 }}>{editingPayslips ? "Update the payroll values for each issued period." : "Payroll documents issued specifically to this employee."}</div></div><div style={{ display: "flex", gap: 8 }}>{editingPayslips && <Btn small variant="secondary" onClick={() => setEditingPayslips(false)}>Cancel</Btn>}<Btn small variant={editingPayslips ? "success" : "secondary"} onClick={() => { if (editingPayslips) toast("Payslip adjustments saved", "success"); setEditingPayslips(!editingPayslips) }}>{editingPayslips ? "Save changes" : "Edit figures"}</Btn></div></div>
-          <table style={{ width: "100%", borderCollapse: "collapse" }}><thead><tr><Th>Pay period</Th><Th>Gross earnings</Th><Th>Deductions</Th><Th>Net pay</Th><Th>Status</Th><Th>Action</Th></tr></thead><tbody>{payslipRows.map((row, i) => <TrH key={row.period}><Td><strong>{row.period}</strong><div style={{ fontSize: 11, color: F.text3 }}>Regular monthly payroll</div></Td><Td>{editingPayslips ? <input aria-label={`${row.period} gross`} type="number" min="0" style={{ ...iSt, width: 120 }} value={row.gross} onChange={(e) => setPayslipRows(payslipRows.map((item, index) => index === i ? { ...item, gross: Number(e.target.value) } : item))} /> : inr(row.gross)}</Td><Td>{editingPayslips ? <input aria-label={`${row.period} deductions`} type="number" min="0" style={{ ...iSt, width: 120 }} value={row.deductions} onChange={(e) => setPayslipRows(payslipRows.map((item, index) => index === i ? { ...item, deductions: Number(e.target.value) } : item))} /> : inr(row.deductions)}</Td><Td style={{ fontWeight: 800, color: F.success }}>{inr(row.gross - row.deductions)}</Td><Td>{editingPayslips ? <select aria-label={`${row.period} status`} style={{ ...iSt, width: 115 }} value={row.status} onChange={(e) => setPayslipRows(payslipRows.map((item, index) => index === i ? { ...item, status: e.target.value } : item))}><option>Available</option><option>Paid</option><option>On hold</option></select> : <Badge label={row.status} color={row.status === "On hold" ? F.warning : F.success} bg={row.status === "On hold" ? F.warningBg : F.successBg} />}</Td><Td><div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}><Btn small variant="secondary" onClick={() => setViewingPayslip({ period: row.period, gross: row.gross, deductions: row.deductions, net: row.gross - row.deductions, status: row.status })}>View</Btn><Btn small title={`Download PDF payslip for ${row.period}`} onClick={() => downloadPayslipPdf({ grossSalary: row.gross, totalEarnings: row.gross, pf: Math.round(row.gross * 0.12), tds: Math.max(0, row.deductions - Math.round(row.gross * 0.12) - (row.gross > 15000 ? 200 : 150)), profTax: row.gross > 15000 ? 200 : 150, totalDeductions: row.deductions, netSalary: row.gross - row.deductions }, { period: row.period, generatedOn: payslipGeneratedDate(row.period) }, emp)}><DownloadIcon />Download PDF</Btn></div></Td></TrH>)}</tbody></table>
+          <table style={{ width: "100%", borderCollapse: "collapse" }}><thead><tr><Th>Pay period</Th><Th>Gross earnings</Th><Th>Deductions</Th><Th>Net pay</Th><Th>Status</Th><Th>Action</Th></tr></thead><tbody>{payslipRows.map((row, i) => { const netPay = Math.max(0, row.gross - row.deductions); return (<TrH key={row.period}><Td><strong>{row.period}</strong><div style={{ fontSize: 11, color: F.text3 }}>Regular monthly payroll</div></Td><Td>{editingPayslips ? <input aria-label={`${row.period} gross`} type="number" min="0" style={{ ...iSt, width: 120 }} value={row.gross} onChange={(e) => setPayslipRows(payslipRows.map((item, index) => index === i ? { ...item, gross: Number(e.target.value) } : item))} /> : inr(row.gross)}</Td><Td>{editingPayslips ? <input aria-label={`${row.period} deductions`} type="number" min="0" style={{ ...iSt, width: 120 }} value={row.deductions} onChange={(e) => setPayslipRows(payslipRows.map((item, index) => index === i ? { ...item, deductions: Number(e.target.value) } : item))} /> : inr(row.deductions)}</Td><Td style={{ fontWeight: 800, color: F.success }}>{inr(netPay)}</Td><Td>{editingPayslips ? <select aria-label={`${row.period} status`} style={{ ...iSt, width: 115 }} value={row.status} onChange={(e) => setPayslipRows(payslipRows.map((item, index) => index === i ? { ...item, status: e.target.value } : item))}><option>Available</option><option>Paid</option><option>On hold</option></select> : <Badge label={row.status} color={row.status === "On hold" ? F.warning : F.success} bg={row.status === "On hold" ? F.warningBg : F.successBg} />}</Td><Td><div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}><Btn small variant="secondary" onClick={() => setViewingPayslip({ period: row.period, gross: row.gross, deductions: row.deductions, net: netPay, status: row.status })}>View</Btn><Btn small title={`Download PDF payslip for ${row.period}`} onClick={() => { const breakdown = getEmployeePayslipBreakdown(emp, row.period, row.gross, row.deductions, ss, statutory, payroll); downloadPayslipPdf({ grossSalary: breakdown.totalEarnings, totalEarnings: breakdown.totalEarnings, pf: breakdown.deductions.pf, esi: breakdown.deductions.esi, tds: breakdown.deductions.tds, profTax: breakdown.deductions.profTax, totalDeductions: breakdown.totalDeductions, netSalary: breakdown.netSalary, status: row.status, netInWords: numberToWordsIndian(breakdown.netSalary), earningsBreakdown: breakdown.earningsList, deductionsBreakdown: breakdown.deductionsList }, { period: row.period, generatedOn: payslipGeneratedDate(row.period) }, { ...emp, location: emp.location, empType: emp.empType, doj: emp.doj, bankName: emp.bankName, bankAccount: emp.bankAccount, ifsc: emp.ifsc }) }}><DownloadIcon />Download PDF</Btn></div></Td></TrH>) })}</tbody></table>
         </div>
       )}
 
@@ -8989,235 +9625,273 @@ function EmployeeDetailPage({
       )}
 
       {/* Payslip View Modal */}
-      {viewingPayslip && (
-        <div
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: "rgba(15, 23, 42, 0.6)",
-            backdropFilter: "blur(4px)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            zIndex: 9999,
-            padding: 20,
-          }}
-        >
+      {viewingPayslip && (() => {
+        const breakdown = getEmployeePayslipBreakdown(
+          emp,
+          viewingPayslip.period,
+          viewingPayslip.gross,
+          viewingPayslip.deductions,
+          ss,
+          statutory,
+          payroll,
+        )
+        const netInWords = numberToWordsIndian(breakdown.netSalary)
+        const maskedAccount = emp.bankAccount
+          ? `•••• ${emp.bankAccount.slice(-4)}`
+          : payroll.bankAccount
+          ? `•••• ${payroll.bankAccount.slice(-4)}`
+          : "—"
+        const bankDisplayName = emp.bankName || "HDFC Bank"
+        const paymentDetails =
+          payroll.paymentMethod === "Cash" || payroll.paymentMethod === "Cheque"
+            ? payroll.paymentMethod
+            : `${payroll.paymentMethod || "Bank Transfer"} (${bankDisplayName} · ${maskedAccount})`
+
+        return (
           <div
             style={{
-              background: "#FFFFFF",
-              borderRadius: 12,
-              width: "100%",
-              maxWidth: 720,
-              maxHeight: "90vh",
-              overflowY: "auto",
-              boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)",
-              border: `1px solid ${F.border}`,
+              position: "fixed",
+              inset: 0,
+              background: "rgba(15, 23, 42, 0.6)",
+              backdropFilter: "blur(4px)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              zIndex: 9999,
+              padding: 20,
             }}
           >
-            {/* Modal Header */}
             <div
               style={{
-                padding: "20px 24px",
-                borderBottom: `1px solid ${F.border}`,
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                background: "#F8FAFC",
-                borderRadius: "12px 12px 0 0",
+                background: "#FFFFFF",
+                borderRadius: 12,
+                width: "100%",
+                maxWidth: 740,
+                maxHeight: "90vh",
+                overflowY: "auto",
+                boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)",
+                border: `1px solid ${F.border}`,
               }}
             >
-              <div>
-                <div style={{ fontSize: 18, fontWeight: 700, color: "#0F172A" }}>
-                  Payslip for {viewingPayslip.period}
-                </div>
-                <div style={{ fontSize: 12, color: "#64748B", marginTop: 2 }}>
-                  Naxpayroll Platform · Issued on {payslipGeneratedDate(viewingPayslip.period)}
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setViewingPayslip(null)}
-                style={{
-                  background: "none",
-                  border: "none",
-                  fontSize: 20,
-                  color: "#64748B",
-                  cursor: "pointer",
-                  padding: "4px 8px",
-                  borderRadius: 6,
-                }}
-              >
-                ✕
-              </button>
-            </div>
-
-            {/* Modal Body */}
-            <div style={{ padding: "24px" }}>
-              {/* Employee Summary Card */}
+              {/* Modal Header */}
               <div
                 style={{
-                  background: "#F8FAFC",
-                  border: `1px solid ${F.border}`,
-                  borderRadius: 8,
-                  padding: "16px 20px",
-                  marginBottom: 20,
-                  display: "grid",
-                  gridTemplateColumns: "1fr 1fr",
-                  gap: 12,
-                  fontSize: 13,
-                }}
-              >
-                <div>
-                  <div style={{ color: "#64748B" }}>Employee Name</div>
-                  <div style={{ fontWeight: 600, color: "#0F172A", marginTop: 2 }}>{emp.name}</div>
-                </div>
-                <div>
-                  <div style={{ color: "#64748B" }}>Employee ID</div>
-                  <div style={{ fontWeight: 600, color: "#0F172A", marginTop: 2 }}>{emp.code || emp.id}</div>
-                </div>
-                <div>
-                  <div style={{ color: "#64748B" }}>Designation & Dept</div>
-                  <div style={{ fontWeight: 600, color: "#0F172A", marginTop: 2 }}>{emp.designation} · {emp.department}</div>
-                </div>
-                <div>
-                  <div style={{ color: "#64748B" }}>Payment Method</div>
-                  <div style={{ fontWeight: 600, color: "#0F172A", marginTop: 2 }}>
-                    {payroll.paymentMethod} ({emp.bankAccount || "•••• 4821"})
-                  </div>
-                </div>
-              </div>
-
-              {/* Earnings & Deductions Breakdown Table */}
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 20 }}>
-                {/* Earnings */}
-                <div style={{ border: `1px solid ${F.border}`, borderRadius: 8, overflow: "hidden" }}>
-                  <div style={{ background: "#F1F5F9", padding: "10px 14px", fontWeight: 700, fontSize: 13, color: "#0F172A" }}>
-                    Earnings
-                  </div>
-                  <div style={{ padding: "12px 14px", display: "flex", flexDirection: "column", gap: 8, fontSize: 13 }}>
-                    <div style={{ display: "flex", justifyContent: "space-between" }}>
-                      <span style={{ color: "#64748B" }}>Basic Pay</span>
-                      <span style={{ fontWeight: 600 }}>{inr(Math.round(viewingPayslip.gross * 0.5))}</span>
-                    </div>
-                    <div style={{ display: "flex", justifyContent: "space-between" }}>
-                      <span style={{ color: "#64748B" }}>House Rent Allowance</span>
-                      <span style={{ fontWeight: 600 }}>{inr(Math.round(viewingPayslip.gross * 0.2))}</span>
-                    </div>
-                    <div style={{ display: "flex", justifyContent: "space-between" }}>
-                      <span style={{ color: "#64748B" }}>Fixed Allowance</span>
-                      <span style={{ fontWeight: 600 }}>{inr(Math.round(viewingPayslip.gross * 0.15))}</span>
-                    </div>
-                    <div style={{ display: "flex", justifyContent: "space-between" }}>
-                      <span style={{ color: "#64748B" }}>Special Allowance</span>
-                      <span style={{ fontWeight: 600 }}>{inr(Math.round(viewingPayslip.gross * 0.15))}</span>
-                    </div>
-                    <div style={{ borderTop: `1px solid ${F.border}`, paddingTop: 8, marginTop: 4, display: "flex", justifyContent: "space-between", fontWeight: 700 }}>
-                      <span>Total Earnings</span>
-                      <span style={{ color: "#16A34A" }}>{inr(viewingPayslip.gross)}</span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Deductions */}
-                <div style={{ border: `1px solid ${F.border}`, borderRadius: 8, overflow: "hidden" }}>
-                  <div style={{ background: "#F1F5F9", padding: "10px 14px", fontWeight: 700, fontSize: 13, color: "#0F172A" }}>
-                    Deductions
-                  </div>
-                  <div style={{ padding: "12px 14px", display: "flex", flexDirection: "column", gap: 8, fontSize: 13 }}>
-                    <div style={{ display: "flex", justifyContent: "space-between" }}>
-                      <span style={{ color: "#64748B" }}>Provident Fund (EPF)</span>
-                      <span style={{ fontWeight: 600 }}>{inr(Math.round(viewingPayslip.gross * 0.12))}</span>
-                    </div>
-                    <div style={{ display: "flex", justifyContent: "space-between" }}>
-                      <span style={{ color: "#64748B" }}>Professional Tax</span>
-                      <span style={{ fontWeight: 600 }}>{inr(viewingPayslip.gross > 15000 ? 200 : 150)}</span>
-                    </div>
-                    <div style={{ display: "flex", justifyContent: "space-between" }}>
-                      <span style={{ color: "#64748B" }}>Income Tax (TDS)</span>
-                      <span style={{ fontWeight: 600 }}>
-                        {inr(Math.max(0, viewingPayslip.deductions - Math.round(viewingPayslip.gross * 0.12) - (viewingPayslip.gross > 15000 ? 200 : 150)))}
-                      </span>
-                    </div>
-                    <div style={{ borderTop: `1px solid ${F.border}`, paddingTop: 8, marginTop: "auto", display: "flex", justifyContent: "space-between", fontWeight: 700 }}>
-                      <span>Total Deductions</span>
-                      <span style={{ color: "#DC2626" }}>{inr(viewingPayslip.deductions)}</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Net Pay Highlight Banner */}
-              <div
-                style={{
-                  background: "#EFF6FF",
-                  border: "1px solid #BFDBFE",
-                  borderRadius: 8,
-                  padding: "16px 20px",
+                  padding: "20px 24px",
+                  borderBottom: `1px solid ${F.border}`,
                   display: "flex",
                   justifyContent: "space-between",
                   alignItems: "center",
+                  background: "#F8FAFC",
+                  borderRadius: "12px 12px 0 0",
                 }}
               >
                 <div>
-                  <div style={{ fontSize: 12, fontWeight: 600, color: "#1E40AF" }}>NET TAKE HOME PAY</div>
-                  <div style={{ fontSize: 24, fontWeight: 800, color: "#1D4ED8", marginTop: 2 }}>
-                    {inr(viewingPayslip.net)}
+                  <div style={{ fontSize: 18, fontWeight: 700, color: "#0F172A" }}>
+                    Payslip for {viewingPayslip.period}
+                  </div>
+                  <div style={{ fontSize: 12, color: "#64748B", marginTop: 2 }}>
+                    Naxpayroll Platform · Naxrita Solutions Pvt. Ltd. · Issued on {fmtD(payslipGeneratedDate(viewingPayslip.period))}
                   </div>
                 </div>
-                <div>
-                  <Badge
-                    label={viewingPayslip.status}
-                    color={viewingPayslip.status === "On hold" ? F.warning : F.success}
-                    bg={viewingPayslip.status === "On hold" ? F.warningBg : F.successBg}
-                  />
+                <button
+                  type="button"
+                  onClick={() => setViewingPayslip(null)}
+                  style={{
+                    background: "none",
+                    border: "none",
+                    fontSize: 20,
+                    color: "#64748B",
+                    cursor: "pointer",
+                    padding: "4px 8px",
+                    borderRadius: 6,
+                  }}
+                >
+                  ✕
+                </button>
+              </div>
+
+              {/* Modal Body */}
+              <div style={{ padding: "24px" }}>
+                {/* Employee Summary Card */}
+                <div
+                  style={{
+                    background: "#F8FAFC",
+                    border: `1px solid ${F.border}`,
+                    borderRadius: 8,
+                    padding: "16px 20px",
+                    marginBottom: 20,
+                    display: "grid",
+                    gridTemplateColumns: "1fr 1fr",
+                    gap: 14,
+                    fontSize: 13,
+                  }}
+                >
+                  <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                    <div>
+                      <div style={{ color: "#64748B", fontSize: 11, textTransform: "uppercase", letterSpacing: "0.03em" }}>Employee Name</div>
+                      <div style={{ fontWeight: 600, color: "#0F172A", marginTop: 2 }}>{emp.name}</div>
+                    </div>
+                    <div>
+                      <div style={{ color: "#64748B", fontSize: 11, textTransform: "uppercase", letterSpacing: "0.03em" }}>Employee ID</div>
+                      <div style={{ fontWeight: 600, color: "#0F172A", marginTop: 2 }}>{emp.code || emp.id}</div>
+                    </div>
+                    <div>
+                      <div style={{ color: "#64748B", fontSize: 11, textTransform: "uppercase", letterSpacing: "0.03em" }}>Designation & Dept</div>
+                      <div style={{ fontWeight: 600, color: "#0F172A", marginTop: 2 }}>{emp.designation} · {emp.department}</div>
+                    </div>
+                    <div>
+                      <div style={{ color: "#64748B", fontSize: 11, textTransform: "uppercase", letterSpacing: "0.03em" }}>Employment Type</div>
+                      <div style={{ fontWeight: 600, color: "#0F172A", marginTop: 2 }}>{emp.empType || "Full-Time"}</div>
+                    </div>
+                  </div>
+
+                  <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                    <div>
+                      <div style={{ color: "#64748B", fontSize: 11, textTransform: "uppercase", letterSpacing: "0.03em" }}>Work Location</div>
+                      <div style={{ fontWeight: 600, color: "#0F172A", marginTop: 2 }}>{emp.location || "Bangalore"}</div>
+                    </div>
+                    <div>
+                      <div style={{ color: "#64748B", fontSize: 11, textTransform: "uppercase", letterSpacing: "0.03em" }}>Joining Date</div>
+                      <div style={{ fontWeight: 600, color: "#0F172A", marginTop: 2 }}>{emp.doj ? fmtD(emp.doj) : "—"}</div>
+                    </div>
+                    <div>
+                      <div style={{ color: "#64748B", fontSize: 11, textTransform: "uppercase", letterSpacing: "0.03em" }}>Payment Method</div>
+                      <div style={{ fontWeight: 600, color: "#0F172A", marginTop: 2 }}>{paymentDetails}</div>
+                    </div>
+                    <div>
+                      <div style={{ color: "#64748B", fontSize: 11, textTransform: "uppercase", letterSpacing: "0.03em" }}>Salary Structure</div>
+                      <div style={{ fontWeight: 600, color: "#0F172A", marginTop: 2 }}>{emp.salaryStructure || "Standard CTC Structure"}</div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Earnings & Deductions Breakdown Table */}
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 20 }}>
+                  {/* Earnings */}
+                  <div style={{ border: `1px solid ${F.border}`, borderRadius: 8, overflow: "hidden" }}>
+                    <div style={{ background: "#F1F5F9", padding: "10px 14px", fontWeight: 700, fontSize: 13, color: "#0F172A" }}>
+                      Earnings
+                    </div>
+                    <div style={{ padding: "12px 14px", display: "flex", flexDirection: "column", gap: 8, fontSize: 13 }}>
+                      {breakdown.earningsList.map((item) => (
+                        <div key={item.label} style={{ display: "flex", justifyContent: "space-between" }}>
+                          <span style={{ color: "#64748B" }}>{item.label}</span>
+                          <span style={{ fontWeight: 600 }}>{inr(item.amount)}</span>
+                        </div>
+                      ))}
+                      <div style={{ borderTop: `1px solid ${F.border}`, paddingTop: 8, marginTop: 4, display: "flex", justifyContent: "space-between", fontWeight: 700 }}>
+                        <span>Total Earnings</span>
+                        <span style={{ color: "#16A34A" }}>{inr(breakdown.totalEarnings)}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Deductions */}
+                  <div style={{ border: `1px solid ${F.border}`, borderRadius: 8, overflow: "hidden" }}>
+                    <div style={{ background: "#F1F5F9", padding: "10px 14px", fontWeight: 700, fontSize: 13, color: "#0F172A" }}>
+                      Deductions
+                    </div>
+                    <div style={{ padding: "12px 14px", display: "flex", flexDirection: "column", gap: 8, fontSize: 13 }}>
+                      {breakdown.deductionsList.map((item) => (
+                        <div key={item.label} style={{ display: "flex", justifyContent: "space-between" }}>
+                          <span style={{ color: "#64748B" }}>{item.label}</span>
+                          <span style={{ fontWeight: 600 }}>{inr(item.amount)}</span>
+                        </div>
+                      ))}
+                      <div style={{ borderTop: `1px solid ${F.border}`, paddingTop: 8, marginTop: "auto", display: "flex", justifyContent: "space-between", fontWeight: 700 }}>
+                        <span>Total Deductions</span>
+                        <span style={{ color: "#DC2626" }}>{inr(breakdown.totalDeductions)}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Net Pay Highlight Banner */}
+                <div
+                  style={{
+                    background: "#EFF6FF",
+                    border: "1px solid #BFDBFE",
+                    borderRadius: 8,
+                    padding: "16px 20px",
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                  }}
+                >
+                  <div>
+                    <div style={{ fontSize: 12, fontWeight: 600, color: "#1E40AF", textTransform: "uppercase", letterSpacing: "0.04em" }}>NET TAKE HOME PAY</div>
+                    <div style={{ fontSize: 24, fontWeight: 800, color: "#1D4ED8", marginTop: 2 }}>
+                      {inr(breakdown.netSalary)}
+                    </div>
+                    <div style={{ fontSize: 12, color: "#475569", marginTop: 4, fontStyle: "italic" }}>
+                      {netInWords}
+                    </div>
+                  </div>
+                  <div style={{ textAlign: "right" }}>
+                    <Badge
+                      label={viewingPayslip.status}
+                      color={viewingPayslip.status === "On hold" ? F.warning : F.success}
+                      bg={viewingPayslip.status === "On hold" ? F.warningBg : F.successBg}
+                    />
+                    <div style={{ fontSize: 11, color: viewingPayslip.status === "Paid" ? "#16A34A" : "#64748B", marginTop: 4 }}>
+                      {viewingPayslip.status === "Paid" ? "✓ Payment Disbursed" : "Ready for disbursement"}
+                    </div>
+                  </div>
                 </div>
               </div>
-            </div>
 
-            {/* Modal Footer */}
-            <div
-              style={{
-                padding: "16px 24px",
-                borderTop: `1px solid ${F.border}`,
-                background: "#F8FAFC",
-                display: "flex",
-                justifyContent: "flex-end",
-                gap: 10,
-                borderRadius: "0 0 12px 12px",
-              }}
-            >
-              <Btn variant="secondary" onClick={() => setViewingPayslip(null)}>
-                Close
-              </Btn>
-              <Btn
-                onClick={() => {
-                  downloadPayslipPdf(
-                    {
-                      grossSalary: viewingPayslip.gross,
-                      totalEarnings: viewingPayslip.gross,
-                      pf: Math.round(viewingPayslip.gross * 0.12),
-                      tds: Math.max(
-                        0,
-                        viewingPayslip.deductions -
-                          Math.round(viewingPayslip.gross * 0.12) -
-                          (viewingPayslip.gross > 15000 ? 200 : 150),
-                      ),
-                      profTax: viewingPayslip.gross > 15000 ? 200 : 150,
-                      totalDeductions: viewingPayslip.deductions,
-                      netSalary: viewingPayslip.net,
-                    },
-                    { period: viewingPayslip.period, generatedOn: payslipGeneratedDate(viewingPayslip.period) },
-                    emp,
-                  )
+              {/* Modal Footer */}
+              <div
+                style={{
+                  padding: "16px 24px",
+                  borderTop: `1px solid ${F.border}`,
+                  background: "#F8FAFC",
+                  display: "flex",
+                  justifyContent: "flex-end",
+                  gap: 10,
+                  borderRadius: "0 0 12px 12px",
                 }}
               >
-                <DownloadIcon /> Download PDF
-              </Btn>
+                <Btn variant="secondary" onClick={() => setViewingPayslip(null)}>
+                  Close
+                </Btn>
+                <Btn
+                  onClick={() => {
+                    downloadPayslipPdf(
+                      {
+                        grossSalary: breakdown.totalEarnings,
+                        totalEarnings: breakdown.totalEarnings,
+                        pf: breakdown.deductions.pf,
+                        esi: breakdown.deductions.esi,
+                        tds: breakdown.deductions.tds,
+                        profTax: breakdown.deductions.profTax,
+                        totalDeductions: breakdown.totalDeductions,
+                        netSalary: breakdown.netSalary,
+                        status: viewingPayslip.status,
+                        netInWords,
+                        earningsBreakdown: breakdown.earningsList,
+                        deductionsBreakdown: breakdown.deductionsList,
+                      },
+                      { period: viewingPayslip.period, generatedOn: payslipGeneratedDate(viewingPayslip.period) },
+                      {
+                        ...emp,
+                        location: emp.location,
+                        empType: emp.empType,
+                        doj: emp.doj,
+                        bankName: emp.bankName,
+                        bankAccount: emp.bankAccount,
+                        ifsc: emp.ifsc,
+                      },
+                    )
+                  }}
+                >
+                  <DownloadIcon /> Download PDF
+                </Btn>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )
+      })()}
 
       {confirm && (
         <Confirm
@@ -9441,10 +10115,10 @@ function AddEmployeeWizardPage({
     let employeeMonthly = 0
 
     if (b.enabled) {
-      if (b.planType === "epf" && statutory.epf) {
+      if (b.planType === "epf") {
         employerMonthly = Math.round((pfWageMonthly * b.employerRate) / 100)
         employeeMonthly = Math.round((pfWageMonthly * b.employeeRate) / 100)
-      } else if (b.planType === "esi" && statutory.esi) {
+      } else if (b.planType === "esi") {
         // ESI is applicable if gross <= 21,000 or if selected
         employerMonthly = Math.round((esiWageMonthly * b.employerRate) / 100)
         employeeMonthly = Math.round((esiWageMonthly * b.employeeRate) / 100)
@@ -9607,20 +10281,64 @@ function AddEmployeeWizardPage({
   }
 
   const handleNextStep1 = () => {
-    if (!basic.firstName.trim() || !basic.email.trim()) {
-      toast("First Name and Work Email are required.", "error")
+    const fName = basic.firstName.trim()
+    if (!fName) {
+      toast("First Name is required.", "error")
       return
+    }
+    const empId = basic.empId.trim()
+    if (!empId) {
+      toast("Employee ID is required.", "error")
+      return
+    }
+    if (emps.some((e) => e.id && e.id.trim().toLowerCase() === empId.toLowerCase())) {
+      toast(`An employee with ID "${empId}" already exists.`, "error")
+      return
+    }
+    const dojStr = basic.doj.trim()
+    if (!dojStr) {
+      toast("Date of Joining is required.", "error")
+      return
+    }
+    const parsedDoj = parseFlexibleDate(dojStr)
+    if (!parsedDoj) {
+      toast("Please enter a valid Date of Joining.", "error")
+      return
+    }
+    const email = basic.email.trim()
+    if (!email) {
+      toast("Work Email is required.", "error")
+      return
+    }
+    if (!isValidEmail(email)) {
+      toast("Please enter a valid work email address.", "error")
+      return
+    }
+    if (emps.some((e) => e.email && e.email.trim().toLowerCase() === email.toLowerCase())) {
+      toast("An employee with this work email address already exists.", "error")
+      return
+    }
+    if (basic.mobile && basic.mobile.trim()) {
+      if (!isValidIndianMobile(basic.mobile)) {
+        toast("Please enter a valid 10-digit Indian mobile number starting with 6, 7, 8, or 9.", "error")
+        return
+      }
+      const cleanMob = cleanIndianMobile(basic.mobile)
+      if (emps.some((e) => e.mobile && cleanIndianMobile(e.mobile) === cleanMob)) {
+        toast("An employee with this mobile number already exists.", "error")
+        return
+      }
     }
     setStep(2)
   }
 
   const handleNextStep2 = () => {
-    if (annualCTC <= 0) {
+    if (isNaN(annualCTC) || annualCTC <= 0) {
       toast("Annual CTC must be greater than 0.", "error")
       return
     }
     for (const e of earnings) {
-      if (e.value < 0) {
+      if (isNaN(e.value) || e.value < 0) {
         toast(`Value for ${e.name} cannot be negative.`, "error")
         return
       }
@@ -9642,6 +10360,71 @@ function AddEmployeeWizardPage({
   }
 
   const handleNextStep3 = () => {
+    const dobStr = personal.dob.trim()
+    if (!dobStr) {
+      toast("Date of Birth is required.", "error")
+      return
+    }
+    const parsedDob = parseFlexibleDate(dobStr)
+    if (!parsedDob) {
+      toast("Please enter a valid Date of Birth.", "error")
+      return
+    }
+    if (parsedDob.getTime() > Date.now()) {
+      toast("Date of Birth cannot be in the future.", "error")
+      return
+    }
+    const now = new Date()
+    let ageYears = now.getFullYear() - parsedDob.getFullYear()
+    const m = now.getMonth() - parsedDob.getMonth()
+    if (m < 0 || (m === 0 && now.getDate() < parsedDob.getDate())) {
+      ageYears--
+    }
+    if (ageYears < 18) {
+      toast("Employee must be at least 18 years of age.", "error")
+      return
+    }
+
+    if (personal.age && personal.age.trim()) {
+      const ageNum = Number(personal.age.trim())
+      if (isNaN(ageNum) || ageNum < 18 || ageNum > 100 || !Number.isInteger(ageNum)) {
+        toast("Age must be a valid number between 18 and 100.", "error")
+        return
+      }
+    }
+
+    const fatherName = personal.fatherName.trim()
+    if (!fatherName) {
+      toast("Father's Name is required.", "error")
+      return
+    }
+
+    if (personal.pan && personal.pan.trim()) {
+      const panUpper = personal.pan.trim().toUpperCase()
+      if (!isValidPAN(panUpper)) {
+        toast("Please enter a valid PAN format (e.g., ABCDE1234F).", "error")
+        return
+      }
+      if (emps.some((e) => e.pan && e.pan.trim().toUpperCase() === panUpper)) {
+        toast("An employee with this PAN already exists.", "error")
+        return
+      }
+    }
+
+    if (personal.personalEmail && personal.personalEmail.trim()) {
+      if (!isValidEmail(personal.personalEmail.trim())) {
+        toast("Please enter a valid personal email address.", "error")
+        return
+      }
+    }
+
+    if (personal.pincode && personal.pincode.trim()) {
+      if (!isValidPIN(personal.pincode.trim())) {
+        toast("Please enter a valid 6-digit Indian PIN code.", "error")
+        return
+      }
+    }
+
     setStep(4)
   }
 
@@ -9651,18 +10434,40 @@ function AddEmployeeWizardPage({
       return
     }
     if (paymentMethod === "direct_deposit" || paymentMethod === "bank_transfer") {
-      const holderName =
+      const holderName = (
         bankInfo.accountHolderName ||
-        `${basic.firstName} ${basic.middleName ? basic.middleName + " " : ""}${basic.lastName}`.trim()
-      if (!holderName || !bankInfo.bankName || !bankInfo.accountNumber) {
-        toast("Please fill in all mandatory bank details (*)", "error")
+        `${basic.firstName} ${basic.middleName ? basic.middleName + " " : ""}${basic.lastName}`
+      ).trim()
+      if (!holderName) {
+        toast("Account Holder Name is required.", "error")
         return
       }
-      if (
-        bankInfo.reAccountNumber &&
-        bankInfo.accountNumber !== bankInfo.reAccountNumber
-      ) {
+      if (!bankInfo.bankName.trim()) {
+        toast("Bank Name is required.", "error")
+        return
+      }
+      if (!bankInfo.accountNumber.trim()) {
+        toast("Account Number is required.", "error")
+        return
+      }
+      if (!isValidBankAccount(bankInfo.accountNumber)) {
+        toast("Please enter a valid bank account number (9 to 18 digits).", "error")
+        return
+      }
+      if (!bankInfo.reAccountNumber.trim()) {
+        toast("Please re-enter the bank account number.", "error")
+        return
+      }
+      if (bankInfo.accountNumber.trim() !== bankInfo.reAccountNumber.trim()) {
         toast("Account numbers do not match.", "error")
+        return
+      }
+      if (!bankInfo.ifsc.trim()) {
+        toast("IFSC code is required for bank payment.", "error")
+        return
+      }
+      if (!isValidIFSC(bankInfo.ifsc)) {
+        toast("Please enter a valid IFSC code (e.g., HDFC0001234).", "error")
         return
       }
     }
@@ -9671,9 +10476,15 @@ function AddEmployeeWizardPage({
       basic.middleName ? basic.middleName + " " : ""
     }${basic.lastName}`.trim()
     const newEmp: Employee = {
-      id: basic.empId,
+      id: basic.empId.trim(),
       name: fullName || "New Employee",
-      email: basic.email,
+      email: basic.email.trim(),
+      mobile: basic.mobile.trim() || undefined,
+      dob: personal.dob.trim() || undefined,
+      gender: basic.gender || "Male",
+      fatherName: personal.fatherName.trim() || undefined,
+      pan: personal.pan ? personal.pan.trim().toUpperCase() : undefined,
+      address: [personal.addr1, personal.addr2, personal.city, personal.state, personal.pincode].filter(Boolean).join(", "),
       department: basic.department,
       designation: basic.designation,
       doj: basic.doj,
@@ -9683,9 +10494,9 @@ function AddEmployeeWizardPage({
       salaryStructure: "Standard Engineer",
       status: "Active",
       grossSalary: totalGrossMonthly,
-      bankName: bankInfo.bankName,
-      bankAccount: bankInfo.accountNumber,
-      ifsc: bankInfo.ifsc,
+      bankName: bankInfo.bankName.trim(),
+      bankAccount: bankInfo.accountNumber.trim(),
+      ifsc: bankInfo.ifsc.trim().toUpperCase(),
     }
 
     setEmps([newEmp, ...emps])
@@ -9694,13 +10505,27 @@ function AddEmployeeWizardPage({
   }
 
   const handleSaveDraft = () => {
+    const fName = basic.firstName.trim()
+    if (!fName) {
+      toast("First Name is required to save a draft.", "error")
+      return
+    }
+    if (basic.email && basic.email.trim() && !isValidEmail(basic.email)) {
+      toast("Please enter a valid work email address.", "error")
+      return
+    }
     const fullName = `${basic.firstName} ${
       basic.middleName ? basic.middleName + " " : ""
     }${basic.lastName}`.trim()
     const newEmp: Employee = {
-      id: basic.empId,
+      id: basic.empId.trim(),
       name: fullName || "New Employee",
-      email: basic.email || "pending@naxrita.in",
+      email: basic.email.trim() || "pending@naxrita.in",
+      mobile: basic.mobile.trim() || undefined,
+      dob: personal.dob.trim() || undefined,
+      gender: basic.gender || "Male",
+      fatherName: personal.fatherName.trim() || undefined,
+      pan: personal.pan ? personal.pan.trim().toUpperCase() : undefined,
       department: basic.department,
       designation: basic.designation,
       doj: basic.doj,
@@ -9943,8 +10768,13 @@ function AddEmployeeWizardPage({
                   style={iSt}
                   value={basic.email}
                   onChange={(e) =>
-                    setBasic({ ...basic, email: e.target.value })
+                    setBasic({ ...basic, email: restrictEmailInput(e.target.value) })
                   }
+                  onBlur={() => {
+                    if (basic.email && !isValidEmail(basic.email)) {
+                      toast("Please enter a valid work email address.", "error")
+                    }
+                  }}
                   placeholder="abc@xyz.com"
                 />
               </Fld>
@@ -9953,7 +10783,7 @@ function AddEmployeeWizardPage({
                   style={iSt}
                   value={basic.mobile}
                   onChange={(e) =>
-                    setBasic({ ...basic, mobile: e.target.value })
+                    setBasic({ ...basic, mobile: restrictMobileInput(e.target.value) })
                   }
                   placeholder="+91 9876543210"
                 />
@@ -10288,7 +11118,15 @@ function AddEmployeeWizardPage({
                     }}
                     value={annualCTC || ""}
                     placeholder="0"
-                    onChange={(e) => setAnnualCTC(Math.max(0, Number(e.target.value) || 0))}
+                    onKeyDown={handleNonNegativeKeyDown}
+                    onPaste={(e) => {
+                      const text = e.clipboardData.getData("text")
+                      if (text.includes("-") || Number(text) < 0) {
+                        e.preventDefault()
+                        setAnnualCTC(Math.max(0, parseFloat(text.replace(/[^0-9.]/g, "")) || 0))
+                      }
+                    }}
+                    onChange={(e) => setAnnualCTC(Math.max(0, parseFloat(e.target.value) || 0))}
                   />
                   <span style={{ padding: "6px 12px", color: F.text3, fontSize: 12, whiteSpace: "nowrap" }}>
                     per year
@@ -10351,7 +11189,19 @@ function AddEmployeeWizardPage({
                         type="number"
                         min="0"
                         value={basicRow.value}
-                        onChange={(e) => handleUpdateEarning(basicRow.id, { value: Number(e.target.value) || 0 })}
+                        onKeyDown={handleNonNegativeKeyDown}
+                        onPaste={(e) => {
+                          const text = e.clipboardData.getData("text")
+                          if (text.includes("-") || Number(text) < 0) {
+                            e.preventDefault()
+                            const n = Math.max(0, parseFloat(text.replace(/[^0-9.]/g, "")) || 0)
+                            handleUpdateEarning(basicRow.id, { value: basicRow.calcType !== "fixed" ? Math.min(100, n) : n })
+                          }
+                        }}
+                        onChange={(e) => {
+                          const n = Math.max(0, parseFloat(e.target.value) || 0)
+                          handleUpdateEarning(basicRow.id, { value: basicRow.calcType !== "fixed" ? Math.min(100, n) : n })
+                        }}
                         style={{
                           width: 65,
                           border: "none",
@@ -10487,7 +11337,19 @@ function AddEmployeeWizardPage({
                               type="number"
                               min="0"
                               value={earning.value}
-                              onChange={(e) => handleUpdateEarning(earning.id, { value: Number(e.target.value) || 0 })}
+                              onKeyDown={handleNonNegativeKeyDown}
+                              onPaste={(e) => {
+                                const text = e.clipboardData.getData("text")
+                                if (text.includes("-") || Number(text) < 0) {
+                                  e.preventDefault()
+                                  const n = Math.max(0, parseFloat(text.replace(/[^0-9.]/g, "")) || 0)
+                                  handleUpdateEarning(earning.id, { value: earning.calcType !== "fixed" ? Math.min(100, n) : n })
+                                }
+                              }}
+                              onChange={(e) => {
+                                const n = Math.max(0, parseFloat(e.target.value) || 0)
+                                handleUpdateEarning(earning.id, { value: earning.calcType !== "fixed" ? Math.min(100, n) : n })
+                              }}
                               style={{
                                 width: 65,
                                 border: "none",
@@ -10650,7 +11512,7 @@ function AddEmployeeWizardPage({
                   Benefits
                 </div>
 
-                {benefits
+                {calculatedBenefits
                   .filter((b) => b.enabled)
                   .map((benefit) => (
                     <div
@@ -10728,12 +11590,12 @@ function AddEmployeeWizardPage({
                         </span>
                       </div>
 
-                      <div style={{ textAlign: "right", fontSize: 13, color: F.text3, paddingTop: 2 }}>
-                        System Calculated
+                      <div style={{ textAlign: "right", fontSize: 13, color: F.text1, paddingTop: 2 }}>
+                        {benefit.employerMonthly.toLocaleString("en-IN")}
                       </div>
 
-                      <div style={{ textAlign: "right", fontSize: 13, color: F.text3, paddingTop: 2 }}>
-                        System Calculated
+                      <div style={{ textAlign: "right", fontSize: 13, color: F.text1, paddingTop: 2 }}>
+                        {benefit.employerAnnual.toLocaleString("en-IN")}
                       </div>
 
                       <div style={{ textAlign: "center", paddingTop: 2 }}>
@@ -11039,7 +11901,7 @@ function AddEmployeeWizardPage({
                   style={iSt}
                   value={personal.age}
                   onChange={(e) =>
-                    setPersonal({ ...personal, age: e.target.value })
+                    setPersonal({ ...personal, age: restrictDigitsOnly(e.target.value).slice(0, 3) })
                   }
                   placeholder="e.g. 26"
                 />
@@ -11069,7 +11931,7 @@ function AddEmployeeWizardPage({
                   onChange={(e) =>
                     setPersonal({
                       ...personal,
-                      pan: e.target.value.toUpperCase(),
+                      pan: restrictPANInput(e.target.value),
                     })
                   }
                   placeholder="AAAAA0000A"
@@ -11107,8 +11969,13 @@ function AddEmployeeWizardPage({
                   style={iSt}
                   value={personal.personalEmail}
                   onChange={(e) =>
-                    setPersonal({ ...personal, personalEmail: e.target.value })
+                    setPersonal({ ...personal, personalEmail: restrictEmailInput(e.target.value) })
                   }
+                  onBlur={() => {
+                    if (personal.personalEmail && !isValidEmail(personal.personalEmail)) {
+                      toast("Please enter a valid personal email address.", "error")
+                    }
+                  }}
                   placeholder="abc@xyz.com"
                 />
               </Fld>
@@ -11205,7 +12072,7 @@ function AddEmployeeWizardPage({
                   style={iSt}
                   value={personal.pincode}
                   onChange={(e) =>
-                    setPersonal({ ...personal, pincode: e.target.value })
+                    setPersonal({ ...personal, pincode: restrictDigitsOnly(e.target.value).slice(0, 6) })
                   }
                   placeholder="PIN Code"
                 />
@@ -11505,7 +12372,7 @@ function AddEmployeeWizardPage({
                               onChange={(e) =>
                                 setBankInfo({
                                   ...bankInfo,
-                                  accountNumber: e.target.value,
+                                  accountNumber: restrictDigitsOnly(e.target.value),
                                 })
                               }
                             />
@@ -11517,7 +12384,7 @@ function AddEmployeeWizardPage({
                               onChange={(e) =>
                                 setBankInfo({
                                   ...bankInfo,
-                                  reAccountNumber: e.target.value,
+                                  reAccountNumber: restrictDigitsOnly(e.target.value),
                                 })
                               }
                             />
@@ -11540,7 +12407,7 @@ function AddEmployeeWizardPage({
                               onChange={(e) =>
                                 setBankInfo({
                                   ...bankInfo,
-                                  ifsc: e.target.value.toUpperCase(),
+                                  ifsc: restrictIFSCInput(e.target.value),
                                 })
                               }
                             />
@@ -13462,12 +14329,28 @@ function EmployeesView({
   }
 
   const addEmployee = () => {
-    if (!addForm.name || !addForm.email)
-      return toast("Name and email are required", "error")
+    const name = addForm.name.trim()
+    if (!name) return toast("Name is required", "error")
+
+    const email = addForm.email.trim()
+    if (!email) return toast("Email address is required", "error")
+    if (!isValidEmail(email)) return toast("Please enter a valid email address", "error")
+
+    if (emps.some((e) => e.email && e.email.trim().toLowerCase() === email.toLowerCase())) {
+      return toast("An employee with this email address already exists", "error")
+    }
+
+    if (addForm.doj && addForm.doj.trim()) {
+      const parsedDoj = parseFlexibleDate(addForm.doj.trim())
+      if (!parsedDoj) return toast("Please enter a valid Date of Joining", "error")
+    }
+
     const newId = `EMP-${String(emps.length + 1).padStart(3, "0")}`
     const newEmp: Employee = {
       id: newId,
       ...addForm,
+      name,
+      email,
       status: "Active",
       grossSalary:
         ss.find((s) => s.name === addForm.salaryStructure)?.gross ?? 0,
@@ -13490,7 +14373,18 @@ function EmployeesView({
 
   const saveEdit = () => {
     if (!editEmp) return
-    setEmps(emps.map((e) => (e.id === editEmp.id ? editEmp : e)))
+    const name = editEmp.name.trim()
+    if (!name) return toast("Name is required", "error")
+
+    const email = editEmp.email.trim()
+    if (!email) return toast("Email address is required", "error")
+    if (!isValidEmail(email)) return toast("Please enter a valid email address", "error")
+
+    if (emps.some((e) => e.id !== editEmp.id && e.email && e.email.trim().toLowerCase() === email.toLowerCase())) {
+      return toast("An employee with this email address already exists", "error")
+    }
+
+    setEmps(emps.map((e) => (e.id === editEmp.id ? { ...editEmp, name, email } : e)))
     setEditEmp(null)
     toast("Employee updated", "success")
   }
@@ -14273,8 +15167,13 @@ function EmployeesView({
                 style={iSt}
                 value={addForm.email}
                 onChange={(e) =>
-                  setAddForm({ ...addForm, email: e.target.value })
+                  setAddForm({ ...addForm, email: restrictEmailInput(e.target.value) })
                 }
+                onBlur={() => {
+                  if (addForm.email && !isValidEmail(addForm.email)) {
+                    toast("Please enter a valid email address", "error")
+                  }
+                }}
                 placeholder="priya@company.in"
               />
             </Fld>
@@ -14410,8 +15309,13 @@ function EmployeesView({
                 style={iSt}
                 value={editEmp.email}
                 onChange={(e) =>
-                  setEditEmp({ ...editEmp, email: e.target.value })
+                  setEditEmp({ ...editEmp, email: restrictEmailInput(e.target.value) })
                 }
+                onBlur={() => {
+                  if (editEmp.email && !isValidEmail(editEmp.email)) {
+                    toast("Please enter a valid email address", "error")
+                  }
+                }}
               />
             </Fld>
             <Fld label="Department">
@@ -37419,7 +38323,7 @@ function OrgDocumentsView({
           </div>
         </div>
       )}
-      <div style={{ order: 1, display: "flex", alignItems: "center", gap: 8, borderBottom: activeDocumentsTab === "organization" ? "none" : `1px solid ${F.border}` }}>
+      <div style={{ order: 1, display: "flex", alignItems: "center", gap: 8 }}>
         <Btn variant={activeDocumentsTab === "organization" ? "primary" : "secondary"} onClick={() => setActiveDocumentsTab("organization")}>Organization Documents</Btn>
         <Btn variant={activeDocumentsTab === "employee" ? "primary" : "secondary"} onClick={() => setActiveDocumentsTab("employee")}>Employee Documents</Btn>
         <div style={{ flex: 1 }} />
@@ -37471,10 +38375,6 @@ function OrgDocumentsView({
               </div>
             ))}
             {orgFolders.length === 0 && <div style={{ padding: "6px 10px", color: F.text3, fontSize: 12 }}>No folders yet</div>}
-          </div>
-          <div style={{ marginTop: "auto", padding: "12px 10px 10px", borderTop: `1px solid ${F.border}` }}>
-            <div style={{ color: F.text2, fontSize: 12, fontWeight: 700 }}>Storage Limit</div>
-            <div style={{ marginTop: 4, color: F.text3, fontSize: 11 }}>1 GB / 100 employees</div>
           </div>
           <button
             type="button"
@@ -38434,10 +39334,6 @@ function EmployeeDocumentsView({ active, employees, employeeDocumentSearch, setE
               </div>
             ))}
             {folders.length === 0 && <div style={{ padding: "6px 10px", color: F.text3, fontSize: 12 }}>No folders yet</div>}
-          </div>
-          <div style={{ marginTop: "auto", padding: "12px 10px 10px", borderTop: `1px solid ${F.border}` }}>
-            <div style={{ color: F.text2, fontSize: 12, fontWeight: 700 }}>Storage Limit</div>
-            <div style={{ marginTop: 4, color: F.text3, fontSize: 11 }}>1 GB / 100 employees</div>
           </div>
           <button
             type="button"
