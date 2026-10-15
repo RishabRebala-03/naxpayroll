@@ -43,3 +43,9 @@ Thumbs.db
 .vscode/
 *.swp
 *.swo
+
+# Backend
+backend/
+
+# Database
+*.db

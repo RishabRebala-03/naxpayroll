@@ -80,9 +80,27 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
             >
               Application Error
             </h2>
-            <p style={{ margin: "0 0 20px", fontSize: 13, color: "#6A6D70" }}>
+            <p style={{ margin: "0 0 12px", fontSize: 13, color: "#6A6D70" }}>
               An unexpected error occurred while rendering the interface.
             </p>
+            {this.state.error && (
+              <pre style={{
+                textAlign: "left",
+                background: "#FEE2E2",
+                color: "#991B1B",
+                padding: "10px 12px",
+                borderRadius: 6,
+                fontSize: 11,
+                overflowX: "auto",
+                whiteSpace: "pre-wrap",
+                marginBottom: 16,
+                maxHeight: 150,
+              }}>
+                {this.state.error.message || String(this.state.error)}
+                {"\n"}
+                {this.state.error.stack?.split("\n").slice(0, 4).join("\n")}
+              </pre>
+            )}
             <button
               onClick={() => window.location.reload()}
               style={{
