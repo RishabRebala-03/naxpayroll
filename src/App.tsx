@@ -25093,7 +25093,7 @@ function settingsFindItem(id: string) {
 
 function SettingsTopBar({ onBack, search, setSearch, onClose }: { onBack?: () => void; search: string; setSearch: (v: string) => void; onClose?: () => void }) {
   return (
-    <div style={{ height: 60, background: "#FFFFFF", borderBottom: `1px solid ${F.border}`, display: "flex", alignItems: "center", padding: "0 24px", gap: 14, position: "fixed", top: 0, left: 0, right: 0, width: "100%", boxSizing: "border-box", zIndex: 1000, boxShadow: "0 1px 3px rgba(16,42,67,.05)" }}>
+    <div style={{ height: 60, background: "#FFFFFF", borderBottom: `1px solid ${F.border}`, display: "flex", alignItems: "center", padding: "0 24px", gap: 14, position: "relative", top: 0, left: 0, right: 0, width: "100%", boxSizing: "border-box", flexShrink: 0, zIndex: 1000, boxShadow: "0 1px 3px rgba(16,42,67,.05)" }}>
       <div style={{ width: 36, height: 36, borderRadius: 8, background: F.brand, color: "#FFFFFF", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 15, fontWeight: 900 }}>Nx</div>
       {onBack && <button onClick={onBack} aria-label="Back to settings" style={{ width: 38, height: 38, border: `1px solid ${F.border}`, borderRadius: 7, background: "#fff", cursor: "pointer", fontSize: 22, color: F.text2 }}>‹</button>}
       <div style={{ minWidth: 250 }}>
@@ -25144,7 +25144,7 @@ function SettingsLanding({ onOpen, search, setSearch, onClose }: { onOpen: (id: 
   const totalItems = organisationGroups.reduce((n, g) => n + g.items.length, 0) + moduleGroups.reduce((n, g) => n + g.items.length, 0)
 
   const groupCard = (group: any) => (
-    <div key={group.id} style={{
+    <div key={group.id} className="settings-landing-card" style={{
       background: "#FFFFFF",
       border: `1px solid ${F.border}`,
       borderRadius: 10,
@@ -25152,7 +25152,7 @@ function SettingsLanding({ onOpen, search, setSearch, onClose }: { onOpen: (id: 
       boxShadow: "0 1px 3px rgba(15, 42, 70, .04)",
       minWidth: 0,
     }}>
-      <div style={{
+      <div className="settings-landing-card-header" style={{
         minHeight: 54,
         padding: "0 16px",
         background: group.tone,
@@ -25171,6 +25171,7 @@ function SettingsLanding({ onOpen, search, setSearch, onClose }: { onOpen: (id: 
             key={item.id}
             type="button"
             onClick={() => onOpen(item.id)}
+            className="settings-landing-item"
             style={{
               width: "100%",
               minHeight: 44,
@@ -25198,7 +25199,7 @@ function SettingsLanding({ onOpen, search, setSearch, onClose }: { onOpen: (id: 
   )
 
   return (
-    <div style={{ minHeight: "100vh", background: F.pageBg, overflow: "visible", color: F.text1 }}>
+    <div className="settings-landing-page" style={{ minHeight: "100vh", background: F.pageBg, overflow: "visible", color: F.text1 }}>
       <SettingsTopBar search={search} setSearch={setSearch} onClose={onClose} />
       <div style={{ display: "flex", alignItems: "stretch", minHeight: "calc(100vh - 60px)" }}>
         <aside
@@ -27017,13 +27018,15 @@ function SettingsDetail({ item, group, onBack, onSelect, showToast }: { item: Se
   const [customAccent, setCustomAccent] = useState(() => {
     try { return localStorage.getItem("naxpayroll-accent-color") || "#4387f5" } catch { return "#4387f5" }
   })
+  // Treat any appearance option containing "dark" as dark mode (e.g. Dark, Dark Pane).
+  const isDarkMode = /dark/i.test(appearanceMode)
   // Apply branding preferences globally, not just to the swatches on this page.
   useEffect(() => {
     const colorByName: Record<string, string> = { Blue: "#4387f5", Green: "#20b47a", Red: "#fa4d5b", Orange: "#ff8b2b", Custom: customAccent }
     const accent = colorByName[accentColor] || customAccent
     document.documentElement.style.setProperty("--nax-accent", accent)
     document.documentElement.style.setProperty("--nax-accent-hover", accent)
-    document.documentElement.dataset.naxAppearance = appearanceMode === "Dark Pane" ? "dark" : "light"
+    document.documentElement.dataset.naxAppearance = isDarkMode ? "dark" : "light"
     try {
       localStorage.setItem("naxpayroll-appearance", appearanceMode)
       localStorage.setItem("naxpayroll-accent-name", accentColor)
@@ -27039,18 +27042,18 @@ function SettingsDetail({ item, group, onBack, onSelect, showToast }: { item: Se
       :root {
         --nax-accent: ${accent};
         --nax-accent-hover: ${accent};
-        --nax-page-bg: ${appearanceMode === "Dark Pane" ? "#101522" : "#F5F6F7"};
-        --nax-card-bg: ${appearanceMode === "Dark Pane" ? "#171c2d" : "#FFFFFF"};
-        --nax-text-primary: ${appearanceMode === "Dark Pane" ? "#E8EDF6" : "#1D2D3E"};
-        --nax-text-secondary: ${appearanceMode === "Dark Pane" ? "#B3C0D4" : "#475E75"};
-        --nax-border: ${appearanceMode === "Dark Pane" ? "#343D52" : "#D5DADD"};
-        color-scheme: ${appearanceMode === "Dark Pane" ? "dark" : "light"};
+        --nax-page-bg: ${isDarkMode ? "#202B40" : "#F5F6F7"};
+        --nax-card-bg: ${isDarkMode ? "#2A3850" : "#FFFFFF"};
+        --nax-text-primary: ${isDarkMode ? "#F3F6FC" : "#1D2D3E"};
+        --nax-text-secondary: ${isDarkMode ? "#C3CEDF" : "#475E75"};
+        --nax-border: ${isDarkMode ? "#465872" : "#D5DADD"};
+        color-scheme: ${isDarkMode ? "dark" : "light"};
       }
       html, body, #root { min-height: 100%; }
-      html[data-nax-appearance="dark"] { color-scheme: dark; background: #101522 !important; }
+      html[data-nax-appearance="dark"] { color-scheme: dark; background: #202B40 !important; }
       html[data-nax-appearance="light"] { color-scheme: light; background: #F5F6F7 !important; }
       html[data-nax-appearance="dark"] body,
-      html[data-nax-appearance="dark"] #root { background-color: #101522 !important; color: #E8EDF6; }
+      html[data-nax-appearance="dark"] #root { background-color: #202B40 !important; color: #F3F6FC; }
       html[data-nax-appearance="light"] body,
       html[data-nax-appearance="light"] #root { background-color: #F5F6F7; color: #1D2D3E; }
 
@@ -27060,45 +27063,45 @@ function SettingsDetail({ item, group, onBack, onSelect, showToast }: { item: Se
       html[data-nax-appearance="dark"] #root [style*="background: #fff"],
       html[data-nax-appearance="dark"] #root [style*="background: white"],
       html[data-nax-appearance="dark"] #root [style*="backgroundColor: white"] {
-        background-color: #171c2d !important;
+        background-color: #2A3850 !important;
       }
       html[data-nax-appearance="dark"] #root [style*="background: rgb(245, 246, 247)"],
       html[data-nax-appearance="dark"] #root [style*="background-color: rgb(245, 246, 247)"],
       html[data-nax-appearance="dark"] #root [style*="background: #F5F6F7"],
       html[data-nax-appearance="dark"] #root [style*="background: #f5f6f7"] {
-        background-color: #101522 !important;
+        background-color: #202B40 !important;
       }
       html[data-nax-appearance="dark"] #root [style*="color: rgb(29, 45, 62)"],
       html[data-nax-appearance="dark"] #root [style*="color: #1D2D3E"],
       html[data-nax-appearance="dark"] #root [style*="color: #1d2d3e"] {
-        color: #E8EDF6 !important;
+        color: #F3F6FC !important;
       }
       html[data-nax-appearance="dark"] #root [style*="color: rgb(71, 94, 117)"],
       html[data-nax-appearance="dark"] #root [style*="color: #475E75"],
       html[data-nax-appearance="dark"] #root [style*="color: #475e75"],
       html[data-nax-appearance="dark"] #root [style*="color: rgb(91, 115, 139)"] {
-        color: #B3C0D4 !important;
+        color: #C3CEDF !important;
       }
       html[data-nax-appearance="dark"] #root [style*="border: 1px solid rgb(213, 218, 221)"],
       html[data-nax-appearance="dark"] #root [style*="border-color: rgb(213, 218, 221)"],
       html[data-nax-appearance="dark"] #root [style*="border: 1px solid #D5DADD"] {
-        border-color: #343D52 !important;
+        border-color: #465872 !important;
       }
 
       /* Theme common controls, tables, dialogs and form fields consistently. */
       html[data-nax-appearance="dark"] #root input:not([type="color"]),
       html[data-nax-appearance="dark"] #root select,
       html[data-nax-appearance="dark"] #root textarea {
-        background-color: #111827;
-        color: #E8EDF6;
-        border-color: #414B61;
+        background-color: #26354D;
+        color: #F3F6FC;
+        border-color: #526783;
         color-scheme: dark;
       }
       html[data-nax-appearance="dark"] #root input::placeholder,
-      html[data-nax-appearance="dark"] #root textarea::placeholder { color: #9AA8BD; }
+      html[data-nax-appearance="dark"] #root textarea::placeholder { color: #B0BED2; }
       html[data-nax-appearance="dark"] #root th,
-      html[data-nax-appearance="dark"] #root td { border-color: #343D52; }
-      html[data-nax-appearance="dark"] #root hr { border-color: #343D52; }
+      html[data-nax-appearance="dark"] #root td { border-color: #465872; }
+      html[data-nax-appearance="dark"] #root hr { border-color: #465872; }
 
       button[style*="#0070F2"], button[style*="#4387f5"], button[style*="#4387F5"],
       [role="button"][style*="#0070F2"], [role="button"][style*="#4387f5"] {
@@ -27107,6 +27110,448 @@ function SettingsDetail({ item, group, onBack, onSelect, showToast }: { item: Se
       button[style*="#0070F2"], button[style*="#4387f5"], button[style*="#4387F5"] { color: #fff; }
       a[style*="#0070F2"], a[style*="#4387f5"], a[style*="#1677D2"],
       [style*="color: rgb(0, 112, 242)"], [style*="color: rgb(67, 135, 245)"] { color: var(--nax-accent) !important; }
+
+      /* Application-wide dark mode contrast and surface normalization. */
+      html[data-nax-appearance="dark"] #root [style*="background: rgb(248, 250, 252)"],
+      html[data-nax-appearance="dark"] #root [style*="background-color: rgb(248, 250, 252)"],
+      html[data-nax-appearance="dark"] #root [style*="background: rgb(249, 250, 251)"],
+      html[data-nax-appearance="dark"] #root [style*="background-color: rgb(249, 250, 251)"],
+      html[data-nax-appearance="dark"] #root [style*="background: rgb(248, 249, 250)"],
+      html[data-nax-appearance="dark"] #root [style*="background-color: rgb(248, 249, 250)"],
+      html[data-nax-appearance="dark"] #root [style*="background: #F8FAFC"],
+      html[data-nax-appearance="dark"] #root [style*="background: #f8fafc"],
+      html[data-nax-appearance="dark"] #root [style*="background: #F9FAFB"],
+      html[data-nax-appearance="dark"] #root [style*="background: #f9fafb"],
+      html[data-nax-appearance="dark"] #root [style*="background: #FFFFFF"],
+      html[data-nax-appearance="dark"] #root [style*="background: #ffffff"],
+      html[data-nax-appearance="dark"] #root [style*="background: #FFF"],
+      html[data-nax-appearance="dark"] #root [style*="background: #fff"],
+      html[data-nax-appearance="dark"] #root [style*="background-color: white"],
+      html[data-nax-appearance="dark"] #root [style*="background-color: #FFFFFF"],
+      html[data-nax-appearance="dark"] #root [style*="background-color: #ffffff"],
+      html[data-nax-appearance="dark"] #root [style*="background-color: #fff"] {
+        background-color: #2A3850 !important;
+        background-image: none;
+      }
+      html[data-nax-appearance="dark"] #root [style*="color: rgb(232, 237, 246)"],
+      html[data-nax-appearance="dark"] #root [style*="color: #E8EDF6"],
+      html[data-nax-appearance="dark"] #root [style*="color: #e8edf6"] {
+        color: #F3F6FC !important;
+      }
+      html[data-nax-appearance="dark"] #root [style*="color: rgb(226, 232, 240)"],
+      html[data-nax-appearance="dark"] #root [style*="color: #E2E8F0"],
+      html[data-nax-appearance="dark"] #root [style*="color: #e2e8f0"],
+      html[data-nax-appearance="dark"] #root [style*="color: #CBD5E1"],
+      html[data-nax-appearance="dark"] #root [style*="color: #cbd5e1"] {
+        color: #D5DFEF !important;
+      }
+      html[data-nax-appearance="dark"] #root h1,
+      html[data-nax-appearance="dark"] #root h2,
+      html[data-nax-appearance="dark"] #root h3,
+      html[data-nax-appearance="dark"] #root h4,
+      html[data-nax-appearance="dark"] #root h5,
+      html[data-nax-appearance="dark"] #root h6 {
+        color: #F3F6FC !important;
+      }
+      html[data-nax-appearance="dark"] #root input,
+      html[data-nax-appearance="dark"] #root select,
+      html[data-nax-appearance="dark"] #root textarea {
+        background-color: #26354D !important;
+        color: #F3F6FC !important;
+        border-color: #526783 !important;
+      }
+      html[data-nax-appearance="dark"] #root input::placeholder,
+      html[data-nax-appearance="dark"] #root textarea::placeholder {
+        color: #B9C7DA !important;
+        opacity: 1;
+      }
+      html[data-nax-appearance="dark"] #root table,
+      html[data-nax-appearance="dark"] #root [role="dialog"],
+      html[data-nax-appearance="dark"] #root [role="menu"],
+      html[data-nax-appearance="dark"] #root [role="listbox"] {
+        border-color: #465872;
+      }
+      html[data-nax-appearance="dark"] #root button,
+      html[data-nax-appearance="dark"] #root [role="button"] {
+        transition: background-color .18s ease, border-color .18s ease, box-shadow .18s ease;
+      }
+      html[data-nax-appearance="dark"] #root button:focus-visible,
+      html[data-nax-appearance="dark"] #root input:focus-visible,
+      html[data-nax-appearance="dark"] #root select:focus-visible,
+      html[data-nax-appearance="dark"] #root textarea:focus-visible {
+        outline: 2px solid var(--nax-accent) !important;
+        outline-offset: 2px;
+      }
+
+      /* Settings landing page: explicitly override its inline light-theme colors. */
+      html[data-nax-appearance="dark"] #root .settings-landing-page {
+        background: #202B40 !important;
+        color: #F3F6FC !important;
+      }
+      html[data-nax-appearance="dark"] #root .settings-landing-page .settings-section-title,
+      html[data-nax-appearance="dark"] #root .settings-landing-page .settings-category-title,
+      html[data-nax-appearance="dark"] #root .settings-landing-page h1,
+      html[data-nax-appearance="dark"] #root .settings-landing-page h2,
+      html[data-nax-appearance="dark"] #root .settings-landing-page h3 {
+        color: #F3F6FC !important;
+        opacity: 1 !important;
+      }
+      html[data-nax-appearance="dark"] #root .settings-landing-page .settings-landing-card {
+        background: #2A3850 !important;
+        border-color: #465872 !important;
+        box-shadow: 0 5px 16px rgba(5, 12, 25, .18) !important;
+      }
+      html[data-nax-appearance="dark"] #root .settings-landing-page .settings-landing-card-header {
+        background: #34445D !important;
+        border-color: #465872 !important;
+      }
+      html[data-nax-appearance="dark"] #root .settings-landing-page .settings-category-title,
+      html[data-nax-appearance="dark"] #root .settings-landing-page .settings-category-item,
+      html[data-nax-appearance="dark"] #root .settings-landing-page .settings-landing-item {
+        color: #EAF0FA !important;
+        opacity: 1 !important;
+      }
+      html[data-nax-appearance="dark"] #root .settings-landing-page .settings-landing-item:hover {
+        background: #40536F !important;
+        color: #FFFFFF !important;
+      }
+      html[data-nax-appearance="dark"] #root .settings-landing-page .settings-landing-item span:last-child {
+        color: #B9CBE3 !important;
+      }
+      html[data-nax-appearance="dark"] #root .settings-landing-page > div > main,
+      html[data-nax-appearance="dark"] #root .settings-landing-page main {
+        color: #F3F6FC !important;
+      }
+      html[data-nax-appearance="dark"] #root .settings-landing-page main > div > div {
+        opacity: 1;
+      }
+      html[data-nax-appearance="dark"] #root .settings-landing-page main > div > div[style*="font-size: 26px"],
+      html[data-nax-appearance="dark"] #root .settings-landing-page main > div > div[style*="font-size: 14px"] {
+        color: #D6E1F0 !important;
+      }
+      html[data-nax-appearance="dark"] #root .settings-landing-page main strong {
+        color: #F3F6FC !important;
+      }
+
+      /* Application-wide dark blue-gray theme for every page and component. */
+      html[data-nax-appearance="dark"] #root {
+        background-color: #202B40 !important;
+        color: #EAF0FA !important;
+        --nax-page-bg: #202B40;
+        --nax-card-bg: #2A3850;
+        --nax-text-primary: #F3F6FC;
+        --nax-text-secondary: #C3CEDF;
+        --nax-border: #465872;
+      }
+      html[data-nax-appearance="dark"] #root p,
+      html[data-nax-appearance="dark"] #root label,
+      html[data-nax-appearance="dark"] #root li,
+      html[data-nax-appearance="dark"] #root td,
+      html[data-nax-appearance="dark"] #root th,
+      html[data-nax-appearance="dark"] #root dt,
+      html[data-nax-appearance="dark"] #root dd,
+      html[data-nax-appearance="dark"] #root small,
+      html[data-nax-appearance="dark"] #root figcaption {
+        color: #D5DFEF;
+      }
+      /* Common inline light-theme text colors that otherwise disappear on dark surfaces. */
+      html[data-nax-appearance="dark"] #root [style*="color: rgb(148, 163, 184)"],
+      html[data-nax-appearance="dark"] #root [style*="color: rgb(156, 163, 175)"],
+      html[data-nax-appearance="dark"] #root [style*="color: rgb(107, 114, 128)"],
+      html[data-nax-appearance="dark"] #root [style*="color: rgb(100, 116, 139)"],
+      html[data-nax-appearance="dark"] #root [style*="color: #64748B"],
+      html[data-nax-appearance="dark"] #root [style*="color: #64748b"],
+      html[data-nax-appearance="dark"] #root [style*="color: #6B7280"],
+      html[data-nax-appearance="dark"] #root [style*="color: #6b7280"],
+      html[data-nax-appearance="dark"] #root [style*="color: #94A3B8"],
+      html[data-nax-appearance="dark"] #root [style*="color: #94a3b8"],
+      html[data-nax-appearance="dark"] #root [style*="color: #9CA3AF"],
+      html[data-nax-appearance="dark"] #root [style*="color: #9ca3af"] {
+        color: #C3CEDF !important;
+        opacity: 1 !important;
+      }
+      /* Normalize typical light surfaces across dashboards, employee pages, reports, and settings. */
+      html[data-nax-appearance="dark"] #root [style*="background: rgb(255, 255, 255)"],
+      html[data-nax-appearance="dark"] #root [style*="background-color: rgb(255, 255, 255)"],
+      html[data-nax-appearance="dark"] #root [style*="background: white"],
+      html[data-nax-appearance="dark"] #root [style*="background-color: white"],
+      html[data-nax-appearance="dark"] #root [style*="background: #fff"],
+      html[data-nax-appearance="dark"] #root [style*="background: #FFF"],
+      html[data-nax-appearance="dark"] #root [style*="background-color: #fff"],
+      html[data-nax-appearance="dark"] #root [style*="background-color: #FFF"] {
+        background-color: #2A3850 !important;
+        color: #EAF0FA;
+        border-color: #465872 !important;
+      }
+      html[data-nax-appearance="dark"] #root [style*="background: rgb(248, 250, 252)"],
+      html[data-nax-appearance="dark"] #root [style*="background-color: rgb(248, 250, 252)"],
+      html[data-nax-appearance="dark"] #root [style*="background: rgb(249, 250, 251)"],
+      html[data-nax-appearance="dark"] #root [style*="background-color: rgb(249, 250, 251)"],
+      html[data-nax-appearance="dark"] #root [style*="background: rgb(243, 244, 246)"],
+      html[data-nax-appearance="dark"] #root [style*="background-color: rgb(243, 244, 246)"],
+      html[data-nax-appearance="dark"] #root [style*="background: #F9FAFB"],
+      html[data-nax-appearance="dark"] #root [style*="background: #f9fafb"],
+      html[data-nax-appearance="dark"] #root [style*="background: #F3F4F6"],
+      html[data-nax-appearance="dark"] #root [style*="background: #f3f4f6"] {
+        background-color: #25334A !important;
+        color: #EAF0FA;
+        border-color: #465872 !important;
+      }
+      html[data-nax-appearance="dark"] #root [style*="border-color: rgb(229, 231, 235)"],
+      html[data-nax-appearance="dark"] #root [style*="border-color: rgb(226, 232, 240)"],
+      html[data-nax-appearance="dark"] #root [style*="border: 1px solid #E5E7EB"],
+      html[data-nax-appearance="dark"] #root [style*="border: 1px solid #e5e7eb"],
+      html[data-nax-appearance="dark"] #root [style*="border: 1px solid #E2E8F0"],
+      html[data-nax-appearance="dark"] #root [style*="border: 1px solid #e2e8f0"] {
+        border-color: #465872 !important;
+      }
+      html[data-nax-appearance="dark"] #root table,
+      html[data-nax-appearance="dark"] #root thead,
+      html[data-nax-appearance="dark"] #root tbody,
+      html[data-nax-appearance="dark"] #root tr {
+        border-color: #465872;
+      }
+      html[data-nax-appearance="dark"] #root tbody tr:hover {
+        background-color: #34445D !important;
+      }
+      html[data-nax-appearance="dark"] #root [role="dialog"],
+      html[data-nax-appearance="dark"] #root [role="menu"],
+      html[data-nax-appearance="dark"] #root [role="listbox"],
+      html[data-nax-appearance="dark"] #root [role="option"] {
+        background-color: #2A3850;
+        color: #EAF0FA;
+        border-color: #465872;
+      }
+      html[data-nax-appearance="dark"] #root input[type="checkbox"],
+      html[data-nax-appearance="dark"] #root input[type="radio"] {
+        accent-color: var(--nax-accent);
+      }
+      html[data-nax-appearance="dark"] #root input:disabled,
+      html[data-nax-appearance="dark"] #root select:disabled,
+      html[data-nax-appearance="dark"] #root textarea:disabled,
+      html[data-nax-appearance="dark"] #root button:disabled {
+        opacity: .72;
+      }
+      html[data-nax-appearance="dark"] #root a:not([style*="background"]),
+      html[data-nax-appearance="dark"] #root [role="link"] {
+        text-underline-offset: 3px;
+      }
+      html[data-nax-appearance="dark"] #root *:focus-visible {
+        outline-color: var(--nax-accent);
+      }
+
+      /* Final contrast pass: all Settings detail pages, navigation, and settings controls. */
+      html[data-nax-appearance="dark"] #root section,
+      html[data-nax-appearance="dark"] #root article,
+      html[data-nax-appearance="dark"] #root aside,
+      html[data-nax-appearance="dark"] #root [class*="settings-card"],
+      html[data-nax-appearance="dark"] #root [class*="settings-panel"],
+      html[data-nax-appearance="dark"] #root [class*="settings-section"] {
+        border-color: #465872 !important;
+      }
+      html[data-nax-appearance="dark"] #root section[style*="background: rgb(255, 255, 255)"],
+      html[data-nax-appearance="dark"] #root section[style*="background: white"],
+      html[data-nax-appearance="dark"] #root section[style*="background: #fff"],
+      html[data-nax-appearance="dark"] #root section[style*="background: rgb(243, 245, 247)"],
+      html[data-nax-appearance="dark"] #root div[style*="background: rgb(243, 245, 247)"],
+      html[data-nax-appearance="dark"] #root div[style*="background: #F3F5F7"],
+      html[data-nax-appearance="dark"] #root div[style*="background: #f3f5f7"] {
+        background-color: #2A3850 !important;
+        color: #EAF0FA !important;
+        border-color: #465872 !important;
+      }
+      /* Inline navy/gray text from the light theme is too low-contrast on dark surfaces. */
+      html[data-nax-appearance="dark"] #root [style*="color: rgb(36, 59, 83)"],
+      html[data-nax-appearance="dark"] #root [style*="color: rgb(38, 62, 87)"],
+      html[data-nax-appearance="dark"] #root [style*="color: rgb(56, 83, 111)"],
+      html[data-nax-appearance="dark"] #root [style*="color: rgb(75, 101, 128)"],
+      html[data-nax-appearance="dark"] #root [style*="color: rgb(97, 121, 148)"],
+      html[data-nax-appearance="dark"] #root [style*="color: #243B53"],
+      html[data-nax-appearance="dark"] #root [style*="color: #243b53"],
+      html[data-nax-appearance="dark"] #root [style*="color: #263E57"],
+      html[data-nax-appearance="dark"] #root [style*="color: #263e57"],
+      html[data-nax-appearance="dark"] #root [style*="color: #38536F"],
+      html[data-nax-appearance="dark"] #root [style*="color: #38536f"],
+      html[data-nax-appearance="dark"] #root [style*="color: #4B6580"],
+      html[data-nax-appearance="dark"] #root [style*="color: #4b6580"],
+      html[data-nax-appearance="dark"] #root [style*="color: #617994"],
+      html[data-nax-appearance="dark"] #root [style*="color: #71849A"],
+      html[data-nax-appearance="dark"] #root [style*="color: #71849a"] {
+        color: #D5DFEF !important;
+        opacity: 1 !important;
+      }
+      /* Keep headings and descriptive copy readable across every Settings module. */
+      html[data-nax-appearance="dark"] #root main h1,
+      html[data-nax-appearance="dark"] #root main h2,
+      html[data-nax-appearance="dark"] #root main h3,
+      html[data-nax-appearance="dark"] #root main h4,
+      html[data-nax-appearance="dark"] #root main [role="heading"],
+      html[data-nax-appearance="dark"] #root main section > div:first-child {
+        opacity: 1 !important;
+      }
+      html[data-nax-appearance="dark"] #root main section,
+      html[data-nax-appearance="dark"] #root main section p,
+      html[data-nax-appearance="dark"] #root main section label,
+      html[data-nax-appearance="dark"] #root main section span,
+      html[data-nax-appearance="dark"] #root main section strong,
+      html[data-nax-appearance="dark"] #root main section div {
+        text-shadow: none;
+      }
+      html[data-nax-appearance="dark"] #root main section > div:first-child {
+        border-color: #465872 !important;
+      }
+      html[data-nax-appearance="dark"] #root main [style*="border-bottom: 1px solid #E5EAF0"],
+      html[data-nax-appearance="dark"] #root main [style*="border-bottom: 1px solid #e5eaf0"] {
+        border-bottom-color: #465872 !important;
+        background-color: #202B40 !important;
+      }
+      html[data-nax-appearance="dark"] #root aside button,
+      html[data-nax-appearance="dark"] #root aside [role="button"] {
+        color: #D5DFEF !important;
+      }
+      html[data-nax-appearance="dark"] #root aside button:hover,
+      html[data-nax-appearance="dark"] #root aside [role="button"]:hover {
+        background-color: #40536F !important;
+        color: #FFFFFF !important;
+      }
+      html[data-nax-appearance="dark"] #root button[aria-pressed="true"] {
+        color: #FFFFFF !important;
+      }
+      html[data-nax-appearance="dark"] #root [style*="opacity: 0.5"],
+      html[data-nax-appearance="dark"] #root [style*="opacity:0.5"],
+      html[data-nax-appearance="dark"] #root [style*="opacity: 0.6"],
+      html[data-nax-appearance="dark"] #root [style*="opacity:0.6"] {
+        opacity: .85 !important;
+      }
+
+      /* Final app-wide pass: convert pale/white content panels (including dashboard
+         task headers, empty states, toolbars, and cards) to blue-gray in Dark Pane. */
+      html[data-nax-appearance="dark"] #root div[style*="background: rgb(224, 239, 255)"],
+      html[data-nax-appearance="dark"] #root div[style*="background-color: rgb(224, 239, 255)"],
+      html[data-nax-appearance="dark"] #root div[style*="background: #E0EFFF"],
+      html[data-nax-appearance="dark"] #root div[style*="background: #e0efff"],
+      html[data-nax-appearance="dark"] #root div[style*="background: rgb(219, 234, 254)"],
+      html[data-nax-appearance="dark"] #root div[style*="background-color: rgb(219, 234, 254)"],
+      html[data-nax-appearance="dark"] #root div[style*="background: #DBEAFE"],
+      html[data-nax-appearance="dark"] #root div[style*="background: #dbeafe"],
+      html[data-nax-appearance="dark"] #root div[style*="background: rgb(239, 246, 255)"],
+      html[data-nax-appearance="dark"] #root div[style*="background-color: rgb(239, 246, 255)"],
+      html[data-nax-appearance="dark"] #root div[style*="background: #EFF6FF"],
+      html[data-nax-appearance="dark"] #root div[style*="background: #eff6ff"],
+      html[data-nax-appearance="dark"] #root div[style*="background: rgb(240, 249, 255)"],
+      html[data-nax-appearance="dark"] #root div[style*="background-color: rgb(240, 249, 255)"],
+      html[data-nax-appearance="dark"] #root div[style*="background: #F0F9FF"],
+      html[data-nax-appearance="dark"] #root div[style*="background: #f0f9ff"],
+      html[data-nax-appearance="dark"] #root section[style*="background: rgb(224, 239, 255)"],
+      html[data-nax-appearance="dark"] #root section[style*="background-color: rgb(224, 239, 255)"],
+      html[data-nax-appearance="dark"] #root header[style*="background: rgb(224, 239, 255)"],
+      html[data-nax-appearance="dark"] #root header[style*="background-color: rgb(224, 239, 255)"],
+      html[data-nax-appearance="dark"] #root article[style*="background: rgb(224, 239, 255)"],
+      html[data-nax-appearance="dark"] #root article[style*="background-color: rgb(224, 239, 255)"] {
+        background: #2A3850 !important;
+        background-image: none !important;
+        color: #F3F6FC !important;
+        border-color: #465872 !important;
+      }
+
+      /* Fix dark/blue text inherited from light-mode styles on common content elements. */
+      html[data-nax-appearance="dark"] #root [style*="color: rgb(15, 23, 42)"],
+      html[data-nax-appearance="dark"] #root [style*="color: rgb(30, 41, 59)"],
+      html[data-nax-appearance="dark"] #root [style*="color: rgb(51, 65, 85)"],
+      html[data-nax-appearance="dark"] #root [style*="color: rgb(71, 85, 105)"],
+      html[data-nax-appearance="dark"] #root [style*="color: #0F172A"],
+      html[data-nax-appearance="dark"] #root [style*="color: #0f172a"],
+      html[data-nax-appearance="dark"] #root [style*="color: #1E293B"],
+      html[data-nax-appearance="dark"] #root [style*="color: #1e293b"],
+      html[data-nax-appearance="dark"] #root [style*="color: #334155"],
+      html[data-nax-appearance="dark"] #root [style*="color: #334155"],
+      html[data-nax-appearance="dark"] #root [style*="color: #475569"],
+      html[data-nax-appearance="dark"] #root [style*="color: #475569"] {
+        color: #D5DFEF !important;
+        opacity: 1 !important;
+      }
+      html[data-nax-appearance="dark"] #root .text-slate-900,
+      html[data-nax-appearance="dark"] #root .text-slate-800,
+      html[data-nax-appearance="dark"] #root .text-slate-700,
+      html[data-nax-appearance="dark"] #root .text-gray-900,
+      html[data-nax-appearance="dark"] #root .text-gray-800,
+      html[data-nax-appearance="dark"] #root .text-gray-700 {
+        color: #D5DFEF !important;
+      }
+      html[data-nax-appearance="dark"] #root .bg-white,
+      html[data-nax-appearance="dark"] #root .bg-slate-50,
+      html[data-nax-appearance="dark"] #root .bg-gray-50,
+      html[data-nax-appearance="dark"] #root .bg-blue-50,
+      html[data-nax-appearance="dark"] #root .bg-sky-50 {
+        background-color: #2A3850 !important;
+        color: #EAF0FA !important;
+        border-color: #465872 !important;
+      }
+
+      /* Global page-surface and contrast repair for modules still using light-theme inline colors. */
+      html[data-nax-appearance="dark"] body,
+      html[data-nax-appearance="dark"] #root,
+      html[data-nax-appearance="dark"] #root main {
+        background-color: #202B40 !important;
+        color: #EAF0FA !important;
+      }
+      html[data-nax-appearance="dark"] #root [style*="background: rgb(245, 247, 250)"],
+      html[data-nax-appearance="dark"] #root [style*="background-color: rgb(245, 247, 250)"],
+      html[data-nax-appearance="dark"] #root [style*="background: rgb(245, 246, 247)"],
+      html[data-nax-appearance="dark"] #root [style*="background-color: rgb(245, 246, 247)"],
+      html[data-nax-appearance="dark"] #root [style*="background: rgb(248, 250, 252)"],
+      html[data-nax-appearance="dark"] #root [style*="background-color: rgb(248, 250, 252)"],
+      html[data-nax-appearance="dark"] #root [style*="background: #F5F7FA"],
+      html[data-nax-appearance="dark"] #root [style*="background: #f5f7fa"],
+      html[data-nax-appearance="dark"] #root [style*="background-color: #F5F7FA"],
+      html[data-nax-appearance="dark"] #root [style*="background-color: #f5f7fa"],
+      html[data-nax-appearance="dark"] #root [style*="background: #F5F6F7"],
+      html[data-nax-appearance="dark"] #root [style*="background-color: #F5F6F7"] {
+        background: #202B40 !important;
+        background-image: none !important;
+        color: #EAF0FA !important;
+        border-color: #465872 !important;
+      }
+      html[data-nax-appearance="dark"] #root h1,
+      html[data-nax-appearance="dark"] #root h2,
+      html[data-nax-appearance="dark"] #root h3,
+      html[data-nax-appearance="dark"] #root h4,
+      html[data-nax-appearance="dark"] #root h5,
+      html[data-nax-appearance="dark"] #root h6,
+      html[data-nax-appearance="dark"] #root [role="heading"] {
+        color: #F3F6FC !important;
+        opacity: 1 !important;
+      }
+      html[data-nax-appearance="dark"] #root table,
+      html[data-nax-appearance="dark"] #root thead,
+      html[data-nax-appearance="dark"] #root tbody,
+      html[data-nax-appearance="dark"] #root tr,
+      html[data-nax-appearance="dark"] #root th,
+      html[data-nax-appearance="dark"] #root td {
+        border-color: #465872 !important;
+      }
+      html[data-nax-appearance="dark"] #root thead,
+      html[data-nax-appearance="dark"] #root th {
+        background-color: #2A3850 !important;
+        color: #DDE7F5 !important;
+      }
+      html[data-nax-appearance="dark"] #root input,
+      html[data-nax-appearance="dark"] #root select,
+      html[data-nax-appearance="dark"] #root textarea {
+        background-color: #2A3850 !important;
+        color: #F3F6FC !important;
+        border-color: #536782 !important;
+      }
+      html[data-nax-appearance="dark"] #root input::placeholder,
+      html[data-nax-appearance="dark"] #root textarea::placeholder {
+        color: #B8C6DA !important;
+        opacity: 1 !important;
+      }
+      html[data-nax-appearance="dark"] #root [style*="color: white"],
+      html[data-nax-appearance="dark"] #root [style*="color: #fff"],
+      html[data-nax-appearance="dark"] #root [style*="color: #FFF"] {
+        opacity: 1 !important;
+      }
     `
   }, [appearanceMode, accentColor, customAccent])
   const [profileFields, setProfileFields] = useState<Record<string, string>>({ organisationName: "Naxrita Solutions Pvt. Ltd.", industry: "Agriculture", email: "payroll@naxrita.com", phone: "+91 98765 43210", country: "India", businessLocation: "India", timeZone: "Asia/Kolkata", address: "Road No. 10, Banjara Hills, Hyderabad, Telangana - 500034", city: "Hyderabad", state: "Telangana", postalCode: "500034" })
@@ -27274,7 +27719,7 @@ function SettingsDetail({ item, group, onBack, onSelect, showToast }: { item: Se
   const title = item.label
   const header = <SettingsTopBar onBack={onBack} search={search} setSearch={setSearch} onClose={onBack} />
   const shell = (content: React.ReactNode) => (
-    <div style={{ minHeight: "100vh", paddingTop: 60, boxSizing: "border-box", background: "#F3F5F7", color: "#243B53" }}>
+    <div style={{ minHeight: "100vh", boxSizing: "border-box", background: "#F3F5F7", color: "#243B53" }}>
       {header}
       <div style={{ display: "flex", alignItems: "stretch" }}>
         <SettingsSideNav selectedId={item.id} onSelect={onSelect}/>
@@ -28049,7 +28494,7 @@ You are yet to enable the submission of Proof Of Investments for your employees 
             {footerButtons(()=>{if(!employeeFieldName.trim()||!employeeFieldType){showToast("Enter a field name and select a data type.","error");return} setEmployeeCustomFields(prev=>employeeFieldEditIndex!==null?prev.map((field,idx)=>idx===employeeFieldEditIndex?{...field,name:employeeFieldName.trim(),type:employeeFieldType}:field):[...prev,{name:employeeFieldName.trim(),type:employeeFieldType,mandatory:"No",status:"Active"}]);setEmployeeFieldName("");setEmployeeFieldType("Text");setEmployeeFieldEditIndex(null);setEmployeeCreateMode("");showToast(employeeFieldEditIndex!==null?"Custom field updated.":"Custom field created.","success")})}
           </div> : <div style={{maxWidth:1340}}>
             <div style={{marginBottom:24}}><label style={fieldLabelStyle}>Name <span style={{color:"#E5484D"}}>*</span></label><input autoFocus value={employeeButtonName} onChange={e=>setEmployeeButtonName(e.target.value)} style={fieldInputStyle}/></div>
-            <div style={{display:"flex",alignItems:"center",gap:18,marginBottom:12,flexWrap:"wrap"}}><div style={{width:425,maxWidth:"100%"}}><label style={fieldLabelStyle}>Location</label><select value={employeeButtonLocation} onChange={e=>setEmployeeButtonLocation(e.target.value)} style={{...fieldInputStyle,width:"100%"}}>{["Details Page Menu","List Page - Action Menu","List Page - Bulk Action Menu"].map(x=><option key={x}>{x}</option>)}</select></div><button onClick={()=>showToast(`Preview: ${employeeButtonLocation}`,"info")} style={{border:0,background:"transparent",color:"#1677FF",cursor:"pointer",fontSize:14,marginTop:25}}>◎ Preview</button></div>
+            <div style={{display:"flex",alignItems:"center",gap:18,marginBottom:12,flexWrap:"wrap"}}><div style={{width:425,maxWidth:"100%"}}><label style={fieldLabelStyle}>Location</label><select value={employeeButtonLocation} onChange={e=>setEmployeeButtonLocation(e.target.value)} style={{...fieldInputStyle,width:"100%"}}>{["Details Page Menu","List Page - Action Menu","List Page - Bulk Action Menu"].map(x=><option key={x}>{x}</option>)}</select></div><button onClick={()=>showToast(`Preview: ${employeeButtonLocation}`,"info")} style={{border:0,background:"transparent",color:"#1677FF",cursor:"pointer",fontSize:14,marginTop:25}}></button></div>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",margin:"18px 0 8px",gap:12,flexWrap:"wrap"}}><div style={{fontSize:14,color:"#52677D"}}>Write the custom function to perform in payroll.</div><button onClick={()=>showToast("Connections settings are ready to configure when a backend connection is available.","info")} style={{border:0,background:"transparent",color:"#1677FF",cursor:"pointer"}}>◎ Connections</button></div>
             <div style={{border:"1px solid #D5DADD",borderRadius:6,overflow:"hidden"}}><div style={{padding:"10px 14px",background:"#F7F8FA",borderBottom:"1px solid #D5DADD",display:"flex",justifyContent:"space-between",fontSize:13}}><span>Deluge Script</span><span>Syntax Builder　<span style={{color:"#188918"}}>● On</span>　ⓘ Help</span></div><textarea spellCheck={false} value={employeeButtonCode} onChange={e=>setEmployeeButtonCode(e.target.value)} style={{display:"block",width:"100%",minHeight:300,resize:"vertical",border:0,outline:0,padding:18,boxSizing:"border-box",fontFamily:"Consolas,monospace",fontSize:13,lineHeight:1.65,color:"#273C55",background:"linear-gradient(90deg,#F5F7FA 0,#F5F7FA 48px,#fff 48px)"}} /></div>
             <div style={{display:"flex",gap:12,alignItems:"center",borderTop:"1px solid #E5E9EF",paddingTop:20,marginTop:22}}><Btn onClick={()=>{if(!employeeButtonName.trim()){showToast("Enter a button name.","error");return}setEmployeeCustomButtons(prev=>employeeButtonEditIndex!==null?prev.map((button,idx)=>idx===employeeButtonEditIndex?{...button,name:employeeButtonName.trim(),location:employeeButtonLocation,code:employeeButtonCode}:button):[...prev,{name:employeeButtonName.trim(),location:employeeButtonLocation,code:employeeButtonCode,status:"Active"}]);setEmployeeButtonName("");setEmployeeButtonEditIndex(null);setEmployeeCreateMode("");showToast(employeeButtonEditIndex!==null?"Custom button updated.":"Custom button saved.","success")}}>Save</Btn><Btn variant="secondary" onClick={()=>{if(!employeeButtonName.trim()){showToast("Enter a button name before executing.","error");return}showToast("Custom function execution is a UI preview; connect a Deluge runtime to execute it.","info")}}>Save and Execute</Btn><Btn variant="secondary" onClick={()=>setEmployeeCreateMode("")}>Cancel</Btn></div>
@@ -28147,7 +28592,7 @@ You are yet to enable the submission of Proof Of Investments for your employees 
     const cellInput: React.CSSProperties = { ...iSt, width: 112, maxWidth: "100%", textAlign: "right", boxSizing: "border-box", padding: "7px 9px", fontSize: 13 }
     return (<div style={{ position: "fixed", inset: 0, zIndex: 9999, width: "100vw", height: "100dvh", minHeight: 0, display: "flex", background: "#FFFFFF", overflow: "hidden", fontSize: 14 }}>
       <aside style={{ width: 250, minWidth: 220, flex: "0 0 250px", borderRight: `1px solid ${F.border}`, padding: "12px 16px", boxSizing: "border-box", overflowY: "auto", background: "#FFFFFF" }}>
-        <div style={{ fontSize: 16, fontWeight: 600, color: "#111827", marginBottom: 6 }}>Build your Template</div>
+        <div style={{ fontSize: 16, fontWeight: 600, color: "#26354D", marginBottom: 6 }}>Build your Template</div>
         <div style={{ color: "#475E75", fontSize: 12, marginBottom: 12 }}>Include active salary components</div>
         {[{name:"EARNINGS",items:["Basic","Fixed Allowance","House Rent Allowance","Conveyance Allowance","Dearness Allowance","Special Allowance","Commission","Overtime","Other Earnings"]},{name:"REIMBURSEMENTS",items:["Fuel Reimbursement","Telephone Reimbursement"]},{name:"FBP COMPONENTS",items:["Flexible Benefit Plan"]},{name:"BENEFITS",items:["Medical Benefit","Retirement Benefit"]},{name:"ONE TIME EARNINGS",items:["Bonus","Incentive"]}].map(group=><div key={group.name} style={{ borderBottom: `1px solid #F1F5F9` }}>
           <button type="button" style={categoryStyle} onClick={() => setSalaryTemplateExpandedCategory(salaryTemplateExpandedCategory === group.name ? "" : group.name)}><span>{group.name}</span><span style={{ fontSize: 18, color: "#94A3B8" }}>{salaryTemplateExpandedCategory === group.name ? "⌄" : "›"}</span></button>
@@ -28156,7 +28601,7 @@ You are yet to enable the submission of Proof Of Investments for your employees 
         <div style={{ color: "#9CA3AF", textAlign: "center", fontSize: 13, fontStyle: "italic", lineHeight: 1.6, marginTop: 22 }}>Click on a component to<br/>add it to the template ↗</div>
       </aside>
       <section style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", overflow: "hidden" }}>
-        <div style={{ padding: "10px 18px", display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: `1px solid ${F.border}` }}><div style={{ fontSize: 19, fontWeight: 500, color: "#111827" }}>New Salary Template</div><button type="button" aria-label="Close salary template builder" onClick={closeBuilder} style={{ width: 32, height: 32, border: 0, borderRadius: "50%", background: "#EEF2F7", color: "#64748B", fontSize: 25, cursor: "pointer" }}>×</button></div>
+        <div style={{ padding: "10px 18px", display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: `1px solid ${F.border}` }}><div style={{ fontSize: 19, fontWeight: 500, color: "#26354D" }}>New Salary Template</div><button type="button" aria-label="Close salary template builder" onClick={closeBuilder} style={{ width: 32, height: 32, border: 0, borderRadius: "50%", background: "#EEF2F7", color: "#64748B", fontSize: 25, cursor: "pointer" }}>×</button></div>
         <div style={{ padding: "12px 18px 14px", overflowY: "auto", flex: 1, minHeight: 0 }}>
           <div style={{ display: "grid", gridTemplateColumns: "minmax(200px, 280px) minmax(240px, 340px)", gap: 18, marginBottom: 14 }}>
             <Fld label="Template Name *"><input value={salaryTemplateName} onChange={e=>setSalaryTemplateName(e.target.value)} placeholder="Enter template name" style={iSt} /></Fld>
@@ -28526,8 +28971,8 @@ You are yet to enable the submission of Proof Of Investments for your employees 
     <div style={{fontSize:16,fontWeight:600,color:F.text1,marginBottom:18}}>Appearance</div>
     <div style={{display:"flex",flexWrap:"wrap",gap:18,marginBottom:30}}>
       {[{name:"Dark Pane",dark:true},{name:"Light Pane",dark:false}].map(option=><button key={option.name} type="button" onClick={()=>setAppearanceMode(option.name)} aria-pressed={appearanceMode===option.name} style={{width:186,height:126,padding:4,borderRadius:13,border:appearanceMode===option.name?`2px solid ${customAccent}`:"2px solid #e5e7eb",background:"white",cursor:"pointer",boxShadow:appearanceMode===option.name?"0 0 0 2px rgba(67,135,245,.12)":"0 1px 3px rgba(0,0,0,.08)",display:"flex",alignItems:"stretch",gap:0}}>
-        <div style={{width:39,borderRadius:"7px 0 0 7px",background:option.dark?"#22283d":"#f5f6fb",position:"relative",borderRight:"1px solid #e5e7eb"}}><div style={{height:15,background:option.dark?"#171c2d":"#e9edf7"}}/><div style={{height:15,background:customAccent}}/></div>
-        <div style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:8,color:"#111827",fontSize:12,fontWeight:500}}><span style={{fontSize:18,color:customAccent}}>{option.dark?"☾":"☼"}</span>{option.name.toUpperCase()}</div>
+        <div style={{width:39,borderRadius:"7px 0 0 7px",background:option.dark?"#22283d":"#f5f6fb",position:"relative",borderRight:"1px solid #e5e7eb"}}><div style={{height:15,background:option.dark?"#2A3850":"#e9edf7"}}/><div style={{height:15,background:customAccent}}/></div>
+        <div style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:8,color:"#26354D",fontSize:12,fontWeight:500}}><span style={{fontSize:18,color:customAccent}}>{option.dark?"☾":"☼"}</span>{option.name.toUpperCase()}</div>
         {appearanceMode===option.name&&<span style={{position:"absolute",opacity:0}} aria-hidden="true">Selected</span>}
       </button>)}
     </div>
@@ -28808,7 +29253,8 @@ export default function App() {
             gap: 10,
             flexShrink: 0,
             boxShadow: "0 1px 0 #d5dadd, 0 2px 8px rgba(34,54,73,0.08)",
-            zIndex: 100,
+            // Keep the entire profile dropdown above the breadcrumb and page content.
+            zIndex: 1000,
           }}
         >
           <button
