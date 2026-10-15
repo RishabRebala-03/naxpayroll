@@ -750,4 +750,299 @@ div[style*="width: 330px"][style*="z-index: 5"] {
   overflow-y: auto !important;
 }
 
+/* Keep the complete report toolbar inside its card at every viewport width. */
+.report-toolbar {
+  grid-template-columns: minmax(0, 1fr) !important;
+  min-width: 0 !important;
+  max-width: 100% !important;
+}
+.report-toolbar-actions {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+  overflow: visible !important;
+}
+.report-toolbar-actions > .sap-date-filter {
+  display: grid !important;
+  grid-template-columns: minmax(110px, .7fr) minmax(140px, 1fr) minmax(140px, 1fr) auto !important;
+  flex: 1 1 650px !important;
+  width: auto !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+}
+.report-toolbar-actions > .sap-date-filter .sap-date-field,
+.report-toolbar-actions > .sap-date-filter .sap-date-field input {
+  width: 100% !important;
+  max-width: none !important;
+  min-width: 0 !important;
+}
+.report-toolbar-actions > .report-period-field {
+  flex: 0 1 180px !important;
+  width: 180px !important;
+  max-width: 100% !important;
+}
+.report-toolbar-actions > .sap-button {
+  flex: 0 1 auto !important;
+  max-width: 100% !important;
+}
+
+/* Dialogs and transient UI */
+.sap-overlay { background: rgba(29,45,62,.42) !important; backdrop-filter: blur(1px); }
+.sap-dialog {
+  border-radius: 8px !important;
+  box-shadow: 0 16px 48px rgba(29,45,62,.28) !important;
+  animation: fiori-dialog-in .16s ease-out;
+}
+.sap-dialog > div:first-child, .sap-side-panel > div:first-child {
+  min-height: 54px;
+  background: #fff !important;
+}
+.sap-dialog > div:first-child > span { font-size: 18px !important; font-weight: 600 !important; }
+.sap-dialog > div:first-child button, .sap-side-panel > div:first-child button {
+  width: 32px;
+  height: 32px;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 4px !important;
+  color: var(--fiori-brand) !important;
+}
+.sap-dialog > div:first-child button:hover, .sap-side-panel > div:first-child button:hover { background: var(--fiori-highlight) !important; }
+.sap-side-panel { box-shadow: -8px 0 28px rgba(29,45,62,.18); }
+.sap-message-box { border-radius: 8px !important; box-shadow: 0 16px 48px rgba(29,45,62,.28) !important; }
+.sap-message-strip { border-radius: 4px !important; box-shadow: 0 3px 10px rgba(29,45,62,.16) !important; }
+
+/* Fiori launch/login surface */
+.sap-login-page {
+  position: relative;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 12% 14%, rgba(0,112,242,.10), transparent 28%),
+    radial-gradient(circle at 88% 86%, rgba(91,115,139,.10), transparent 30%),
+    #eef1f4 !important;
+}
+.sap-login-page::before {
+  position: fixed;
+  inset: 0 0 auto;
+  height: 48px;
+  border-bottom: 1px solid var(--fiori-border);
+  background: #fff;
+  box-shadow: 0 1px 5px rgba(34,54,73,.12);
+  content: "";
+}
+.sap-login-page::after {
+  position: fixed;
+  top: 14px;
+  left: 20px;
+  color: var(--fiori-text-1);
+  font-size: 15px;
+  font-weight: 600;
+  content: "Naxpayroll  |  Payroll Management";
+}
+.sap-login-card {
+  z-index: 1;
+  max-width: 460px !important;
+  border-radius: 8px !important;
+  box-shadow: 0 6px 24px rgba(34,54,73,.14) !important;
+}
+
+@keyframes fiori-dialog-in {
+  from { opacity: 0; transform: translateY(8px) scale(.99); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@media (max-width: 760px) {
+  .sap-shell-clock, .sap-profile-trigger > div:nth-child(2), .sap-profile-trigger > span { display: none !important; }
+  .sap-shell-bar { padding: 0 8px !important; }
+  .sap-workspace { grid-template-columns: 56px minmax(0,1fr) !important; }
+  .sap-side-navigation { padding: 8px 4px !important; }
+  .sap-nav-item { justify-content: center !important; padding: 0 !important; }
+  .sap-nav-item > span { display: none !important; }
+  .sap-main-content { padding: 0 12px 20px !important; }
+  .sap-context-bar, .sap-dynamic-page-title { margin-left: -12px !important; margin-right: -12px !important; padding-left: 12px !important; padding-right: 12px !important; }
+  .sap-context-role { display: none; }
+  .sap-dynamic-page-title { align-items: flex-start !important; }
+  .sap-pagination { align-items: flex-start !important; flex-direction: column; gap: 10px; }
+  .sap-dialog { max-height: calc(100vh - 16px) !important; max-width: calc(100vw - 16px) !important; }
+  .sap-side-panel { width: min(440px, 100vw) !important; }
+  .sap-login-card { padding: 28px 20px !important; }
+}
+
+@container (max-width: 780px) {
+  .employee-information-grid {
+    grid-template-columns: minmax(0, 1fr) !important;
+    column-gap: 0 !important;
+  }
+}
+
+/* Shared application scale and palette. Keep every workspace on the same
+   compact canvas; page-specific forms can still grow with their content. */
+html, body, #root { min-width: 320px; }
+body { font-size: 14px; line-height: 1.45; }
+.sap-app-shell { min-height: 100dvh; }
+.sap-workspace { min-width: 0; }
+.sap-main-content {
+  min-width: 0;
+  padding: 0 24px 24px !important;
+  scrollbar-gutter: stable;
+}
+.sap-main-content > * { min-width: 0; }
+.sap-main-content h1 { font-size: clamp(21px, 1.8vw, 28px) !important; line-height: 1.25; }
+.sap-main-content h2 { font-size: clamp(18px, 1.5vw, 22px) !important; line-height: 1.3; }
+.sap-main-content h3 { font-size: clamp(16px, 1.25vw, 19px) !important; line-height: 1.35; }
+.sap-main-content section,
+.sap-main-content .fiori-card,
+.sap-main-content .fiori-table-wrap { max-width: 100%; }
+.sap-main-content [style*="min-height: 560px"] { min-height: 0 !important; }
+.sap-main-content [style*="margin: -18px -22px"] {
+  margin: 0 !important;
+  border: 1px solid var(--fiori-border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.sap-main-content input:not([type="checkbox"]):not([type="radio"]),
+.sap-main-content select,
+.sap-main-content textarea,
+.sap-dialog input:not([type="checkbox"]):not([type="radio"]),
+.sap-dialog select,
+.sap-dialog textarea { accent-color: var(--fiori-brand); }
+.sap-shell-clock { background: var(--fiori-page-bg) !important; color: var(--fiori-text-1) !important; box-shadow: none !important; border-color: var(--fiori-border) !important; }
+.universal-column-trigger { background: var(--fiori-brand); border-color: var(--fiori-brand); }
+
+/* Settings is a separate workspace, so give it the same page canvas and
+   content width as the main application shell. */
+.settings-app {
+  width: 100% !important;
+  min-height: 100vh;
+  background: var(--fiori-page-bg) !important;
+  color: var(--fiori-text-1);
+  font-size: 14px;
+  line-height: 1.45;
+}
+.settings-app main {
+  min-width: 0;
+  padding: 24px clamp(16px, 2vw, 28px) 48px !important;
+}
+.settings-app main > div { width: 100%; max-width: 1280px !important; }
+.settings-app h1 { font-size: clamp(21px, 1.8vw, 28px) !important; line-height: 1.25; }
+.settings-app h2 { font-size: clamp(18px, 1.5vw, 22px) !important; line-height: 1.3; }
+.settings-app h3 { font-size: clamp(16px, 1.25vw, 19px) !important; line-height: 1.35; }
+.settings-category-title { font-size: 14px !important; font-weight: 700 !important; line-height: 1.3 !important; }
+.settings-section-title { font-size: 18px !important; font-weight: 700 !important; }
+.settings-category-item { font-size: 13px !important; line-height: 1.35 !important; }
+.settings-page-heading { font-size: 21px !important; line-height: 1.3; }
+.settings-app input:not([type="checkbox"]):not([type="radio"]),
+.settings-app select,
+.settings-app textarea {
+  max-width: 100%;
+  border-color: var(--fiori-border-strong) !important;
+  border-radius: 5px !important;
+  color: var(--fiori-text-1) !important;
+  accent-color: var(--fiori-brand);
+}
+.settings-app [style*="min-height: 560px"] { min-height: 0 !important; }
+.settings-app [style*="margin: -18px -22px"] {
+  margin: 0 !important;
+  border: 1px solid var(--fiori-border);
+  border-radius: 8px;
+}
+.settings-entity-workspace > div:first-child { align-items: center !important; gap: 12px !important; margin-bottom: 16px !important; }
+.settings-entity-workspace > div:first-child > div:last-child { flex-wrap: wrap; justify-content: flex-end; }
+.settings-entity-workspace > div:nth-child(2) { border-radius: 8px !important; }
+.settings-location-grid { grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr)) !important; gap: 14px !important; padding: 16px !important; }
+.settings-location-card { min-height: 210px !important; padding: 20px !important; border-color: var(--fiori-border) !important; box-shadow: 0 1px 4px rgba(29,45,62,.07) !important; }
+.settings-location-card > div:first-child > div:first-child { font-size: 17px !important; }
+.settings-location-card > div:nth-child(2), .settings-location-card > div:nth-child(3) { font-size: 14px !important; }
+.settings-location-card > div:nth-child(4) { font-size: 13px !important; }
+.settings-entity-workspace input { width: min(250px, 100%) !important; }
+
+/* Statutory Components follows the same card, tab, and spacing system used by
+   the other Settings modules. */
+.statutory-components-view { min-width: 0; }
+.statutory-components-tabs { padding: 0 4px; }
+.statutory-components-tabs > div { gap: 22px !important; margin-bottom: 14px !important; }
+.statutory-components-content {
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid var(--fiori-border);
+  border-radius: 8px;
+  background: var(--fiori-card);
+}
+.statutory-components-content > div {
+  max-width: 100% !important;
+  padding: 20px 24px !important;
+  color: var(--fiori-text-1);
+}
+.statutory-components-content > div[style*="minmax(360px"],
+.statutory-components-content > div[style*="minmax(340px"] {
+  grid-template-columns: minmax(0, 1.2fr) minmax(280px, .8fr) !important;
+  gap: 22px !important;
+}
+.statutory-components-content aside {
+  border-color: var(--fiori-border) !important;
+  border-top-color: var(--fiori-brand) !important;
+  border-radius: 8px !important;
+  background: var(--fiori-page-bg) !important;
+  box-shadow: none !important;
+}
+.statutory-components-content section { border-color: var(--fiori-border) !important; }
+.statutory-components-content input,
+.statutory-components-content select { max-width: 100%; }
+
+.employee-portal-settings { border: 1px solid var(--fiori-border); border-radius: 8px; }
+.employee-portal-settings > div:first-child { gap: 22px !important; border-bottom-color: var(--fiori-border) !important; }
+.employee-portal-preferences { width: min(100%, 960px); grid-template-columns: minmax(0, 1fr) !important; padding: 22px 20px 26px !important; }
+.employee-portal-preferences section { border-color: var(--fiori-border) !important; }
+.employee-portal-preferences section > div:first-child { font-size: 16px !important; }
+.employee-portal-web-tabs { width: min(100%, 940px); padding: 22px 20px 26px !important; }
+.employee-portal-web-tabs > div[style*="padding: 28px 32px"] { display: none; }
+.employee-portal-web-tabs > div:first-child { font-size: 20px !important; font-weight: 650 !important; }
+.employee-portal-tab-list > div { min-width: 0; }
+
+/* One responsive report toolbar layout, without fixed-width controls. */
+.report-toolbar-actions { display: flex !important; align-items: flex-end !important; flex-wrap: wrap !important; gap: 12px !important; }
+.report-toolbar-actions > .sap-date-filter {
+  display: grid !important;
+  grid-template-columns: auto repeat(2, minmax(130px, 1fr)) auto !important;
+  flex: 1 1 540px !important;
+  width: auto !important;
+  max-width: 100% !important;
+}
+.report-toolbar-actions > .sap-date-filter .sap-date-field,
+.report-toolbar-actions > .sap-date-filter .sap-date-field input { width: 100% !important; max-width: 100% !important; min-width: 0 !important; }
+.report-toolbar-actions > .report-period-field { flex: 0 1 180px !important; width: 180px !important; }
+
+@media (max-width: 760px) {
+  .sap-main-content { padding: 0 12px 18px !important; }
+  .sap-context-bar, .sap-dynamic-page-title { margin-left: -12px !important; margin-right: -12px !important; padding-left: 12px !important; padding-right: 12px !important; }
+  .sap-main-content [style*="margin: -18px -22px"] { margin: 0 !important; }
+  .report-toolbar-actions { align-items: stretch !important; }
+  .report-toolbar-actions > .sap-date-filter { grid-template-columns: 1fr 1fr !important; flex-basis: 100% !important; }
+  .report-toolbar-actions > .sap-date-filter > .sap-date-filter-title,
+  .report-toolbar-actions > .sap-date-filter > .sap-button { grid-column: 1 / -1; }
+  .report-toolbar-actions > .report-period-field,
+  .report-toolbar-actions > .sap-button { width: 100% !important; flex: 1 1 100% !important; }
+  .settings-app main { padding: 18px 12px 32px !important; }
+  .settings-app aside { max-width: 100%; }
+  .settings-app [style*="grid-template-columns: minmax(220px, 1.5fr)"] { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important; }
+  .settings-entity-workspace > div:first-child { align-items: flex-start !important; flex-direction: column; }
+  .settings-entity-workspace > div:first-child > div:last-child { justify-content: flex-start; }
+  .settings-location-grid { grid-template-columns: minmax(0, 1fr) !important; padding: 12px !important; }
+}
+
+@media (max-width: 1100px) {
+  .statutory-components-content > div[style*="minmax(360px"],
+  .statutory-components-content > div[style*="minmax(340px"] {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+}
+
+@media (max-width: 640px) {
+  .statutory-components-tabs { padding: 0; }
+  .statutory-components-tabs > div { gap: 16px !important; }
+  .statutory-components-content > div { padding: 16px !important; }
+  .employee-portal-preferences, .employee-portal-web-tabs { padding: 18px 14px 22px !important; }
+  .employee-portal-tab-list > div { align-items: flex-start !important; padding: 13px !important; }
+}
 @media (max-width: 720px) { .universal-column-trigger { right: 16px; bottom: 16px; } }
