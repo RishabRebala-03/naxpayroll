@@ -18581,12 +18581,14 @@ function PayRunsView({
   emps,
   setEmps,
   ss,
+  onNavigateToPayoutSetup,
 }: {
   payruns: Payrun[]
   setPayruns: React.Dispatch<React.SetStateAction<Payrun[]>>
   emps: Employee[]
   setEmps: React.Dispatch<React.SetStateAction<Employee[]>>
   ss: SalaryStructure[]
+  onNavigateToPayoutSetup?: () => void
 }) {
   const toast = useToast()
 
@@ -22181,6 +22183,51 @@ function PayRunsView({
                   <>
                     <button
                       onClick={() => {
+                        const earningsBreakdown: { label: string; amount: number }[] = [
+                          { label: "Basic", amount: curBasic },
+                          ...(curHra > 0 ? [{ label: "House Rent Allowance", amount: curHra }] : []),
+                          ...(curSpecial > 0 ? [{ label: "Special Allowance", amount: curSpecial }] : []),
+                          ...(drawerBonus > 0 ? [{ label: "Bonus", amount: drawerBonus }] : []),
+                          ...(drawerCommission > 0 ? [{ label: "Commission", amount: drawerCommission }] : []),
+                          ...(drawerLeaveEncashment > 0 ? [{ label: "Leave Encashment", amount: drawerLeaveEncashment }] : []),
+                        ]
+
+                        const deductionsBreakdown: { label: string; amount: number }[] = [
+                          ...(drawerTds > 0 ? [{ label: "Income Tax (TDS)", amount: drawerTds }] : []),
+                          ...(curPt > 0 ? [{ label: "Professional Tax", amount: curPt }] : []),
+                          ...(curPf > 0 ? [{ label: "EPF Contribution", amount: curPf }] : []),
+                          ...(calculatedLopDed > 0 ? [{ label: `Loss of Pay (${drawerLopDays} days)`, amount: calculatedLopDed }] : []),
+                        ]
+
+                        downloadPayslipPdf(
+                          {
+                            grossSalary: baseGross,
+                            totalEarnings: totalEarningsCalc,
+                            pf: curPf,
+                            tds: drawerTds,
+                            profTax: curPt,
+                            totalDeductions: totalDedCalc,
+                            netSalary: computedDrawerNet,
+                            bonus: drawerBonus,
+                            incentive: drawerCommission,
+                            lopDeduction: calculatedLopDed,
+                            status: isPaid ? "Paid" : "Pending",
+                            netInWords: numberToWordsIndian(computedDrawerNet),
+                            earningsBreakdown,
+                            deductionsBreakdown,
+                          },
+                          {
+                            period: activeRun?.period || "January 2025",
+                            generatedOn: activeRun?.generatedOn || new Date().toISOString().slice(0, 10),
+                          },
+                          emp || {
+                            id: drawerRow.empId,
+                            name: drawerRow.empName,
+                            department: "General",
+                            designation: "Employee",
+                            salaryStructure: "Standard",
+                          }
+                        )
                         toast(`Downloaded payslip for ${drawerRow.empName}`, "success")
                       }}
                       style={{
@@ -22339,7 +22386,53 @@ function PayRunsView({
                 </div>
               </div>
               <div style={{ padding: "14px 24px", borderTop: `1px solid ${Z.border}`, display: "flex", justifyContent: "flex-end", gap: 10 }}>
-                <button onClick={() => { toast(`Downloaded payslip for ${viewingPayslipRow.empName}`, "success"); setViewingPayslipRow(null); }} style={{ background: Z.brand, color: "#fff", border: "none", borderRadius: 6, padding: "8px 18px", fontSize: 13, fontWeight: 600, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6 }}><DownloadIcon size={14} color="#fff" /> Download PDF</button>
+                <button
+                  onClick={() => {
+                    const emp = emps.find((e) => e.id === viewingPayslipRow.empId)
+                    const basic = getComponentAmount("basic", viewingPayslipRow)
+                    const hra = getComponentAmount("hra", viewingPayslipRow)
+                    const special = getComponentAmount("special", viewingPayslipRow)
+                    const epf = getComponentAmount("epf", viewingPayslipRow)
+                    downloadPayslipPdf(
+                      {
+                        grossSalary: viewingPayslipRow.grossSalary || 30000,
+                        totalEarnings: viewingPayslipRow.grossSalary || 30000,
+                        pf: epf,
+                        tds: 0,
+                        profTax: 200,
+                        totalDeductions: epf + 200,
+                        netSalary: viewingPayslipRow.netSalary || ((viewingPayslipRow.grossSalary || 30000) - epf - 200),
+                        status: "Paid",
+                        netInWords: numberToWordsIndian(viewingPayslipRow.netSalary || ((viewingPayslipRow.grossSalary || 30000) - epf - 200)),
+                        earningsBreakdown: [
+                          { label: "Basic", amount: basic },
+                          { label: "House Rent Allowance", amount: hra },
+                          { label: "Special Allowance", amount: special },
+                        ],
+                        deductionsBreakdown: [
+                          { label: "EPF Contribution", amount: epf },
+                          { label: "Professional Tax", amount: 200 },
+                        ],
+                      },
+                      {
+                        period: activeRun?.period || "January 2025",
+                        generatedOn: activeRun?.generatedOn || new Date().toISOString().slice(0, 10),
+                      },
+                      emp || {
+                        id: viewingPayslipRow.empId,
+                        name: viewingPayslipRow.empName,
+                        department: "General",
+                        designation: "Employee",
+                        salaryStructure: "Standard",
+                      }
+                    )
+                    toast(`Downloaded payslip for ${viewingPayslipRow.empName}`, "success")
+                    setViewingPayslipRow(null)
+                  }}
+                  style={{ background: Z.brand, color: "#fff", border: "none", borderRadius: 6, padding: "8px 18px", fontSize: 13, fontWeight: 600, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6 }}
+                >
+                  <DownloadIcon size={14} color="#fff" /> Download PDF
+                </button>
                 <button onClick={() => setViewingPayslipRow(null)} style={{ background: "#fff", border: `1px solid ${Z.border}`, borderRadius: 6, padding: "8px 18px", fontSize: 13, color: Z.text1, cursor: "pointer" }}>Close</button>
               </div>
             </div>
@@ -22664,7 +22757,13 @@ function PayRunsView({
                 Pay salaries from any bank account without switching to your bank portal using Payouts by NaxPayroll Payments.
               </span>
               <button
-                onClick={() => toast("Setup direct deposit transfer integration", "info")}
+                onClick={() => {
+                  if (onNavigateToPayoutSetup) {
+                    onNavigateToPayoutSetup()
+                  } else {
+                    toast("Directing to Direct Deposits setup...", "info")
+                  }
+                }}
                 style={{
                   background: "none",
                   border: "none",
@@ -45752,6 +45851,10 @@ export default function App() {
                         ss={ss}
                         payruns={orgPayruns}
                         setPayruns={setPayruns}
+                        onNavigateToPayoutSetup={() => {
+                          setSettingsSelectedId("direct-deposits")
+                          setView("settings")
+                        }}
                       />
                     )}
                     {isApprovalView(view) && (

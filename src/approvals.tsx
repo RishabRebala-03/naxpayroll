@@ -226,11 +226,28 @@ export function ApprovalsNav({
   sidebarOpen = true,
 }: ApprovalsNavProps) {
   const isChildActive = isApprovalView(currentView)
-  const [isExpanded, setIsExpanded] = useState<boolean>(false)
+  const [isExpanded, setIsExpanded] = useState<boolean>(isChildActive)
+
+  useEffect(() => {
+    if (isChildActive) {
+      setIsExpanded(true)
+    }
+  }, [isChildActive])
 
   const handleToggle = (e: React.MouseEvent) => {
     e.preventDefault()
-    setIsExpanded((prev) => !prev)
+    if (!sidebarOpen) {
+      onNavigate("reimbursements")
+      return
+    }
+    if (!isExpanded) {
+      setIsExpanded(true)
+      if (!isChildActive) {
+        onNavigate("reimbursements")
+      }
+    } else {
+      setIsExpanded(false)
+    }
   }
 
   const handleSubItemClick = (
@@ -241,29 +258,93 @@ export function ApprovalsNav({
     onNavigate(id)
   }
 
+  const F = {
+    brand: "#0070F2",
+    brandHover: "#005ecb",
+    text1: "#1d2d3e",
+    text2: "#526675",
+    pageBg: "#f4f6f9",
+    highlight: "#EBF3FC",
+  }
+
   return (
-    <div className="approvals-nav-group" title={!sidebarOpen ? "Approvals" : undefined}>
+    <div style={{ position: "relative" }} title={!sidebarOpen ? "Approvals" : undefined}>
       {/* Parent item: Approvals */}
       <button
         type="button"
-        className={`sap-nav-item approvals-parent-btn ${
-          isChildActive ? "is-active-parent" : ""
-        }`}
+        className={`sap-nav-item${isChildActive ? " is-active" : ""}`}
         onClick={handleToggle}
         aria-expanded={isExpanded}
         aria-controls="approvals-submenu"
         title="Approvals"
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 12,
+          padding: sidebarOpen ? "10px 16px" : "11px 0",
+          justifyContent: sidebarOpen ? "flex-start" : "center",
+          background: isChildActive ? F.highlight : "transparent",
+          border: "none",
+          borderLeft: `3px solid ${isChildActive ? F.brand : "transparent"}`,
+          cursor: "pointer",
+          color: isChildActive ? F.brandHover : F.text2,
+          textAlign: "left",
+          fontSize: 13,
+          fontWeight: isChildActive ? 600 : 400,
+          width: "100%",
+          fontFamily: "inherit",
+          transition: "all 0.12s ease",
+          whiteSpace: "nowrap",
+          overflow: "hidden",
+          outline: "none",
+        }}
+        onMouseEnter={(e) => {
+          if (!isChildActive) e.currentTarget.style.background = F.pageBg
+        }}
+        onMouseLeave={(e) => {
+          if (!isChildActive) e.currentTarget.style.background = "transparent"
+        }}
       >
-        {sidebarOpen && <ChevronIndicator expanded={isExpanded} />}
-        <span className="approvals-icon-wrap">
-          <ApprovalIcon />
-        </span>
-        {sidebarOpen && <span className="approvals-label">Approvals</span>}
+        <ApprovalIcon size={17} />
+        {sidebarOpen && (
+          <>
+            <span
+              style={{
+                flex: 1,
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+              }}
+            >
+              Approvals
+            </span>
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              style={{
+                transform: isExpanded ? "rotate(180deg)" : "rotate(0deg)",
+                transition: "transform 0.18s ease",
+                opacity: 0.65,
+                flexShrink: 0,
+                marginRight: 2,
+              }}
+              aria-hidden="true"
+            >
+              <path d="m6 9 6 6 6-6" />
+            </svg>
+          </>
+        )}
       </button>
 
       {/* Submenu: 3 items in exact order */}
       {sidebarOpen && isExpanded && (
-        <div id="approvals-submenu" className="approvals-submenu" role="menu">
+        <div id="approvals-submenu" role="menu" style={{ display: "flex", flexDirection: "column" }}>
           {APPROVALS_NAV_ITEMS.map((subItem) => {
             const active = currentView === subItem.id
             return (
@@ -271,9 +352,34 @@ export function ApprovalsNav({
                 key={subItem.id}
                 type="button"
                 role="menuitem"
-                className={`approvals-subitem-btn ${active ? "is-active" : ""}`}
                 onClick={(e) => handleSubItemClick(e, subItem.id)}
                 title={subItem.label}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  padding: "9px 16px 9px 45px",
+                  background: active ? F.highlight : "transparent",
+                  border: "none",
+                  borderLeft: `3px solid ${active ? F.brand : "transparent"}`,
+                  cursor: "pointer",
+                  color: active ? F.brandHover : F.text2,
+                  textAlign: "left",
+                  fontSize: 13,
+                  fontWeight: active ? 600 : 400,
+                  width: "100%",
+                  fontFamily: "inherit",
+                  transition: "all 0.12s ease",
+                  whiteSpace: "nowrap",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  outline: "none",
+                }}
+                onMouseEnter={(e) => {
+                  if (!active) e.currentTarget.style.background = F.pageBg
+                }}
+                onMouseLeave={(e) => {
+                  if (!active) e.currentTarget.style.background = "transparent"
+                }}
               >
                 {subItem.label}
               </button>
