@@ -27,6 +27,11 @@ import {
   ChevronLeftIcon,
   ChevronRightIcon,
   HelpCircleIcon,
+  UsersIcon,
+  IndianRupeeIcon,
+  AlertCircleIcon,
+  ArrowUpRightIcon,
+  EyeIcon,
 } from "./icons"
 import { apiClient } from "./api/client"
 import React, {
@@ -1549,9 +1554,11 @@ function Fld({ label, children }: { label: React.ReactNode; children?: React.Rea
 function Th({
   children,
   right,
+  style,
 }: {
   children: React.ReactNode
   right?: boolean
+  style?: React.CSSProperties
 }) {
   return (
     <th
@@ -1569,6 +1576,7 @@ function Th({
         position: "sticky",
         top: 0,
         zIndex: 2,
+        ...style,
       }}
     >
       {children}
@@ -4028,43 +4036,65 @@ function DashboardView({
           style={{
             ...cardStyle,
             minHeight: 250,
-            padding: 0,
-            overflow: "hidden",
-            border: "1px solid #BFDBFE",
-            background: "#FFFFFF",
-            borderRadius: 14,
-            boxShadow: "0 4px 14px rgba(37, 99, 235, 0.07)",
+            display: "flex",
+            flexDirection: "column",
           }}
         >
           <div
             style={{
               display: "flex",
               justifyContent: "space-between",
-              alignItems: "center",
+              alignItems: "flex-start",
               gap: 12,
-              padding: "18px 20px",
-              background: "linear-gradient(135deg, #EAF3FF 0%, #DCEBFF 100%)",
-              borderBottom: "1px solid #BFDBFE",
+              marginBottom: 14,
             }}
           >
-            <div style={{ minWidth: 0 }}>
-              <h2 style={{ margin: 0, fontSize: 17, fontWeight: 800, color: "#1E3A8A", letterSpacing: "-0.2px" }}>
+            <div>
+              <h2 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: F.text1 }}>
                 To Do Tasks
               </h2>
-              <p style={{ margin: "5px 0 0", fontSize: 12, lineHeight: 1.5, color: "#1D4ED8" }}>
+              <p style={{ margin: "4px 0 0", fontSize: 12, color: F.text2 }}>
                 A quick overview of work that needs attention
               </p>
             </div>
-            <div style={{ flexShrink: 0, padding: "6px 10px", borderRadius: 8, background: "#FFFFFF", border: "1px solid #C7DDFF", color: "#1D4ED8", fontSize: 12, fontWeight: 800 }}>
-              5 items
-            </div>
+            <Badge label="5 items" color={F.brand} bg={F.infoBg} />
           </div>
 
-          <div style={{ padding: "12px 14px 8px", display: "grid", gridTemplateColumns: "1fr", gap: 9 }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 10, flex: 1, justifyContent: "center" }}>
             {[
-              { id: "employee", title: "Employee", detail: "2 modules are incomplete", count: 2, target: "employees", icon: "👥", tone: "#1D4ED8", bg: "#EFF6FF", border: "#BFDBFE", action: "Review employees" },
-              { id: "payroll", title: "Payroll", detail: "1 payroll is pending", count: 1, target: "payruns", icon: "₹", tone: "#B45309", bg: "#FFFBEB", border: "#FDE68A", action: "Review pay runs" },
-              { id: "errors", title: "Error Logs", detail: "2 tasks are under work", count: 2, target: "audit", icon: "!", tone: "#B91C1C", bg: "#FEF2F2", border: "#FECACA", action: "Review error logs" },
+              {
+                id: "employee",
+                title: "Employee",
+                detail: "2 modules are incomplete",
+                count: 2,
+                target: "employees",
+                Icon: UsersIcon,
+                tone: F.brand,
+                bg: F.infoBg,
+                action: "Review employees",
+              },
+              {
+                id: "payroll",
+                title: "Payroll",
+                detail: "1 payroll is pending",
+                count: 1,
+                target: "payruns",
+                Icon: IndianRupeeIcon,
+                tone: F.warning,
+                bg: F.warningBg,
+                action: "Review pay runs",
+              },
+              {
+                id: "errors",
+                title: "Error Logs",
+                detail: "2 tasks are under work",
+                count: 2,
+                target: "audit",
+                Icon: AlertCircleIcon,
+                tone: F.error,
+                bg: F.errorBg,
+                action: "Review error logs",
+              },
             ].map((task) => (
               <div
                 key={task.id}
@@ -4072,41 +4102,116 @@ function DashboardView({
                   display: "flex",
                   alignItems: "center",
                   gap: 12,
-                  padding: "12px",
-                  border: `1px solid ${task.border}`,
-                  borderRadius: 11,
-                  background: task.bg,
-                  transition: "transform 140ms ease, box-shadow 140ms ease",
+                  padding: "10px 12px",
+                  border: `1px solid ${F.border}`,
+                  borderLeft: `3px solid ${task.tone}`,
+                  borderRadius: 6,
+                  background: F.pageBg,
+                  transition: "background 140ms ease, border-color 140ms ease",
                 }}
               >
-                <div aria-hidden="true" style={{ width: 40, height: 40, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, color: task.tone, background: "#FFFFFF", border: `1px solid ${task.border}`, fontSize: 17, fontWeight: 800 }}>
-                  {task.icon}
+                <div
+                  aria-hidden="true"
+                  style={{
+                    width: 34,
+                    height: 34,
+                    borderRadius: 6,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    flexShrink: 0,
+                    color: task.tone,
+                    background: task.bg,
+                  }}
+                >
+                  <task.Icon size={17} color={task.tone} />
                 </div>
                 <button
                   type="button"
                   onClick={() => onNav(task.target)}
                   aria-label={`${task.action}: ${task.count} items`}
-                  style={{ flex: 1, minWidth: 0, textAlign: "left", background: "transparent", border: 0, padding: 0, font: "inherit", cursor: "pointer" }}
+                  style={{
+                    flex: 1,
+                    minWidth: 0,
+                    textAlign: "left",
+                    background: "transparent",
+                    border: 0,
+                    padding: 0,
+                    font: "inherit",
+                    cursor: "pointer",
+                  }}
                 >
-                  <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                    <span style={{ fontSize: 13, fontWeight: 800, color: "#1F2937" }}>{task.title}</span>
-                    <span style={{ minWidth: 24, height: 22, padding: "0 7px", boxSizing: "border-box", display: "inline-flex", alignItems: "center", justifyContent: "center", borderRadius: 7, color: task.tone, background: "#FFFFFF", border: `1px solid ${task.border}`, fontSize: 11, fontWeight: 800 }}>{task.count}</span>
+                  <div style={{ display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap" }}>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: F.text1 }}>
+                      {task.title}
+                    </span>
+                    <span
+                      style={{
+                        minWidth: 20,
+                        height: 18,
+                        padding: "0 6px",
+                        boxSizing: "border-box",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        borderRadius: 9,
+                        color: task.tone,
+                        background: task.bg,
+                        fontSize: 11,
+                        fontWeight: 700,
+                      }}
+                    >
+                      {task.count}
+                    </span>
                   </div>
-                  <div style={{ fontSize: 11, lineHeight: 1.5, color: "#4B5563", marginTop: 4 }}>{task.detail}</div>
+                  <div
+                    style={{
+                      fontSize: 11.5,
+                      color: F.text2,
+                      marginTop: 2,
+                      whiteSpace: "nowrap",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                    }}
+                  >
+                    {task.detail}
+                  </div>
                 </button>
-                <button
-                  type="button"
+                <Btn
+                  small
+                  variant="secondary"
                   onClick={() => onNav(task.target)}
-                  style={{ background: "#FFFFFF", borderRadius: 7, padding: "7px 9px", color: task.tone, border: `1px solid ${task.border}`, fontSize: 11, fontWeight: 800, whiteSpace: "nowrap", cursor: "pointer", flexShrink: 0 }}
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 5,
+                    fontSize: 11,
+                    fontWeight: 700,
+                    padding: "4px 9px",
+                    height: 28,
+                    flexShrink: 0,
+                  }}
                 >
-                  {task.action} ↗
-                </button>
+                  <span>{task.action}</span>
+                  <ArrowUpRightIcon size={12} color={F.text2} />
+                </Btn>
               </div>
             ))}
           </div>
-          <div style={{ margin: "2px 14px 0", padding: "11px 4px 13px", borderTop: "1px solid #E5E7EB", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-            <span style={{ fontSize: 11, color: "#6B7280" }}>Prioritized items across key modules</span>
-            <span style={{ fontSize: 11, color: "#1D4ED8", fontWeight: 800 }}>5 items to review</span>
+
+          <div
+            style={{
+              marginTop: 12,
+              paddingTop: 10,
+              borderTop: `1px solid ${F.border}`,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: 8,
+            }}
+          >
+            <span style={{ fontSize: 11, color: F.text3 }}>Prioritized items across key modules</span>
+            <span style={{ fontSize: 11, color: F.brand, fontWeight: 700 }}>5 items to review</span>
           </div>
         </section>
       </div>
@@ -9558,7 +9663,7 @@ function EmployeeDetailPage({
       {activeTab === "payslips" && (
         <div style={{ background: F.card, border: `1px solid ${F.border}`, borderRadius: 10, overflow: "hidden" }}>
           <div style={{ padding: "16px 20px", borderBottom: `1px solid ${F.border}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}><div><div style={{ fontWeight: 800 }}>Payslips & tax forms</div><div style={{ fontSize: 12, color: F.text2, marginTop: 3 }}>{editingPayslips ? "Update the payroll values for each issued period." : "Payroll documents issued specifically to this employee."}</div></div><div style={{ display: "flex", gap: 8 }}>{editingPayslips && <Btn small variant="secondary" onClick={() => setEditingPayslips(false)}>Cancel</Btn>}<Btn small variant={editingPayslips ? "success" : "secondary"} onClick={() => { if (editingPayslips) toast("Payslip adjustments saved", "success"); setEditingPayslips(!editingPayslips) }}>{editingPayslips ? "Save changes" : "Edit figures"}</Btn></div></div>
-          <table style={{ width: "100%", borderCollapse: "collapse" }}><thead><tr><Th>Pay period</Th><Th>Gross earnings</Th><Th>Deductions</Th><Th>Net pay</Th><Th>Status</Th><Th>Action</Th></tr></thead><tbody>{payslipRows.map((row, i) => { const netPay = Math.max(0, row.gross - row.deductions); return (<TrH key={row.period}><Td><strong>{row.period}</strong><div style={{ fontSize: 11, color: F.text3 }}>Regular monthly payroll</div></Td><Td>{editingPayslips ? <input aria-label={`${row.period} gross`} type="number" min="0" style={{ ...iSt, width: 120 }} value={row.gross} onChange={(e) => setPayslipRows(payslipRows.map((item, index) => index === i ? { ...item, gross: Number(e.target.value) } : item))} /> : inr(row.gross)}</Td><Td>{editingPayslips ? <input aria-label={`${row.period} deductions`} type="number" min="0" style={{ ...iSt, width: 120 }} value={row.deductions} onChange={(e) => setPayslipRows(payslipRows.map((item, index) => index === i ? { ...item, deductions: Number(e.target.value) } : item))} /> : inr(row.deductions)}</Td><Td style={{ fontWeight: 800, color: F.success }}>{inr(netPay)}</Td><Td>{editingPayslips ? <select aria-label={`${row.period} status`} style={{ ...iSt, width: 115 }} value={row.status} onChange={(e) => setPayslipRows(payslipRows.map((item, index) => index === i ? { ...item, status: e.target.value } : item))}><option>Available</option><option>Paid</option><option>On hold</option></select> : <Badge label={row.status} color={row.status === "On hold" ? F.warning : F.success} bg={row.status === "On hold" ? F.warningBg : F.successBg} />}</Td><Td><div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}><Btn small variant="secondary" onClick={() => setViewingPayslip({ period: row.period, gross: row.gross, deductions: row.deductions, net: netPay, status: row.status })}>View</Btn><Btn small title={`Download PDF payslip for ${row.period}`} onClick={() => { const breakdown = getEmployeePayslipBreakdown(emp, row.period, row.gross, row.deductions, ss, statutory, payroll); downloadPayslipPdf({ grossSalary: breakdown.totalEarnings, totalEarnings: breakdown.totalEarnings, pf: breakdown.deductions.pf, esi: breakdown.deductions.esi, tds: breakdown.deductions.tds, profTax: breakdown.deductions.profTax, totalDeductions: breakdown.totalDeductions, netSalary: breakdown.netSalary, status: row.status, netInWords: numberToWordsIndian(breakdown.netSalary), earningsBreakdown: breakdown.earningsList, deductionsBreakdown: breakdown.deductionsList }, { period: row.period, generatedOn: payslipGeneratedDate(row.period) }, { ...emp, location: emp.location, empType: emp.empType, doj: emp.doj, bankName: emp.bankName, bankAccount: emp.bankAccount, ifsc: emp.ifsc }) }}><DownloadIcon />Download PDF</Btn></div></Td></TrH>) })}</tbody></table>
+          <table style={{ width: "100%", borderCollapse: "collapse" }}><thead><tr><Th>Pay period</Th><Th>Gross earnings</Th><Th>Deductions</Th><Th>Net pay</Th><Th>Status</Th><Th style={{ whiteSpace: "nowrap", width: "1%" }}>Action</Th></tr></thead><tbody>{payslipRows.map((row, i) => { const netPay = Math.max(0, row.gross - row.deductions); return (<TrH key={row.period}><Td><strong>{row.period}</strong><div style={{ fontSize: 11, color: F.text3 }}>Regular monthly payroll</div></Td><Td>{editingPayslips ? <input aria-label={`${row.period} gross`} type="number" min="0" style={{ ...iSt, width: 120 }} value={row.gross} onChange={(e) => setPayslipRows(payslipRows.map((item, index) => index === i ? { ...item, gross: Number(e.target.value) } : item))} /> : inr(row.gross)}</Td><Td>{editingPayslips ? <input aria-label={`${row.period} deductions`} type="number" min="0" style={{ ...iSt, width: 120 }} value={row.deductions} onChange={(e) => setPayslipRows(payslipRows.map((item, index) => index === i ? { ...item, deductions: Number(e.target.value) } : item))} /> : inr(row.deductions)}</Td><Td style={{ fontWeight: 800, color: F.success }}>{inr(netPay)}</Td><Td>{editingPayslips ? <select aria-label={`${row.period} status`} style={{ ...iSt, width: 115 }} value={row.status} onChange={(e) => setPayslipRows(payslipRows.map((item, index) => index === i ? { ...item, status: e.target.value } : item))}><option>Available</option><option>Paid</option><option>On hold</option></select> : <Badge label={row.status} color={row.status === "On hold" ? F.warning : F.success} bg={row.status === "On hold" ? F.warningBg : F.successBg} />}</Td><Td style={{ whiteSpace: "nowrap", width: "1%" }}><div style={{ display: "inline-flex", alignItems: "center", gap: 6, whiteSpace: "nowrap" }}><Btn small variant="secondary" onClick={() => setViewingPayslip({ period: row.period, gross: row.gross, deductions: row.deductions, net: netPay, status: row.status })} style={{ display: "inline-flex", alignItems: "center", gap: 5, height: 28, padding: "0 10px", fontSize: 12, fontWeight: 600 }}><EyeIcon size={13} color={F.text2} /><span>View</span></Btn><Btn small variant="secondary" title={`Download PDF payslip for ${row.period}`} onClick={() => { const breakdown = getEmployeePayslipBreakdown(emp, row.period, row.gross, row.deductions, ss, statutory, payroll); downloadPayslipPdf({ grossSalary: breakdown.totalEarnings, totalEarnings: breakdown.totalEarnings, pf: breakdown.deductions.pf, esi: breakdown.deductions.esi, tds: breakdown.deductions.tds, profTax: breakdown.deductions.profTax, totalDeductions: breakdown.totalDeductions, netSalary: breakdown.netSalary, status: row.status, netInWords: numberToWordsIndian(breakdown.netSalary), earningsBreakdown: breakdown.earningsList, deductionsBreakdown: breakdown.deductionsList }, { period: row.period, generatedOn: payslipGeneratedDate(row.period) }, { ...emp, location: emp.location, empType: emp.empType, doj: emp.doj, bankName: emp.bankName, bankAccount: emp.bankAccount, ifsc: emp.ifsc }) }} style={{ display: "inline-flex", alignItems: "center", gap: 5, height: 28, padding: "0 10px", fontSize: 12, fontWeight: 600, color: F.brand, background: F.infoBg, border: `1px solid ${F.brand}35` }}><DownloadIcon size={13} color={F.brand} /><span>Download PDF</span></Btn></div></Td></TrH>) })}</tbody></table>
         </div>
       )}
 
@@ -24515,7 +24620,8 @@ function PayslipsView({
           overflow: "hidden",
         }}
       >
-        <table style={{ width: "100%", borderCollapse: "collapse" }}>
+        <div style={{ width: "100%", overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
+          <table style={{ width: "100%", minWidth: 1280, borderCollapse: "collapse" }}>
           <thead>
             <tr>
               <Th>
@@ -24536,7 +24642,7 @@ function PayslipsView({
               <Th>PF</Th>
               <Th>TDS</Th>
               <Th>Status</Th>
-              <Th>Actions</Th>
+              <Th style={{ whiteSpace: "nowrap", minWidth: 230, paddingRight: 20 }}>Actions</Th>
             </tr>
           </thead>
           <tbody>
@@ -24631,9 +24737,14 @@ function PayslipsView({
                   <span style={{ fontSize: 12 }}>{inr(row.tds)}</span>
                 </Td>
                 <Td>{prBadge("Completed")}</Td>
-                <Td>
+                <Td style={{ whiteSpace: "nowrap", minWidth: 230, paddingRight: 20 }}>
                   <div
-                    style={{ display: "flex", gap: 6, flexWrap: "wrap" }}
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 6,
+                      whiteSpace: "nowrap",
+                    }}
                     onClick={(ev) => ev.stopPropagation()}
                   >
                     <Btn
@@ -24641,16 +24752,41 @@ function PayslipsView({
                       variant="secondary"
                       title={`View payslip for ${e.name} - ${run.period}`}
                       onClick={() => setViewSlip({ row, run })}
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: 5,
+                        height: 28,
+                        padding: "0 10px",
+                        fontSize: 12,
+                        fontWeight: 600,
+                        flexShrink: 0,
+                      }}
                     >
-                      View
+                      <EyeIcon size={13} color={F.text2} />
+                      <span>View</span>
                     </Btn>
                     <Btn
                       small
+                      variant="secondary"
                       title={`Download PDF payslip for ${e.name} - ${run.period}`}
                       onClick={() => downloadPayslipPdf(row, run, e)}
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: 5,
+                        height: 28,
+                        padding: "0 10px",
+                        fontSize: 12,
+                        fontWeight: 600,
+                        color: F.brand,
+                        background: F.infoBg,
+                        border: `1px solid ${F.brand}35`,
+                        flexShrink: 0,
+                      }}
                     >
-                      <DownloadIcon />
-                      Download PDF
+                      <DownloadIcon size={13} color={F.brand} />
+                      <span>Download PDF</span>
                     </Btn>
                   </div>
                 </Td>
@@ -24658,6 +24794,7 @@ function PayslipsView({
             ))}
           </tbody>
         </table>
+        </div>
       </div>
       <Pagination page={payslipPage} pageSize={10} total={rows.length} onPageChange={setPayslipPage} />
       {viewSlip && (

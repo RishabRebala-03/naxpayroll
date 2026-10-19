@@ -765,3 +765,145 @@ export const HelpCircleIcon: React.FC<IconProps> = ({
   </svg>
 )
 
+export const UsersIcon: React.FC<IconProps> = ({
+  size = 16,
+  color = "currentColor",
+  strokeWidth = 2,
+  className,
+  style,
+  ...props
+}) => (
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke={color}
+    strokeWidth={strokeWidth}
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className={className}
+    style={{ display: "inline-block", verticalAlign: "middle", flexShrink: 0, ...style }}
+    aria-hidden="true"
+    {...props}
+  >
+    <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+    <circle cx="9" cy="7" r="4" />
+    <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+    <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+  </svg>
+)
+
+export const IndianRupeeIcon: React.FC<IconProps> = ({
+  size = 16,
+  color = "currentColor",
+  strokeWidth = 2,
+  className,
+  style,
+  ...props
+}) => (
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke={color}
+    strokeWidth={strokeWidth}
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className={className}
+    style={{ display: "inline-block", verticalAlign: "middle", flexShrink: 0, ...style }}
+    aria-hidden="true"
+    {...props}
+  >
+    <path d="M6 3h12" />
+    <path d="M6 8h12" />
+    <path d="m6 13 8.5 8" />
+    <path d="M6 13h3" />
+    <path d="M9 13c6.667 0 6.667-10 0-10" />
+  </svg>
+)
+
+export const AlertCircleIcon: React.FC<IconProps> = ({
+  size = 16,
+  color = "currentColor",
+  strokeWidth = 2,
+  className,
+  style,
+  ...props
+}) => (
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke={color}
+    strokeWidth={strokeWidth}
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className={className}
+    style={{ display: "inline-block", verticalAlign: "middle", flexShrink: 0, ...style }}
+    aria-hidden="true"
+    {...props}
+  >
+    <circle cx="12" cy="12" r="10" />
+    <line x1="12" y1="8" x2="12" y2="12" />
+    <line x1="12" y1="16" x2="12.01" y2="16" />
+  </svg>
+)
+
+export const ArrowUpRightIcon: React.FC<IconProps> = ({
+  size = 16,
+  color = "currentColor",
+  strokeWidth = 2,
+  className,
+  style,
+  ...props
+}) => (
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke={color}
+    strokeWidth={strokeWidth}
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className={className}
+    style={{ display: "inline-block", verticalAlign: "middle", flexShrink: 0, ...style }}
+    aria-hidden="true"
+    {...props}
+  >
+    <line x1="7" y1="17" x2="17" y2="7" />
+    <polyline points="7 7 17 7 17 17" />
+  </svg>
+)
+
+export const EyeIcon: React.FC<IconProps> = ({
+  size = 16,
+  color = "currentColor",
+  strokeWidth = 2,
+  className,
+  style,
+  ...props
+}) => (
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke={color}
+    strokeWidth={strokeWidth}
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className={className}
+    style={{ display: "inline-block", verticalAlign: "middle", flexShrink: 0, ...style }}
+    aria-hidden="true"
+    {...props}
+  >
+    <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" />
+    <circle cx="12" cy="12" r="3" />
+  </svg>
+)
+
+
