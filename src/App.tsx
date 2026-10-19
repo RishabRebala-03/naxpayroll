@@ -24738,6 +24738,8 @@ const RPT_CATEGORIES = [
   "Taxes and Forms",
   "Loan Reports",
   "Payroll Journal",
+  "Activity",
+  "Automation",
 ];
 const RPT_MONTHS = [
   "January",
@@ -24793,6 +24795,14 @@ const rptSum = (items: RptItem[], f: (i: RptItem) => number) =>
   items.reduce((s, i) => s + f(i), 0);
 
 const REPORTS: RptDef[] = [
+  {
+    id: "activity_logs",
+    name: "Activity Logs",
+    category: "Activity",
+    filter: "range",
+    handlesEmpty: true,
+    build: () => ({ type: "message", text: "Activity history" }),
+  },
   // ── Payroll Overview ──
   {
     id: "payroll_summary",
@@ -25555,6 +25565,11 @@ function ReportsView({
   const [favorites, setFavorites] = useState<string[]>([]);
   const [lastVisited, setLastVisited] = useState<Record<string, string>>({});
   const [activeId, setActiveId] = useState<string | null>(null);
+  const [selectedAudit, setSelectedAudit] = useState<{
+    emp: Employee;
+    run: Payrun;
+    row: PayrunInputRow;
+  } | null>(null);
   const [draft, setDraft] = useState<RptFilters>(makeFilters("month"));
   const [applied, setApplied] = useState<RptFilters>(makeFilters("month"));
   const [showMore, setShowMore] = useState(false);
@@ -25612,7 +25627,10 @@ function ReportsView({
     setLastVisited((prev) => ({ ...prev, [r.id]: stamp }));
     document.querySelector("main")?.scrollTo({ top: 0 });
   };
-  const closeReport = () => setActiveId(null);
+  const closeReport = () => {
+    setActiveId(null);
+    setSelectedAudit(null);
+  };
   const toggleFavorite = (id: string) =>
     setFavorites((prev) =>
       prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
@@ -25671,6 +25689,17 @@ function ReportsView({
     setDraft(applied);
     setShowMore(false);
   };
+  const clearReportFilters = () => {
+    const cleared: RptFilters = {
+      month: latestPaid?.period ?? RPT_MONTHS[6],
+      range: "Current Month",
+      criteria: [],
+    };
+    setDraft(cleared);
+    setApplied(cleared);
+    setShowMore(false);
+    toast("Report filters cleared", "info");
+  };
 
   // ── run the report ──
   const runReport = (r: RptDef): RptResult => {
@@ -25721,6 +25750,16 @@ function ReportsView({
     return r.build({ items, emps: emps.filter(empOk), ss });
   };
   const result: RptResult | null = def ? runReport(def) : null;
+
+  // Activity Logs use the live payroll records as the available local activity source.
+  const activityEntries = payruns
+    .flatMap((run) =>
+      run.rows.map((row) => {
+        const emp = emps.find((item) => item.id === row.empId);
+        return { emp, run, row };
+      }),
+    )
+    .filter((entry) => Boolean(entry.emp));
 
   // ── table view helpers ──
   const isNumCol = (c: RptCol) => c.kind === "money" || c.kind === "num";
@@ -25838,31 +25877,777 @@ function ReportsView({
     setShowExport(false);
   };
 
+  const chip: React.CSSProperties = {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 6,
+    border: "none",
+    borderRadius: 6,
+    padding: "5px 10px",
+    fontSize: 12,
+    color: F.text2,
+    background: "transparent",
+    height: 32,
+    boxSizing: "border-box",
+  };
+  const bareSelect: React.CSSProperties = {
+    border: "none",
+    outline: "none",
+    background: "transparent",
+    fontSize: 12,
+    fontWeight: 700,
+    color: F.text1,
+    fontFamily: "inherit",
+    cursor: "pointer",
+  };
+
   // ═════════════ REPORT VIEW ═════════════
   if (def && result) {
-    const chip: React.CSSProperties = {
-      display: "inline-flex",
-      alignItems: "center",
-      gap: 6,
-      border: "none",
-      borderRadius: 6,
-      padding: "5px 10px",
-      fontSize: 12,
-      color: F.text2,
-      background: "transparent",
-      height: 32,
-      boxSizing: "border-box",
-    };
-    const bareSelect: React.CSSProperties = {
-      border: "none",
-      outline: "none",
-      background: "transparent",
-      fontSize: 12,
-      fontWeight: 700,
-      color: F.text1,
-      fontFamily: "inherit",
-      cursor: "pointer",
-    };
+    if (def.id === "activity_logs") {
+      const auditRows = activityEntries.filter(({ emp, run }) => {
+        const query = search.trim().toLowerCase();
+        const matchesSearch =
+          !query ||
+          `${emp?.name ?? ""} ${run.period} ${emp?.department ?? ""}`
+            .toLowerCase()
+            .includes(query);
+        const matchesPeriod =
+          applied.range === "All Time" || rptRunInRange(run, applied.range);
+        const matchesCriteria = applied.criteria.every((criterion) => {
+          if (!criterion.value) return true;
+          if (criterion.field === "Department")
+            return criterion.op === "is"
+              ? emp?.department === criterion.value
+              : emp?.department !== criterion.value;
+          if (criterion.field === "Employee Type")
+            return criterion.op === "is"
+              ? emp?.empType === criterion.value
+              : emp?.empType !== criterion.value;
+          return true;
+        });
+        return matchesSearch && matchesPeriod && matchesCriteria;
+      });
+      const auditDate = (run: Payrun) =>
+        `${rptDate(new Date())} ${new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
+      return (
+        <div
+          style={{ background: F.pageBg, minHeight: "100%", paddingBottom: 20 }}
+        >
+          <div
+            style={{
+              background: F.card,
+              padding: "14px 20px",
+              display: "flex",
+              alignItems: "center",
+              gap: 12,
+              borderBottom: `1px solid ${F.border}`,
+            }}
+          >
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 11, color: F.brand }}>
+                Activity{selectedAudit ? "  ›  Activity Logs" : ""}
+              </div>
+              <div style={{ fontSize: 18, fontWeight: 800, color: F.text1 }}>
+                {selectedAudit
+                  ? "Audit Trail"
+                  : `Activity Logs • ${periodText()}`}
+              </div>
+            </div>
+            {!selectedAudit && (
+              <div style={{ position: "relative" }}>
+                <Btn
+                  variant="secondary"
+                  onClick={() => setShowExport((v) => !v)}
+                >
+                  Export as ▾
+                </Btn>
+                {showExport && (
+                  <div
+                    style={{
+                      position: "absolute",
+                      right: 0,
+                      top: 40,
+                      zIndex: 20,
+                      minWidth: 140,
+                      background: F.card,
+                      border: `1px solid ${F.border}`,
+                      borderRadius: 6,
+                      boxShadow: "0 8px 24px rgba(15,23,42,.16)",
+                    }}
+                  >
+                    <button
+                      onClick={() => {
+                        const rows = auditRows.map(({ emp, run, row }) => [
+                          auditDate(run),
+                          `${emp?.name ?? row.empName} (${run.period})`,
+                          `${emp?.name ?? row.empName} payroll record for ${run.period}`,
+                          "Show Versions",
+                        ]);
+                        const csv = [
+                          [
+                            "DATE",
+                            "ACTIVITY DETAILS",
+                            "DESCRIPTION",
+                            "VERSIONS",
+                          ],
+                          ...rows,
+                        ]
+                          .map((r) =>
+                            r
+                              .map((v) => `"${String(v).replace(/"/g, '""')}"`)
+                              .join(","),
+                          )
+                          .join("\n");
+                        const a = document.createElement("a");
+                        a.href = URL.createObjectURL(
+                          new Blob([csv], { type: "text/csv;charset=utf-8;" }),
+                        );
+                        a.download = "Activity_Logs.csv";
+                        a.click();
+                        URL.revokeObjectURL(a.href);
+                        setShowExport(false);
+                        toast("Activity Logs exported as CSV", "success");
+                      }}
+                      style={{
+                        display: "block",
+                        width: "100%",
+                        textAlign: "left",
+                        border: 0,
+                        background: "transparent",
+                        padding: "10px 14px",
+                        cursor: "pointer",
+                        color: F.text1,
+                      }}
+                    >
+                      CSV
+                    </button>
+                    <button
+                      onClick={() => {
+                        window.print();
+                        setShowExport(false);
+                      }}
+                      style={{
+                        display: "block",
+                        width: "100%",
+                        textAlign: "left",
+                        border: 0,
+                        background: "transparent",
+                        padding: "10px 14px",
+                        cursor: "pointer",
+                        color: F.text1,
+                      }}
+                    >
+                      PDF / Print
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+            <button
+              onClick={closeReport}
+              aria-label="Close report"
+              style={{
+                border: 0,
+                background: "transparent",
+                color: F.error,
+                fontSize: 22,
+                cursor: "pointer",
+              }}
+            >
+              ×
+            </button>
+          </div>
+          {!selectedAudit ? (
+            <>
+              <div
+                style={{
+                  background: F.card,
+                  padding: "14px 24px",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 22,
+                  flexWrap: "wrap",
+                  borderBottom: `1px solid ${F.border}`,
+                }}
+              >
+                <span
+                  style={{
+                    fontSize: 14,
+                    color: F.text2,
+                    fontWeight: 700,
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  ▽ Filters :
+                </span>
+                <label
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 8,
+                    color: F.text2,
+                    fontSize: 14,
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  Date Range:
+                  <select
+                    value={draft.range}
+                    onChange={(e) =>
+                      setDraft((d) => ({ ...d, range: e.target.value }))
+                    }
+                    style={{
+                      ...bareSelect,
+                      border: `1px solid ${F.border}`,
+                      borderRadius: 5,
+                      padding: "9px 12px",
+                      minWidth: 190,
+                      background: F.card,
+                      color: F.text1,
+                    }}
+                  >
+                    {RPT_RANGES.map((r) => (
+                      <option key={r}>{r}</option>
+                    ))}
+                  </select>
+                </label>
+                <button
+                  onClick={() => setShowMore((v) => !v)}
+                  style={{
+                    border: 0,
+                    outline: 0,
+                    boxShadow: "none",
+                    background: "transparent",
+                    color: F.brand,
+                    cursor: "pointer",
+                    padding: 0,
+                    fontSize: 14,
+                    fontWeight: 700,
+                    fontFamily: "inherit",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  ✚ More Filters
+                  {draft.criteria.length ? ` (${draft.criteria.length})` : ""}
+                </button>
+                <div
+                  style={{
+                    marginLeft: "auto",
+                    display: "flex",
+                    gap: 8,
+                    alignItems: "center",
+                  }}
+                >
+                  <Btn variant="secondary" onClick={clearReportFilters}>
+                    Clear Filters
+                  </Btn>
+                  {!showMore && (
+                    <Btn variant="success" onClick={runNow}>
+                      Run Report
+                    </Btn>
+                  )}
+                </div>
+              </div>
+              {showMore && (
+                <div
+                  style={{
+                    background: F.card,
+                    padding: "16px 20px",
+                    borderBottom: `1px solid ${F.border}`,
+                  }}
+                >
+                  {draft.criteria.map((c, idx) => (
+                    <div
+                      key={c.id}
+                      style={{
+                        display: "grid",
+                        gridTemplateColumns: "24px 1fr 120px 1fr 36px",
+                        gap: 10,
+                        marginBottom: 10,
+                        alignItems: "center",
+                      }}
+                    >
+                      <span>{idx + 1}</span>
+                      <select
+                        value={c.field}
+                        onChange={(e) =>
+                          updateCriteria(c.id, { field: e.target.value })
+                        }
+                        style={iSt}
+                      >
+                        {criteriaFields.map((f) => (
+                          <option key={f}>{f}</option>
+                        ))}
+                      </select>
+                      <select
+                        value={c.op}
+                        onChange={(e) =>
+                          updateCriteria(c.id, {
+                            op: e.target.value as RptCriteria["op"],
+                          })
+                        }
+                        style={iSt}
+                      >
+                        <option>is</option>
+                        <option>is not</option>
+                      </select>
+                      <select
+                        value={c.value}
+                        onChange={(e) =>
+                          updateCriteria(c.id, { value: e.target.value })
+                        }
+                        style={iSt}
+                      >
+                        {valuesFor(c.field).map((v) => (
+                          <option key={v}>{v}</option>
+                        ))}
+                      </select>
+                      <button
+                        onClick={() => removeCriteria(c.id)}
+                        style={{
+                          border: 0,
+                          background: "transparent",
+                          cursor: "pointer",
+                        }}
+                      >
+                        🗑
+                      </button>
+                    </div>
+                  ))}
+                  <button
+                    onClick={addCriteria}
+                    style={{
+                      border: 0,
+                      background: "transparent",
+                      color: F.brand,
+                      cursor: "pointer",
+                      fontWeight: 700,
+                    }}
+                  >
+                    ⊕ Add Criteria
+                  </button>
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "flex-end",
+                      gap: 8,
+                      marginTop: 16,
+                    }}
+                  >
+                    <Btn variant="secondary" onClick={clearReportFilters}>
+                      Clear Filters
+                    </Btn>
+                    <Btn variant="secondary" onClick={cancelMore}>
+                      Cancel
+                    </Btn>
+                    <Btn variant="success" onClick={runNow}>
+                      Run Report
+                    </Btn>
+                  </div>
+                </div>
+              )}
+              <div
+                style={{
+                  margin: 16,
+                  background: F.card,
+                  border: `1px solid ${F.border}`,
+                  borderRadius: 8,
+                  overflow: "hidden",
+                }}
+              >
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "flex-end",
+                    alignItems: "center",
+                    padding: "10px 16px",
+                    borderBottom: `1px solid ${F.border}`,
+                    position: "relative",
+                  }}
+                >
+                  <button
+                    onClick={() => setShowCols((v) => !v)}
+                    style={{
+                      border: 0,
+                      background: "transparent",
+                      color: F.text1,
+                      fontSize: 13,
+                      fontWeight: 600,
+                      cursor: "pointer",
+                      fontFamily: "inherit",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 7,
+                    }}
+                  >
+                    ▤ Customize Report Columns{" "}
+                    <span
+                      style={{
+                        background: F.infoBg,
+                        color: F.brand,
+                        borderRadius: 10,
+                        padding: "2px 7px",
+                        fontSize: 11,
+                        fontWeight: 800,
+                      }}
+                    >
+                      3
+                    </span>
+                  </button>
+                  {showCols && (
+                    <>
+                      <div
+                        style={{ position: "fixed", inset: 0, zIndex: 20 }}
+                        onClick={() => setShowCols(false)}
+                      />
+                      <div
+                        style={{
+                          position: "absolute",
+                          right: 12,
+                          top: 44,
+                          zIndex: 21,
+                          width: 230,
+                          background: F.card,
+                          border: `1px solid ${F.border}`,
+                          borderRadius: 8,
+                          padding: 12,
+                          boxShadow: "0 8px 24px rgba(15,23,42,.16)",
+                        }}
+                      >
+                        <div
+                          style={{
+                            fontSize: 13,
+                            fontWeight: 700,
+                            color: F.text1,
+                            marginBottom: 8,
+                          }}
+                        >
+                          Report Columns
+                        </div>
+                        {["Date", "Activity Details", "Description"].map(
+                          (col) => (
+                            <label
+                              key={col}
+                              style={{
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 8,
+                                padding: "7px 0",
+                                fontSize: 12,
+                                color: F.text1,
+                              }}
+                            >
+                              <input type="checkbox" defaultChecked />
+                              {col}
+                            </label>
+                          ),
+                        )}
+                      </div>
+                    </>
+                  )}
+                </div>
+                <div
+                  style={{
+                    textAlign: "center",
+                    padding: "24px 16px 20px",
+                    borderBottom: `1px solid ${F.border}`,
+                  }}
+                >
+                  <div style={{ fontSize: 12, color: F.text2 }}>{orgName}</div>
+                  <div
+                    style={{
+                      fontSize: 18,
+                      fontWeight: 800,
+                      marginTop: 5,
+                      color: F.text1,
+                    }}
+                  >
+                    Activity Logs
+                  </div>
+                  <div style={{ fontSize: 12, color: F.text3, marginTop: 4 }}>
+                    {periodText()}
+                  </div>
+                </div>
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns:
+                      "170px minmax(220px,1fr) minmax(280px,1.2fr) 130px",
+                    padding: "12px 18px",
+                    background: F.pageBg,
+                    borderBottom: `1px solid ${F.border}`,
+                    fontSize: 11,
+                    fontWeight: 800,
+                    color: F.text1,
+                  }}
+                >
+                  <span>DATE</span>
+                  <span>ACTIVITY DETAILS</span>
+                  <span>DESCRIPTION</span>
+                  <span></span>
+                </div>
+                <div
+                  style={{
+                    maxHeight: "calc(100vh - 490px)",
+                    minHeight: 240,
+                    overflowY: "auto",
+                  }}
+                >
+                  {auditRows.length ? (
+                    auditRows.slice(0, 100).map(({ emp, run, row }, idx) => (
+                      <div
+                        key={`${run.id ?? run.period}-${row.empId}-${idx}`}
+                        style={{
+                          display: "grid",
+                          gridTemplateColumns:
+                            "170px minmax(220px,1fr) minmax(280px,1.2fr) 130px",
+                          padding: "12px 18px",
+                          gap: 8,
+                          alignItems: "center",
+                          borderBottom: `1px solid ${F.border}`,
+                          fontSize: 12.5,
+                          color: F.text1,
+                        }}
+                      >
+                        <span>{auditDate(run)}</span>
+                        <span>
+                          {emp?.name ?? row.empName} ({run.period})
+                        </span>
+                        <span>
+                          {`${emp?.name ?? row.empName} payroll record is available for ${run.period}.`}
+                          <div style={{ color: F.text3, marginTop: 4 }}>
+                            by System Generated
+                          </div>
+                        </span>
+                        <button
+                          onClick={() =>
+                            setSelectedAudit({ emp: emp!, run, row })
+                          }
+                          style={{
+                            border: 0,
+                            background: "transparent",
+                            color: F.brand,
+                            cursor: "pointer",
+                            fontFamily: "inherit",
+                            fontSize: 12.5,
+                            textAlign: "right",
+                          }}
+                        >
+                          Show Versions ›
+                        </button>
+                      </div>
+                    ))
+                  ) : (
+                    <div
+                      style={{
+                        padding: 40,
+                        textAlign: "center",
+                        color: F.text2,
+                      }}
+                    >
+                      No activity records match these filters.
+                    </div>
+                  )}
+                </div>
+                <div
+                  style={{
+                    padding: "14px 18px",
+                    borderTop: `1px solid ${F.border}`,
+                    color: F.text2,
+                    fontSize: 12,
+                  }}
+                >
+                  Total Count: {auditRows.length}
+                  <span style={{ float: "right" }}>
+                    Showing {Math.min(auditRows.length, 100)} records
+                  </span>
+                </div>
+              </div>
+            </>
+          ) : (
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "minmax(0, 1fr) 300px",
+                minHeight: "calc(100vh - 240px)",
+                background: F.card,
+              }}
+            >
+              <div style={{ padding: 24, overflowY: "auto" }}>
+                <div
+                  style={{
+                    maxWidth: 700,
+                    margin: "20px auto",
+                    border: `1px solid ${F.border}`,
+                    borderRadius: 8,
+                    padding: "26px 30px",
+                    boxShadow: "0 2px 6px rgba(15,23,42,.05)",
+                  }}
+                >
+                  <h2
+                    style={{
+                      textAlign: "center",
+                      fontSize: 18,
+                      margin: "0 0 24px",
+                      color: F.text1,
+                    }}
+                  >
+                    {selectedAudit.emp.name.toUpperCase()}'S PAYRUN DETAILS
+                  </h2>
+                  {[
+                    ["Base Days", "26"],
+                    ["Payable Days", "26"],
+                    ["Paid Days", "26"],
+                    ["LOP Days", "0"],
+                    ["Gross Pay", inr(selectedAudit.row.grossSalary)],
+                    ["Net Pay", inr(selectedAudit.row.netSalary)],
+                    ["Payment Mode", "—"],
+                    [
+                      "Payment Status",
+                      isFinalizedPayrun(selectedAudit.run.status)
+                        ? "Paid"
+                        : "Pending",
+                    ],
+                  ].map(([label, value]) => (
+                    <div
+                      key={label}
+                      style={{
+                        display: "grid",
+                        gridTemplateColumns: "240px 1fr",
+                        padding: "10px 0",
+                        fontSize: 13,
+                        color: F.text1,
+                      }}
+                    >
+                      <span style={{ color: F.text2 }}>{label}</span>
+                      <span>{value}</span>
+                    </div>
+                  ))}
+                  <h3
+                    style={{
+                      margin: "24px 0 10px",
+                      fontSize: 17,
+                      color: F.text1,
+                    }}
+                  >
+                    Earnings
+                  </h3>
+                  {[
+                    ["Gross Earnings", inr(selectedAudit.row.totalEarnings)],
+                    ["Basic / Base Pay", inr(selectedAudit.row.grossSalary)],
+                    ["Bonus", inr(selectedAudit.row.bonus ?? 0)],
+                    ["Incentive", inr(selectedAudit.row.incentive ?? 0)],
+                  ].map(([label, value]) => (
+                    <div
+                      key={label}
+                      style={{
+                        display: "grid",
+                        gridTemplateColumns: "240px 1fr",
+                        padding: "9px 0",
+                        fontSize: 13,
+                        color: F.text1,
+                      }}
+                    >
+                      <span style={{ color: F.text2 }}>{label}</span>
+                      <span>{value}</span>
+                    </div>
+                  ))}
+                  <h3
+                    style={{
+                      margin: "24px 0 10px",
+                      fontSize: 17,
+                      color: F.text1,
+                    }}
+                  >
+                    Deductions
+                  </h3>
+                  {[
+                    [
+                      "Total Deductions",
+                      inr(selectedAudit.row.totalDeductions),
+                    ],
+                    ["Income Tax", inr(selectedAudit.row.tds ?? 0)],
+                    ["Professional Tax", inr(selectedAudit.row.profTax ?? 0)],
+                  ].map(([label, value]) => (
+                    <div
+                      key={label}
+                      style={{
+                        display: "grid",
+                        gridTemplateColumns: "240px 1fr",
+                        padding: "9px 0",
+                        fontSize: 13,
+                        color: F.text1,
+                      }}
+                    >
+                      <span style={{ color: F.text2 }}>{label}</span>
+                      <span>{value}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <aside
+                style={{
+                  borderLeft: `1px solid ${F.border}`,
+                  background: "#FBFAFF",
+                }}
+              >
+                <div
+                  style={{
+                    padding: 22,
+                    borderBottom: `1px solid ${F.border}`,
+                    fontSize: 18,
+                    fontWeight: 700,
+                    color: F.text1,
+                  }}
+                >
+                  Versions
+                </div>
+                <div
+                  style={{
+                    padding: 18,
+                    display: "flex",
+                    gap: 12,
+                    alignItems: "center",
+                  }}
+                >
+                  <span
+                    style={{
+                      width: 42,
+                      height: 42,
+                      borderRadius: "50%",
+                      background: "#4D91F7",
+                      color: "white",
+                      display: "grid",
+                      placeItems: "center",
+                      fontWeight: 800,
+                    }}
+                  >
+                    1.0
+                  </span>
+                  <div>
+                    <div
+                      style={{ fontSize: 13, color: F.text1, fontWeight: 700 }}
+                    >
+                      {new Date().toLocaleString()}
+                    </div>
+                    <div
+                      style={{
+                        fontSize: 12,
+                        color: F.text3,
+                        marginTop: 4,
+                        fontWeight: 700,
+                      }}
+                    >
+                      by System Generated
+                    </div>
+                  </div>
+                </div>
+              </aside>
+            </div>
+          )}
+        </div>
+      );
+    }
     const tv = result.type === "table" ? buildTableView(result) : null;
 
     return (
@@ -26364,11 +27149,27 @@ function ReportsView({
               ✚ More Filters
               {draft.criteria.length > 0 ? ` (${draft.criteria.length})` : ""}
             </button>
-            {!showMore && (
-              <Btn variant="success" style={{ height: 32 }} onClick={runNow}>
-                Run Report
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                marginLeft: "auto",
+              }}
+            >
+              <Btn
+                variant="secondary"
+                style={{ height: 32 }}
+                onClick={clearReportFilters}
+              >
+                Clear Filters
               </Btn>
-            )}
+              {!showMore && (
+                <Btn variant="success" style={{ height: 32 }} onClick={runNow}>
+                  Run Report
+                </Btn>
+              )}
+            </div>
           </div>
 
           {/* More filters / criteria */}
@@ -26460,12 +27261,23 @@ function ReportsView({
               >
                 ⊕ Add Criteria
               </button>
-              <div style={{ display: "flex", gap: 8, marginTop: 18 }}>
-                <Btn variant="success" onClick={runNow}>
-                  Run Report
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "flex-end",
+                  alignItems: "center",
+                  gap: 8,
+                  marginTop: 18,
+                }}
+              >
+                <Btn variant="secondary" onClick={clearReportFilters}>
+                  Clear Filters
                 </Btn>
                 <Btn variant="secondary" onClick={cancelMore}>
                   Cancel
+                </Btn>
+                <Btn variant="success" onClick={runNow}>
+                  Run Report
                 </Btn>
               </div>
             </div>
