@@ -684,6 +684,7 @@ interface PayrunInputRow {
   totalEarnings: number
   totalDeductions: number
   netSalary: number
+  skippedReason?: string
 }
 interface Payrun {
   id: string
@@ -18685,6 +18686,10 @@ function PayRunsView({
 
   const [selectedRows, setSelectedRows] = useState<string[]>([])
   const [skippedEmpIds, setSkippedEmpIds] = useState<string[]>([])
+  const [skippedReasons, setSkippedReasons] = useState<Record<string, string>>({})
+  const [skipModalOpen, setSkipModalOpen] = useState(false)
+  const [skipReasonText, setSkipReasonText] = useState("")
+  const [skipReasonError, setSkipReasonError] = useState("")
   const [withheldEmpIds, setWithheldEmpIds] = useState<string[]>([])
   const [showMoreMenu, setShowMoreMenu] = useState<boolean>(false)
   const [showHeaderDotsMenu, setShowHeaderDotsMenu] = useState<boolean>(false)
@@ -19250,11 +19255,46 @@ function PayRunsView({
     toast(`Downloaded TDS worksheets for ${activeRun?.period || "May 2026"}`, "success")
   }
 
-  const handleSkipFromPayroll = () => {
+  const handleOpenSkipModal = () => {
     if (selectedRows.length === 0) return
+    setSkipReasonText("")
+    setSkipReasonError("")
+    setSkipModalOpen(true)
+  }
+
+  const handleConfirmSkip = () => {
+    const trimmedReason = skipReasonText.trim()
+    if (!trimmedReason) {
+      setSkipReasonError("Reason is mandatory to skip employee(s) from payroll")
+      return
+    }
+
     setSkippedEmpIds((prev) => Array.from(new Set([...prev, ...selectedRows])))
+    setSkippedReasons((prev) => {
+      const next = { ...prev }
+      selectedRows.forEach((id) => {
+        next[id] = trimmedReason
+      })
+      return next
+    })
+
+    if (activeRun) {
+      setPayruns((prev) =>
+        prev.map((pr) => {
+          if (pr.id !== activeRun.id) return pr
+          const updatedRows = pr.rows.map((r) =>
+            selectedRows.includes(r.empId)
+              ? { ...r, skippedReason: trimmedReason }
+              : r
+          )
+          return { ...pr, rows: updatedRows }
+        })
+      )
+    }
+
     toast(`Skipped ${selectedRows.length} employee(s) from this payroll`, "info")
     setSelectedRows([])
+    setSkipModalOpen(false)
   }
 
   const handleWithholdSalary = () => {
@@ -19267,6 +19307,26 @@ function PayRunsView({
   const handleAddToPayroll = () => {
     if (selectedRows.length === 0) return
     setSkippedEmpIds((prev) => prev.filter((id) => !selectedRows.includes(id)))
+    setSkippedReasons((prev) => {
+      const next = { ...prev }
+      selectedRows.forEach((id) => {
+        delete next[id]
+      })
+      return next
+    })
+    if (activeRun) {
+      setPayruns((prev) =>
+        prev.map((pr) => {
+          if (pr.id !== activeRun.id) return pr
+          const updatedRows = pr.rows.map((r) =>
+            selectedRows.includes(r.empId)
+              ? { ...r, skippedReason: undefined }
+              : r
+          )
+          return { ...pr, rows: updatedRows }
+        })
+      )
+    }
     setShowMoreMenu(false)
     toast(`Re-added ${selectedRows.length} employee(s) to payroll`, "success")
     setSelectedRows([])
@@ -19938,7 +19998,7 @@ function PayRunsView({
               {selectedRows.length > 0 ? (
                 <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "2px 0", position: "relative" }}>
                   <button
-                    onClick={handleSkipFromPayroll}
+                    onClick={handleOpenSkipModal}
                     style={{
                       background: Z.card,
                       border: `1px solid ${Z.border}`,
@@ -20653,12 +20713,27 @@ function PayRunsView({
                                 />
                               </td>
                               <td style={{ padding: "12px 14px" }}>
-                                <span style={{ fontWeight: 600, color: Z.text1 }}>
-                                  {row.empName}
-                                </span>
-                                <span style={{ color: Z.text3, marginLeft: 6, fontSize: 12 }}>
-                                  ({emp?.id ? `${emp.id}` : email})
-                                </span>
+                                <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 6 }}>
+                                  <span style={{ fontWeight: 600, color: Z.text1 }}>
+                                    {row.empName}
+                                  </span>
+                                  <span style={{ color: Z.text3, fontSize: 12 }}>
+                                    ({emp?.id ? `${emp.id}` : email})
+                                  </span>
+                                  {isSkipped && (
+                                    <span style={{ fontSize: 10, background: "#FEF2F2", color: "#B91C1C", border: "1px solid #FECACA", padding: "1px 6px", borderRadius: 4, fontWeight: 700 }}>
+                                      SKIPPED
+                                    </span>
+                                  )}
+                                </div>
+                                {isSkipped && (
+                                  <div style={{ marginTop: 4, fontSize: 11, color: "#C2410C", display: "flex", alignItems: "center", gap: 4 }}>
+                                    <span style={{ fontWeight: 600, color: "#9A3412" }}>Reason:</span>
+                                    <span style={{ background: "#FFF7ED", border: "1px solid #FFEDD5", padding: "1px 6px", borderRadius: 4 }}>
+                                      {skippedReasons[row.empId] || row.skippedReason || "Skipped from this payroll"}
+                                    </span>
+                                  </div>
+                                )}
                               </td>
                               <td style={{ padding: "12px 14px", textAlign: "right", color: Z.text1 }}>
                                 {paidDays}
@@ -20713,9 +20788,25 @@ function PayRunsView({
                                     Withheld
                                   </span>
                                 ) : isSkipped ? (
-                                  <span style={{ color: "#6b7280", fontWeight: 600 }}>
-                                    Skipped
-                                  </span>
+                                  <div>
+                                    <span style={{ color: "#DC2626", fontWeight: 700, fontSize: 12 }}>
+                                      Skipped
+                                    </span>
+                                    <div
+                                      style={{
+                                        fontSize: 11,
+                                        color: "#64748B",
+                                        marginTop: 2,
+                                        maxWidth: 160,
+                                        overflow: "hidden",
+                                        textOverflow: "ellipsis",
+                                        whiteSpace: "nowrap",
+                                      }}
+                                      title={skippedReasons[row.empId] || row.skippedReason || "Skipped from this payroll"}
+                                    >
+                                      {skippedReasons[row.empId] || row.skippedReason || "Skipped from this payroll"}
+                                    </div>
+                                  </div>
                                 ) : (
                                   <span style={{ color: Z.text1, fontWeight: 500 }}>
                                     Yet To Pay
@@ -20910,21 +21001,31 @@ function PayRunsView({
                                 />
                               </td>
                               <td style={{ padding: "12px 14px" }}>
-                                <span style={{ fontWeight: 600, color: Z.text1 }}>
-                                  {row.empName}
-                                </span>
-                                <span style={{ color: Z.text3, marginLeft: 6, fontSize: 12 }}>
-                                  ({emp?.id ? `${emp.id}` : email})
-                                </span>
+                                <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 6 }}>
+                                  <span style={{ fontWeight: 600, color: Z.text1 }}>
+                                    {row.empName}
+                                  </span>
+                                  <span style={{ color: Z.text3, fontSize: 12 }}>
+                                    ({emp?.id ? `${emp.id}` : email})
+                                  </span>
+                                  {isSkipped && (
+                                    <span style={{ fontSize: 10, background: "#FEF2F2", color: "#B91C1C", border: "1px solid #FECACA", padding: "1px 6px", borderRadius: 4, fontWeight: 700 }}>
+                                      SKIPPED
+                                    </span>
+                                  )}
+                                  {isWithheld && (
+                                    <span style={{ fontSize: 10, background: Z.warningBg, color: Z.warning, padding: "1px 6px", borderRadius: 3, fontWeight: 700 }}>
+                                      WITHHELD
+                                    </span>
+                                  )}
+                                </div>
                                 {isSkipped && (
-                                  <span style={{ marginLeft: 8, fontSize: 10, background: "#F0F2F4", color: Z.text3, padding: "1px 6px", borderRadius: 3, fontWeight: 700 }}>
-                                    SKIPPED
-                                  </span>
-                                )}
-                                {isWithheld && (
-                                  <span style={{ marginLeft: 8, fontSize: 10, background: Z.warningBg, color: Z.warning, padding: "1px 6px", borderRadius: 3, fontWeight: 700 }}>
-                                    WITHHELD
-                                  </span>
+                                  <div style={{ marginTop: 4, fontSize: 11, color: "#C2410C", display: "flex", alignItems: "center", gap: 4 }}>
+                                    <span style={{ fontWeight: 600, color: "#9A3412" }}>Reason:</span>
+                                    <span style={{ background: "#FFF7ED", border: "1px solid #FFEDD5", padding: "1px 6px", borderRadius: 4 }}>
+                                      {skippedReasons[row.empId] || row.skippedReason || "Skipped from this payroll"}
+                                    </span>
+                                  </div>
                                 )}
                               </td>
                               <td style={{ padding: "12px 14px", textAlign: "right", color: Z.text1 }}>
@@ -22489,6 +22590,251 @@ function PayRunsView({
               </div>
               <div style={{ padding: "12px 20px", borderTop: `1px solid ${Z.border}`, display: "flex", justifyContent: "flex-end" }}>
                 <button onClick={() => setViewingTdsRow(null)} style={{ background: Z.brand, color: "#fff", border: "none", borderRadius: 6, padding: "7px 18px", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>Close</button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── SKIP FROM PAYROLL CONFIRMATION MODAL WITH MANDATORY REASON ── */}
+        {skipModalOpen && (
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="skip-payroll-modal-title"
+            style={{
+              position: "fixed",
+              inset: 0,
+              zIndex: 10000,
+              background: "rgba(15, 23, 42, 0.55)",
+              backdropFilter: "blur(2px)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              padding: 16,
+            }}
+            onClick={() => setSkipModalOpen(false)}
+          >
+            <div
+              style={{
+                background: "#FFFFFF",
+                borderRadius: 10,
+                boxShadow: "0 20px 40px rgba(15, 23, 42, 0.2)",
+                width: "min(520px, 95vw)",
+                overflow: "hidden",
+                border: "1px solid #E2E8F0",
+                animation: "fadeIn 0.15s ease-out",
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Modal Header */}
+              <div
+                style={{
+                  padding: "18px 24px",
+                  borderBottom: "1px solid #E2E8F0",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  background: "#FAFBFD",
+                }}
+              >
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <div
+                    style={{
+                      width: 36,
+                      height: 36,
+                      borderRadius: 8,
+                      background: "#FEE2E2",
+                      color: "#DC2626",
+                      display: "grid",
+                      placeItems: "center",
+                      flexShrink: 0,
+                    }}
+                  >
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                      <circle cx="12" cy="12" r="10" />
+                      <line x1="4.93" y1="4.93" x2="19.07" y2="19.07" />
+                    </svg>
+                  </div>
+                  <div>
+                    <h3
+                      id="skip-payroll-modal-title"
+                      style={{ margin: 0, fontSize: 16, fontWeight: 700, color: "#1E293B" }}
+                    >
+                      Skip from this Payroll
+                    </h3>
+                    <p style={{ margin: "2px 0 0", fontSize: 12, color: "#64748B" }}>
+                      Exclude selected employee(s) from {activeRun?.period || "this pay run"}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  aria-label="Close dialog"
+                  onClick={() => setSkipModalOpen(false)}
+                  style={{
+                    border: "none",
+                    background: "transparent",
+                    color: "#94A3B8",
+                    cursor: "pointer",
+                    fontSize: 22,
+                    lineHeight: 1,
+                    padding: 4,
+                  }}
+                >
+                  &times;
+                </button>
+              </div>
+
+              {/* Modal Body */}
+              <div style={{ padding: "20px 24px", display: "flex", flexDirection: "column", gap: 16 }}>
+                {/* Employee Info Box */}
+                <div
+                  style={{
+                    background: "#F8FAFC",
+                    border: "1px solid #E2E8F0",
+                    borderRadius: 6,
+                    padding: "10px 14px",
+                    fontSize: 13,
+                    color: "#334155",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 8,
+                  }}
+                >
+                  <span style={{ fontSize: 16 }}>ℹ️</span>
+                  <div>
+                    <strong style={{ color: "#0F172A" }}>
+                      {selectedRows.length === 1
+                        ? calculationRows.find((r) => r.empId === selectedRows[0])?.empName || "1 Employee"
+                        : `${selectedRows.length} Employees Selected`}
+                    </strong>{" "}
+                    will be skipped and will not receive salary payout for this period.
+                  </div>
+                </div>
+
+                {/* Reason Input Field */}
+                <div>
+                  <label
+                    htmlFor="skip-payroll-reason-input"
+                    style={{
+                      display: "block",
+                      fontSize: 13,
+                      fontWeight: 600,
+                      color: "#1E293B",
+                      marginBottom: 6,
+                    }}
+                  >
+                    Reason for Skipping <span style={{ color: "#DC2626" }}>*</span>
+                  </label>
+
+                  {/* Preset Shortcut Buttons */}
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 8 }}>
+                    {[
+                      "Unpaid Leave / LOP",
+                      "Notice Period",
+                      "Attendance Dispute",
+                      "Audit Hold",
+                      "Settlement Outside Payroll",
+                    ].map((preset) => (
+                      <button
+                        key={preset}
+                        type="button"
+                        onClick={() => {
+                          setSkipReasonText(preset)
+                          setSkipReasonError("")
+                        }}
+                        style={{
+                          background: skipReasonText === preset ? "#EFF6FF" : "#FFFFFF",
+                          border: `1px solid ${skipReasonText === preset ? "#3B82F6" : "#E2E8F0"}`,
+                          color: skipReasonText === preset ? "#1D4ED8" : "#475569",
+                          borderRadius: 14,
+                          padding: "3px 10px",
+                          fontSize: 11,
+                          fontWeight: 500,
+                          cursor: "pointer",
+                          transition: "all 0.1s",
+                        }}
+                      >
+                        {preset}
+                      </button>
+                    ))}
+                  </div>
+
+                  <textarea
+                    id="skip-payroll-reason-input"
+                    rows={3}
+                    autoFocus
+                    placeholder="Enter the mandatory reason for skipping (e.g. Employee on extended leave without pay or pending attendance clearance)..."
+                    value={skipReasonText}
+                    onChange={(e) => {
+                      setSkipReasonText(e.target.value)
+                      if (e.target.value.trim()) setSkipReasonError("")
+                    }}
+                    style={{
+                      width: "100%",
+                      boxSizing: "border-box",
+                      border: `1px solid ${skipReasonError ? "#DC2626" : "#CBD5E1"}`,
+                      borderRadius: 6,
+                      padding: "10px 12px",
+                      fontSize: 13,
+                      fontFamily: "inherit",
+                      outline: "none",
+                      resize: "vertical",
+                      minHeight: 76,
+                    }}
+                  />
+                  {skipReasonError && (
+                    <div role="alert" style={{ color: "#DC2626", fontSize: 12, marginTop: 5, fontWeight: 500 }}>
+                      ⚠️ {skipReasonError}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Modal Footer */}
+              <div
+                style={{
+                  padding: "14px 24px",
+                  borderTop: "1px solid #E2E8F0",
+                  background: "#FAFBFD",
+                  display: "flex",
+                  justifyContent: "flex-end",
+                  gap: 10,
+                }}
+              >
+                <button
+                  type="button"
+                  onClick={() => setSkipModalOpen(false)}
+                  style={{
+                    background: "#FFFFFF",
+                    border: "1px solid #CBD5E1",
+                    color: "#475569",
+                    borderRadius: 6,
+                    padding: "8px 16px",
+                    fontSize: 13,
+                    fontWeight: 500,
+                    cursor: "pointer",
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleConfirmSkip}
+                  style={{
+                    background: "#DC2626",
+                    border: "none",
+                    color: "#FFFFFF",
+                    borderRadius: 6,
+                    padding: "8px 18px",
+                    fontSize: 13,
+                    fontWeight: 600,
+                    cursor: "pointer",
+                    boxShadow: "0 1px 2px rgba(220, 38, 38, 0.2)",
+                  }}
+                >
+                  Skip from Payroll
+                </button>
               </div>
             </div>
           </div>
