@@ -223,6 +223,52 @@ export function defaultRoles(): AccessRole[] {
         "approvals.option.0": true,
       },
     },
+    {
+      id: "payroll-specialist",
+      name: "Payroll Specialist",
+      description: "Manage payroll runs, salary calculations, tax worksheets, and payment recording.",
+      builtin: false,
+      permissions: {
+        ...Object.fromEntries(allKeys.filter(k => k.startsWith("payroll.") || k.startsWith("salary.") || k.startsWith("reports.")).map(k => [k, true])),
+        "approvals.reimbursements.View": true,
+      },
+    },
+    {
+      id: "hr-operations",
+      name: "HR Operations",
+      description: "Employee onboarding, leave management, directory maintenance, and policy documents.",
+      builtin: false,
+      permissions: {
+        ...Object.fromEntries(allKeys.filter(k => k.startsWith("employee.") || k.startsWith("documents.")).map(k => [k, true])),
+        "approvals.reimbursements.View": true,
+      },
+    },
+    {
+      id: "compliance-officer",
+      name: "Statutory Compliance Officer",
+      description: "Access to EPF, ESIC, TDS returns, Form 16 registers, and government compliance filings.",
+      builtin: false,
+      permissions: {
+        ...Object.fromEntries(allKeys.filter(k => k.startsWith("reports.") || k.startsWith("documents.")).map(k => [k, true])),
+        "payroll.run.View": true,
+      },
+    },
+    {
+      id: "team-lead",
+      name: "Department Team Lead",
+      description: "Approve team attendance, loss-of-pay adjustments, and view team payroll reports.",
+      builtin: false,
+      permissions: {
+        "employee.basic.View": true,
+        "employee.attendance.View": true,
+        "employee.attendance.Edit": true,
+        "employee.leave.View": true,
+        "employee.leave.Approve": true,
+        "approvals.reimbursements.View": true,
+        "approvals.reimbursements.Approve": true,
+        "reports.Payroll Overview.View": true,
+      },
+    },
   ]
 }
 export const ROLE_STORAGE = "naxpayroll.access.roles.v1"

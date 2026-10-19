@@ -372,6 +372,8 @@ export default function AccessUsers({
   const [searchQuery, setSearchQuery] = useState("")
   const [roleFilter, setRoleFilter] = useState("All Roles")
   const [statusFilter, setStatusFilter] = useState("All Statuses")
+  const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(25)
   const previewDialog = useRef<HTMLDialogElement>(null)
   const adminDialog = useRef<HTMLDialogElement>(null)
 
@@ -420,6 +422,7 @@ export default function AccessUsers({
     roleFilter !== "All Roles" ||
     statusFilter !== "All Statuses"
   const clearFilters = () => {
+    setPage(1)
     setSearchQuery("")
     setRoleFilter("All Roles")
     setStatusFilter("All Statuses")
@@ -652,7 +655,7 @@ export default function AccessUsers({
           <div className="access-invite-preview">
             <div className="access-preview-brand">
               <AccessIcon name="mail" size={22} />
-              <strong>Naxpayroll</strong>
+              <strong>NaxPayroll</strong>
             </div>
             <p>Hello {draft.name.trim() || "there"},</p>
             <p>
@@ -766,7 +769,7 @@ export default function AccessUsers({
             </tr>
           </thead>
           <tbody>
-            {sortedUsers.map((user, index) => (
+            {sortedUsers.slice((page - 1) * pageSize, page * pageSize).map((user, index) => (
               <tr key={user.id}>
                 <td>
                   <div className={`access-avatar access-avatar-${index % 5}`}>
@@ -855,6 +858,47 @@ export default function AccessUsers({
           </tbody>
         </table>
       </div>
+
+      {sortedUsers.length > pageSize && (
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 18px", background: "#fff", border: "1px solid #E2E8F0", borderRadius: "0 0 8px 8px", borderTop: "none", fontSize: 13, color: "#64748B" }}>
+          <span>
+            Showing {Math.min((page - 1) * pageSize + 1, sortedUsers.length)}–{Math.min(page * pageSize, sortedUsers.length)} of {sortedUsers.length} users
+          </span>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <label style={{ fontSize: 12, color: "#64748B", display: "flex", alignItems: "center", gap: 6 }}>
+              Per page:
+              <select
+                value={pageSize}
+                onChange={(e) => { setPageSize(Number(e.target.value)); setPage(1); }}
+                style={{ padding: "4px 8px", borderRadius: 4, border: "1px solid #CBD5E1", fontSize: 12, background: "#fff" }}
+              >
+                <option value={10}>10</option>
+                <option value={25}>25</option>
+                <option value={50}>50</option>
+                <option value={100}>100</option>
+                <option value={500}>All</option>
+              </select>
+            </label>
+            <button
+              disabled={page === 1}
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              style={{ padding: "5px 12px", borderRadius: 4, border: "1px solid #CBD5E1", background: page === 1 ? "#F1F5F9" : "#fff", color: page === 1 ? "#94A3B8" : "#334155", cursor: page === 1 ? "not-allowed" : "pointer", fontSize: 12, fontWeight: 600 }}
+            >
+              Previous
+            </button>
+            <span style={{ fontSize: 12, fontWeight: 700, color: "#1E293B" }}>
+              Page {page} of {Math.ceil(sortedUsers.length / pageSize)}
+            </span>
+            <button
+              disabled={page >= Math.ceil(sortedUsers.length / pageSize)}
+              onClick={() => setPage((p) => p + 1)}
+              style={{ padding: "5px 12px", borderRadius: 4, border: "1px solid #CBD5E1", background: page >= Math.ceil(sortedUsers.length / pageSize) ? "#F1F5F9" : "#fff", color: page >= Math.ceil(sortedUsers.length / pageSize) ? "#94A3B8" : "#334155", cursor: page >= Math.ceil(sortedUsers.length / pageSize) ? "not-allowed" : "pointer", fontSize: 12, fontWeight: 600 }}
+            >
+              Next
+            </button>
+          </div>
+        </div>
+      )}
 
       <dialog
         className="access-dialog"
