@@ -58,6 +58,14 @@ import AccessUsers from "./AccessUsers"
 import type { AccessUser } from "./AccessUsers"
 import { loadRoles, ROLE_STORAGE, USER_STORAGE } from "./access-permissions"
 import type { AccessRole } from "./access-permissions"
+import Loans, { readLoans } from "./Loans"
+import type { Loan } from "./Loans"
+import LoanIllustration from "./LoanIllustration"
+import ApprovalsNav, {
+  ApprovalsView,
+  APPROVALS_NAV_ITEMS,
+  isApprovalView,
+} from "./approvals"
 
 
 const F = {
@@ -6398,12 +6406,14 @@ function EmployeeDetailPage({
   emps,
   setEmps,
   onBack,
+  onNavigateToCreateLoan,
 }: {
   emp: Employee
   ss: SalaryStructure[]
   emps: Employee[]
   setEmps: React.Dispatch<React.SetStateAction<Employee[]>>
   onBack: () => void
+  onNavigateToCreateLoan?: (employeeId?: string) => void
 }) {
   const toast = useToast()
   const [editing, setEditing] = useState(false)
@@ -6742,6 +6752,10 @@ function EmployeeDetailPage({
   ])
   const [editingInvestments, setEditingInvestments] = useState(false)
   const [loanRows, setLoanRows] = useState([{ type: "Salary advance", principal: 0, outstanding: 0, installment: 0, status: "No active loan" }])
+  const [empLoans, setEmpLoans] = useState<Loan[]>(() => readLoans().filter((loan) => loan.employeeId === emp.id))
+  useEffect(() => {
+    if (activeTab === "loans") setEmpLoans(readLoans().filter((loan) => loan.employeeId === emp.id))
+  }, [activeTab, emp.id])
   const [editingLoans, setEditingLoans] = useState(false)
   const [editingStatutory, setEditingStatutory] = useState(false)
   const [editingPersonal, setEditingPersonal] = useState(false)
@@ -9100,51 +9114,28 @@ function EmployeeDetailPage({
       )}
 
       {activeTab === "loans" && (
-        <div
-          style={{
-            background: F.card,
-            border: `1px solid ${F.border}`,
-            borderRadius: 10,
-            padding: "80px 24px",
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            justifyContent: "center",
-            minHeight: 380,
-            textAlign: "center",
-          }}
-        >
-          <div
-            style={{
-              fontSize: 22,
-              fontWeight: 500,
-              color: "#111827",
-              marginBottom: 24,
-            }}
-          >
-            This employee hasn't taken any loans yet.
+        empLoans.length === 0 ? (
+          <div style={{ background: F.card, border: "1px solid #D5DADD", borderRadius: 8, padding: "60px 24px 70px", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: 380, textAlign: "center" }}>
+            <LoanIllustration width={250} height={155} />
+            <div style={{ fontSize: 14, fontWeight: 500, color: "#374151", marginTop: 18, marginBottom: 20 }}>This employee hasn't taken any loans yet.</div>
+            <button type="button" onClick={() => onNavigateToCreateLoan ? onNavigateToCreateLoan(emp.id) : toast("Redirecting to Create Loan page...", "info")} style={{ background: "#1E293B", color: "#FFFFFF", border: "none", borderRadius: 6, padding: "9px 22px", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>Create Loan</button>
           </div>
-          <button
-            type="button"
-            onClick={() => toast("Redirecting to Create Loan page...", "info")}
-            style={{
-              background: "#3B82F6",
-              color: "#FFFFFF",
-              border: "none",
-              borderRadius: 8,
-              padding: "10px 24px",
-              fontSize: 15,
-              fontWeight: 600,
-              cursor: "pointer",
-              transition: "background 0.2s",
-              boxShadow: "0 1px 2px rgba(0,0,0,0.05)",
-            }}
-            onMouseOver={(e) => (e.currentTarget.style.background = "#2563EB")}
-            onMouseOut={(e) => (e.currentTarget.style.background = "#3B82F6")}
-          >
-            Create Loan
-          </button>
-        </div>
+        ) : (
+          <div style={{ background: F.card, border: "1px solid #D5DADD", borderRadius: 8, padding: 20 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+              <div><h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: F.text1 }}>Active Loans</h3><p style={{ margin: "4px 0 0", fontSize: 12, color: F.text2 }}>Loans and salary advances availed by this employee.</p></div>
+              <button type="button" onClick={() => onNavigateToCreateLoan ? onNavigateToCreateLoan(emp.id) : toast("Redirecting to Create Loan page...", "info")} style={{ background: "#1E293B", color: "#FFFFFF", border: "none", borderRadius: 6, padding: "8px 18px", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>+ Create Loan</button>
+            </div>
+            <div style={{ overflowX: "auto" }}><table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13, minWidth: 640 }}>
+              <thead><tr style={{ borderBottom: "1px solid #D5DADD", background: "#F8FAFC" }}>
+                <th style={{ padding: "10px 14px", textAlign: "left", color: F.text2, fontSize: 11, fontWeight: 700 }}>LOAN NAME</th><th style={{ padding: "10px 14px", textAlign: "left", color: F.text2, fontSize: 11, fontWeight: 700 }}>TYPE</th><th style={{ padding: "10px 14px", textAlign: "right", color: F.text2, fontSize: 11, fontWeight: 700 }}>LOAN AMOUNT</th><th style={{ padding: "10px 14px", textAlign: "right", color: F.text2, fontSize: 11, fontWeight: 700 }}>OUTSTANDING</th><th style={{ padding: "10px 14px", textAlign: "center", color: F.text2, fontSize: 11, fontWeight: 700 }}>STATUS</th>
+              </tr></thead>
+              <tbody>{empLoans.map((loan) => <tr key={loan.id} style={{ borderBottom: "1px solid #EDF0F2" }}>
+                <td style={{ padding: "12px 14px", fontWeight: 600 }}>{loan.name}</td><td style={{ padding: "12px 14px", color: F.text2 }}>{loan.type}</td><td style={{ padding: "12px 14px", textAlign: "right" }}>{inr(loan.amount)}</td><td style={{ padding: "12px 14px", textAlign: "right", fontWeight: 600 }}>{inr(loan.outstanding)}</td><td style={{ padding: "12px 14px", textAlign: "center" }}><span style={{ padding: "3px 8px", borderRadius: 12, fontSize: 11, background: loan.status === "Open" ? "#F5FAE5" : "#FFF8D6", color: loan.status === "Open" ? "#188918" : "#E76500" }}>{loan.status}</span></td>
+              </tr>)}</tbody>
+            </table></div>
+          </div>
+        )
       )}
 
       {activeTab === "history" && (
@@ -13374,10 +13365,16 @@ function EmployeesView({
   emps,
   setEmps,
   ss,
+  openEmployeeId,
+  onEmployeeProfileOpened,
+  onNavigateToCreateLoan,
 }: {
   emps: Employee[]
   setEmps: React.Dispatch<React.SetStateAction<Employee[]>>
   ss: SalaryStructure[]
+  openEmployeeId?: string | null
+  onEmployeeProfileOpened?: () => void
+  onNavigateToCreateLoan?: (employeeId?: string) => void
 }) {
   const toast = useToast()
   const [search, setSearch] = useState("")
@@ -13636,6 +13633,14 @@ function EmployeesView({
     setSubPage({ type: "detail", emp: currentEmployee })
   }
 
+  useEffect(() => {
+    if (!openEmployeeId) return
+    const employee = emps.find((item) => item.id === openEmployeeId)
+    if (!employee) return
+    openEmployeeDetail(employee)
+    onEmployeeProfileOpened?.()
+  }, [openEmployeeId, emps])
+
   // When employee list changes, refresh the selected employee if viewing detail
   const selEmp =
     subPage?.type === "detail"
@@ -13676,6 +13681,7 @@ function EmployeesView({
         emps={emps}
         setEmps={setEmps}
         onBack={() => setSubPage(null)}
+        onNavigateToCreateLoan={onNavigateToCreateLoan}
       />
     )
 
@@ -34104,6 +34110,13 @@ function NavIcon({ id }: { id: string }) {
         <polyline points="10 9 9 9 8 9" />
       </svg>
     )
+  if (id === "loans")
+    return (
+      <svg style={s} viewBox="0 0 24 24" aria-hidden="true">
+        <circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" strokeWidth="1.8" />
+        <text x="12" y="16" textAnchor="middle" fill="currentColor" fontFamily="Arial, sans-serif" fontSize="12" fontWeight="600">&#8377;</text>
+      </svg>
+    )
   if (id === "reports")
     return (
       <svg style={s} viewBox="0 0 24 24" {...p}>
@@ -34198,6 +34211,7 @@ const ORG_NAV = [
   { id: "salary", label: "Salary Management" },
   { id: "payruns", label: "Payroll / Pay Runs" },
   { id: "payslips", label: "Payslips" },
+  { id: "loans", label: "Loans" },
   { id: "documents", label: "Documents" },
   { id: "reports", label: "Reports" },
   { id: "access", label: "Access Management" },
@@ -34221,7 +34235,7 @@ const EMP_NAV = [
 const MY_EMP_ID = "EMP-001"
 function navLabelForView(id: string) {
   return (
-    [...ORG_NAV, ...PROD_NAV, ...EMP_NAV].find((item) => item.id === id)?.label ??
+    [...ORG_NAV, ...PROD_NAV, ...EMP_NAV, ...APPROVALS_NAV_ITEMS].find((item) => item.id === id)?.label ??
     id
   )
 }
@@ -45054,6 +45068,10 @@ export default function App() {
   const [adminViewBeforePortal, setAdminViewBeforePortal] = useState("dashboard")
   const [persona, setPersona] = useState<Persona>("org_admin")
   const [view, setView] = useState("dashboard")
+  const [loanEmployeeProfileId, setLoanEmployeeProfileId] = useState<string | null>(null)
+  const [createLoanEmployeeId, setCreateLoanEmployeeId] = useState<string | null>(null)
+  const [openCreateLoan, setOpenCreateLoan] = useState(false)
+  const [settingsInitialTab, setSettingsInitialTab] = useState<string | null>(null)
   const [activeDocumentsTab, setActiveDocumentsTab] = useState<"organization" | "employee">("organization")
   const [employeeDocumentSearch, setEmployeeDocumentSearch] = useState("")
   const [rangeFrom, setRangeFrom] = useState("")
@@ -45576,64 +45594,76 @@ export default function App() {
             {nav.map((item) => {
               const active = view === item.id || (item.id === "payruns" && view === "history")
               return (
-                <div
-                  key={item.id}
-                  title={!sidebarOpen ? item.label : undefined}
-                  style={{ position: "relative" }}
-                >
-                  <button
-                    className={`sap-nav-item${active ? " is-active" : ""}`}
-                    onClick={() => {
-                      if (item.id === "settings") setSettingsSelectedId(null)
-                      setView(item.id)
-                    }}
-                    title={item.label}
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 12,
-                      padding: sidebarOpen ? "10px 16px" : "11px 0",
-                      justifyContent: sidebarOpen ? "flex-start" : "center",
-                      background: active ? F.highlight : "transparent",
-                      border: "none",
-                      borderLeft: `3px solid ${
-                        active ? F.brand : "transparent"
-                      }`,
-                      cursor: "pointer",
-                      color: active ? F.brandHover : F.text2,
-                      textAlign: "left",
-                      fontSize: 13,
-                      fontWeight: active ? 600 : 400,
-                      width: "100%",
-                      fontFamily: "inherit",
-                      transition: "all 0.12s ease",
-                      whiteSpace: "nowrap",
-                      overflow: "hidden",
-                    }}
-                    onMouseEnter={(e) => {
-                      if (!active)
-                        e.currentTarget.style.background =
-                            F.pageBg
-                    }}
-                    onMouseLeave={(e) => {
-                      if (!active)
-                        e.currentTarget.style.background = "transparent"
-                    }}
+                <Fragment key={item.id}>
+                  <div
+                    title={!sidebarOpen ? item.label : undefined}
+                    style={{ position: "relative" }}
                   >
-                    <NavIcon id={item.id} />
-                    {sidebarOpen && (
-                      <span
-                        style={{
-                          overflow: "hidden",
-                          textOverflow: "ellipsis",
-                          whiteSpace: "nowrap",
-                        }}
-                      >
-                        {item.label}
-                      </span>
-                    )}
-                  </button>
-                </div>
+                    <button
+                      className={`sap-nav-item${active ? " is-active" : ""}`}
+                      onClick={() => {
+                        if (item.id === "settings") setSettingsSelectedId(null)
+                        if (item.id === "loans") {
+                          setOpenCreateLoan(false)
+                          setCreateLoanEmployeeId(null)
+                        }
+                        setView(item.id)
+                      }}
+                      title={item.label}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 12,
+                        padding: sidebarOpen ? "10px 16px" : "11px 0",
+                        justifyContent: sidebarOpen ? "flex-start" : "center",
+                        background: active ? F.highlight : "transparent",
+                        border: "none",
+                        borderLeft: `3px solid ${
+                          active ? F.brand : "transparent"
+                        }`,
+                        cursor: "pointer",
+                        color: active ? F.brandHover : F.text2,
+                        textAlign: "left",
+                        fontSize: 13,
+                        fontWeight: active ? 600 : 400,
+                        width: "100%",
+                        fontFamily: "inherit",
+                        transition: "all 0.12s ease",
+                        whiteSpace: "nowrap",
+                        overflow: "hidden",
+                      }}
+                      onMouseEnter={(e) => {
+                        if (!active)
+                          e.currentTarget.style.background =
+                              F.pageBg
+                      }}
+                      onMouseLeave={(e) => {
+                        if (!active)
+                          e.currentTarget.style.background = "transparent"
+                      }}
+                    >
+                      <NavIcon id={item.id} />
+                      {sidebarOpen && (
+                        <span
+                          style={{
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                            whiteSpace: "nowrap",
+                          }}
+                        >
+                          {item.label}
+                        </span>
+                      )}
+                    </button>
+                  </div>
+                  {item.id === "payruns" && persona === "org_admin" && (
+                    <ApprovalsNav
+                      currentView={view}
+                      onNavigate={setView}
+                      sidebarOpen={sidebarOpen}
+                    />
+                  )}
+                </Fragment>
               )
             })}
             <div style={{ flex: 1 }} />
@@ -45694,7 +45724,18 @@ export default function App() {
                       />
                     )}
                     {view === "employees" && (
-                      <EmployeesView emps={orgEmps} setEmps={setEmps} ss={ss} />
+                      <EmployeesView
+                        emps={orgEmps}
+                        setEmps={setEmps}
+                        ss={ss}
+                        openEmployeeId={loanEmployeeProfileId}
+                        onEmployeeProfileOpened={() => setLoanEmployeeProfileId(null)}
+                        onNavigateToCreateLoan={(employeeId) => {
+                          setCreateLoanEmployeeId(employeeId ?? null)
+                          setOpenCreateLoan(true)
+                          setView("loans")
+                        }}
+                      />
                     )}
                     {view === "salary" && (
                       <SalaryManagementView
@@ -45713,8 +45754,35 @@ export default function App() {
                         setPayruns={setPayruns}
                       />
                     )}
+                    {isApprovalView(view) && (
+                      <ApprovalsView
+                        type={view}
+                        onNavigate={setView}
+                        emps={orgEmps}
+                        onOpenSettings={(moduleId, tab) => {
+                          setSettingsSelectedId(moduleId)
+                          setSettingsInitialTab(tab ?? null)
+                          setView("settings")
+                        }}
+                      />
+                    )}
                     {view === "payslips" && (
                       <PayslipsView emps={orgEmps} payruns={orgPayruns} />
+                    )}
+                    {view === "loans" && (
+                      <Loans
+                        employees={orgEmps.map(({ id, name }) => ({ id, name }))}
+                        onOpenEmployee={(employeeId) => {
+                          setLoanEmployeeProfileId(employeeId)
+                          setView("employees")
+                        }}
+                        initialOpenCreate={openCreateLoan}
+                        initialCreateEmployeeId={createLoanEmployeeId}
+                        onCloseCreate={() => {
+                          setOpenCreateLoan(false)
+                          setCreateLoanEmployeeId(null)
+                        }}
+                      />
                     )}
                     {view === "documents" && (
                       <OrgDocumentsView
