@@ -24803,6 +24803,22 @@ const REPORTS: RptDef[] = [
     handlesEmpty: true,
     build: () => ({ type: "message", text: "Activity history" }),
   },
+  {
+    id: "scheduled_date_workflow_rules",
+    name: "Scheduled Date Based Workflow Rules",
+    category: "Automation",
+    filter: "range",
+    handlesEmpty: true,
+    build: () => ({ type: "message", text: "No scheduled date based workflow rules for the selected period." }),
+  },
+  {
+    id: "scheduled_time_workflow_actions",
+    name: "Scheduled Time Based Workflow Actions",
+    category: "Automation",
+    filter: "range",
+    handlesEmpty: true,
+    build: () => ({ type: "message", text: "No scheduled time based workflow actions for the selected period." }),
+  },
   // ── Payroll Overview ──
   {
     id: "payroll_summary",
@@ -25600,6 +25616,15 @@ function ReportsView({
   const [scheduleRecipients, setScheduleRecipients] = useState("");
   const [scheduleAdditional, setScheduleAdditional] = useState("");
   const [scheduleFormat, setScheduleFormat] = useState("PDF");
+  const weekStart = (() => { const d = new Date(); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() - d.getDay()); return d; })();
+  const weekEnd = (() => { const d = new Date(weekStart); d.setDate(d.getDate() + 6); return d; })();
+  const [automationFrom, setAutomationFrom] = useState(rptDate(weekStart).split("/").reverse().join("-"));
+  const [automationTo, setAutomationTo] = useState(rptDate(weekEnd).split("/").reverse().join("-"));
+  const [automationEntity, setAutomationEntity] = useState("Employee");
+  const [automationRule, setAutomationRule] = useState("");
+  const [automationRan, setAutomationRan] = useState(false);
+  const [automationColumnsOpen, setAutomationColumnsOpen] = useState(false);
+  const [automationHiddenColumns, setAutomationHiddenColumns] = useState<Record<string, string[]>>({});
 
   const def = REPORTS.find((r) => r.id === activeId) ?? null;
 
@@ -25611,6 +25636,8 @@ function ReportsView({
     setShowMore(false);
     setShowCols(false);
     setShowExport(false);
+    setAutomationRan(false);
+    setAutomationColumnsOpen(false);
     setGroupBy("none");
     setHiddenCols([]);
     const stamp = new Date()
@@ -25903,6 +25930,64 @@ function ReportsView({
 
   // ═════════════ REPORT VIEW ═════════════
   if (def && result) {
+    if (def.id === "scheduled_date_workflow_rules" || def.id === "scheduled_time_workflow_actions") {
+      const isDateRules = def.id === "scheduled_date_workflow_rules";
+      const allColumns = isDateRules
+        ? ["Execution Date", "Time", "Workflow", "Record Name"]
+        : ["Execution Date", "Time", "Action Type", "Action Name", "Workflow", "Record Name"];
+      const hidden = automationHiddenColumns[def.id] ?? [];
+      const visibleColumns = allColumns.filter((column) => !hidden.includes(column));
+      const displayDate = (value: string) => {
+        if (!value) return "";
+        const parts = value.split("-");
+        return parts.length === 3 ? `${parts[2]}/${parts[1]}/${parts[0]}` : value;
+      };
+      return (
+        <div style={{ background: F.pageBg, minHeight: "100%", paddingBottom: 20 }}>
+          <div style={{ background: F.card, padding: "14px 20px", display: "flex", alignItems: "center", gap: 12, borderBottom: `1px solid ${F.border}` }}>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 11, color: F.brand }}>Automation</div>
+              <div style={{ fontSize: 18, fontWeight: 800, color: F.text1 }}>{def.name} <span style={{ fontSize: 12, fontWeight: 400, color: F.text2 }}>• From {displayDate(automationFrom)} To {displayDate(automationTo)}</span></div>
+            </div>
+            <button type="button" title="Run history" onClick={() => toast("Showing scheduled workflow report history", "info")} style={{ width: 42, height: 42, border: `1px solid ${F.border}`, borderRadius: 7, background: F.pageBg, color: F.text2, cursor: "pointer", fontSize: 19 }}>◷</button>
+            <button type="button" aria-label="Close report" onClick={closeReport} style={{ border: 0, background: "transparent", color: F.error, fontSize: 24, cursor: "pointer", marginLeft: 8 }}>×</button>
+          </div>
+          <div style={{ background: F.card, padding: "10px 20px", display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", borderBottom: `1px solid ${F.border}` }}>
+            <span style={{ fontSize: 14, color: F.text2, fontWeight: 700, whiteSpace: "nowrap" }}>▽ Filters :</span>
+            <label style={{ display: "flex", alignItems: "center", gap: 8, border: `1px solid ${F.border}`, borderRadius: 7, padding: "8px 12px", background: F.pageBg, minHeight: 44 }}>
+              <span style={{ fontSize: 13, color: F.text1, whiteSpace: "nowrap" }}>Date Range:</span>
+              <input aria-label="From date" type="date" value={automationFrom} onChange={(e) => setAutomationFrom(e.target.value)} style={{ border: 0, background: "transparent", color: F.text1, font: "inherit", minWidth: 120 }} />
+              <span style={{ color: F.text3 }}>to</span>
+              <input aria-label="To date" type="date" value={automationTo} min={automationFrom || undefined} onChange={(e) => setAutomationTo(e.target.value)} style={{ border: 0, background: "transparent", color: F.text1, font: "inherit", minWidth: 120 }} />
+            </label>
+            <label style={{ display: "flex", alignItems: "center", gap: 8, border: `1px solid ${F.border}`, borderRadius: 7, padding: "0 12px", height: 44, background: F.pageBg }}>
+              <span style={{ fontSize: 13, color: F.text1 }}>Entity:</span>
+              <select aria-label="Entity" value={automationEntity} onChange={(e) => setAutomationEntity(e.target.value)} style={{ border: 0, background: "transparent", color: F.text1, font: "inherit", minWidth: 120 }}><option>Employee</option><option>Organization</option><option>Pay Run</option><option>Salary</option></select>
+            </label>
+            <label style={{ display: "flex", alignItems: "center", gap: 8, border: `1px solid ${F.border}`, borderRadius: 7, padding: "0 12px", height: 44, background: F.pageBg }}>
+              <span style={{ fontSize: 13, color: F.text1, whiteSpace: "nowrap" }}>Workflow Rule:</span>
+              <select aria-label="Workflow Rule" value={automationRule} onChange={(e) => setAutomationRule(e.target.value)} style={{ border: 0, background: "transparent", color: F.text1, font: "inherit", minWidth: 145 }}><option value="">Select</option><option>Employee onboarding</option><option>Payroll approval reminder</option><option>Salary revision notification</option><option>Contract end reminder</option></select>
+            </label>
+            <button type="button" onClick={() => { setAutomationRan(true); toast(`${def.name} generated`, "success"); }} style={{ height: 44, padding: "0 18px", border: 0, borderRadius: 7, background: F.brand, color: "white", font: "inherit", fontWeight: 700, cursor: "pointer" }}>Run Report</button>
+          </div>
+          <div style={{ margin: "20px", background: F.card, border: `1px solid ${F.border}`, borderRadius: 10, overflow: "hidden", minHeight: "calc(100vh - 410px)", display: "flex", flexDirection: "column" }}>
+            <div style={{ padding: "12px 16px", borderBottom: `1px solid ${F.border}`, display: "flex", justifyContent: "flex-end", position: "relative" }}>
+              <button type="button" onClick={() => setAutomationColumnsOpen((v) => !v)} style={{ display: "flex", alignItems: "center", gap: 8, border: 0, background: "transparent", color: F.text1, fontSize: 14, fontWeight: 600, cursor: "pointer" }}><ColumnsIcon /> Customize Report Columns <span style={{ background: F.infoBg, color: F.brand, borderRadius: 10, padding: "2px 7px", fontSize: 11, fontWeight: 800 }}>{visibleColumns.length}</span></button>
+              {automationColumnsOpen && <><button aria-label="Close column menu" onClick={() => setAutomationColumnsOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 20, border: 0, background: "transparent" }} /><div style={{ position: "absolute", right: 12, top: 48, zIndex: 21, width: 240, background: F.card, border: `1px solid ${F.border}`, borderRadius: 8, padding: 12, boxShadow: "0 8px 24px rgba(15,23,42,.16)" }}><div style={{ fontSize: 13, fontWeight: 700, marginBottom: 8 }}>Report Columns</div>{allColumns.map((column) => <label key={column} style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 0", fontSize: 12 }}><input type="checkbox" checked={!hidden.includes(column)} disabled={!hidden.includes(column) && visibleColumns.length === 1} onChange={() => setAutomationHiddenColumns((current) => ({ ...current, [def.id]: hidden.includes(column) ? hidden.filter((c) => c !== column) : [...hidden, column] }))} />{column}</label>)}<button type="button" onClick={() => setAutomationColumnsOpen(false)} style={{ display: "block", marginLeft: "auto", marginTop: 8, border: 0, borderRadius: 5, background: F.brand, color: "white", padding: "7px 12px", cursor: "pointer" }}>Done</button></div></>}
+            </div>
+            <div style={{ textAlign: "center", padding: "40px 16px 28px", borderBottom: `1px solid ${F.border}` }}>
+              <div style={{ fontSize: 12, color: F.text2 }}>{orgName}</div>
+              <div style={{ fontSize: 20, fontWeight: 700, marginTop: 8, color: F.text1 }}>{def.name}</div>
+              <div style={{ fontSize: 14, color: F.text2, marginTop: 7 }}>From {displayDate(automationFrom)} To {displayDate(automationTo)}</div>
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: `repeat(${visibleColumns.length}, minmax(120px, 1fr))`, padding: "14px 24px", borderBottom: `1px solid ${F.border}`, fontSize: 12, fontWeight: 800, color: F.text1, gap: 10 }}>
+              {visibleColumns.map((column) => <span key={column}>{column.toUpperCase()}</span>)}
+            </div>
+            <div style={{ flex: 1, minHeight: 230, display: "grid", placeItems: "center", color: F.text2, fontSize: 14 }}>{automationRan ? "No data to display for the selected filters" : "No data to display"}</div>
+          </div>
+        </div>
+      );
+    }
     if (def.id === "activity_logs") {
       const auditRows = activityEntries.filter(({ emp, run }) => {
         const query = search.trim().toLowerCase();
