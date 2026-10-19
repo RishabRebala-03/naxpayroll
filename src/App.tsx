@@ -45,6 +45,11 @@ import AccessUsers from "./AccessUsers"
 import type { AccessUser } from "./AccessUsers"
 import { loadRoles, ROLE_STORAGE, USER_STORAGE } from "./access-permissions"
 import type { AccessRole } from "./access-permissions"
+import ApprovalsNav, {
+  ApprovalsView,
+  APPROVALS_NAV_ITEMS,
+  isApprovalView,
+} from "./approvals"
 
 
 const F = {
@@ -33836,7 +33841,7 @@ const EMP_NAV = [
 const MY_EMP_ID = "EMP-001"
 function navLabelForView(id: string) {
   return (
-    [...ORG_NAV, ...PROD_NAV, ...EMP_NAV].find((item) => item.id === id)?.label ??
+    [...ORG_NAV, ...PROD_NAV, ...EMP_NAV, ...APPROVALS_NAV_ITEMS].find((item) => item.id === id)?.label ??
     id
   )
 }
@@ -45041,64 +45046,72 @@ export default function App() {
             {nav.map((item) => {
               const active = view === item.id || (item.id === "payruns" && view === "history")
               return (
-                <div
-                  key={item.id}
-                  title={!sidebarOpen ? item.label : undefined}
-                  style={{ position: "relative" }}
-                >
-                  <button
-                    className={`sap-nav-item${active ? " is-active" : ""}`}
-                    onClick={() => {
-                      if (item.id === "settings") setSettingsSelectedId(null)
-                      setView(item.id)
-                    }}
-                    title={item.label}
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 12,
-                      padding: sidebarOpen ? "10px 16px" : "11px 0",
-                      justifyContent: sidebarOpen ? "flex-start" : "center",
-                      background: active ? F.highlight : "transparent",
-                      border: "none",
-                      borderLeft: `3px solid ${
-                        active ? F.brand : "transparent"
-                      }`,
-                      cursor: "pointer",
-                      color: active ? F.brandHover : F.text2,
-                      textAlign: "left",
-                      fontSize: 13,
-                      fontWeight: active ? 600 : 400,
-                      width: "100%",
-                      fontFamily: "inherit",
-                      transition: "all 0.12s ease",
-                      whiteSpace: "nowrap",
-                      overflow: "hidden",
-                    }}
-                    onMouseEnter={(e) => {
-                      if (!active)
-                        e.currentTarget.style.background =
-                            F.pageBg
-                    }}
-                    onMouseLeave={(e) => {
-                      if (!active)
-                        e.currentTarget.style.background = "transparent"
-                    }}
+                <Fragment key={item.id}>
+                  <div
+                    title={!sidebarOpen ? item.label : undefined}
+                    style={{ position: "relative" }}
                   >
-                    <NavIcon id={item.id} />
-                    {sidebarOpen && (
-                      <span
-                        style={{
-                          overflow: "hidden",
-                          textOverflow: "ellipsis",
-                          whiteSpace: "nowrap",
-                        }}
-                      >
-                        {item.label}
-                      </span>
-                    )}
-                  </button>
-                </div>
+                    <button
+                      className={`sap-nav-item${active ? " is-active" : ""}`}
+                      onClick={() => {
+                        if (item.id === "settings") setSettingsSelectedId(null)
+                        setView(item.id)
+                      }}
+                      title={item.label}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 12,
+                        padding: sidebarOpen ? "10px 16px" : "11px 0",
+                        justifyContent: sidebarOpen ? "flex-start" : "center",
+                        background: active ? F.highlight : "transparent",
+                        border: "none",
+                        borderLeft: `3px solid ${
+                          active ? F.brand : "transparent"
+                        }`,
+                        cursor: "pointer",
+                        color: active ? F.brandHover : F.text2,
+                        textAlign: "left",
+                        fontSize: 13,
+                        fontWeight: active ? 600 : 400,
+                        width: "100%",
+                        fontFamily: "inherit",
+                        transition: "all 0.12s ease",
+                        whiteSpace: "nowrap",
+                        overflow: "hidden",
+                      }}
+                      onMouseEnter={(e) => {
+                        if (!active)
+                          e.currentTarget.style.background =
+                              F.pageBg
+                      }}
+                      onMouseLeave={(e) => {
+                        if (!active)
+                          e.currentTarget.style.background = "transparent"
+                      }}
+                    >
+                      <NavIcon id={item.id} />
+                      {sidebarOpen && (
+                        <span
+                          style={{
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                            whiteSpace: "nowrap",
+                          }}
+                        >
+                          {item.label}
+                        </span>
+                      )}
+                    </button>
+                  </div>
+                  {item.id === "payruns" && persona === "org_admin" && (
+                    <ApprovalsNav
+                      currentView={view}
+                      onNavigate={setView}
+                      sidebarOpen={sidebarOpen}
+                    />
+                  )}
+                </Fragment>
               )
             })}
             <div style={{ flex: 1 }} />
@@ -45176,6 +45189,18 @@ export default function App() {
                         ss={ss}
                         payruns={payruns}
                         setPayruns={setPayruns}
+                      />
+                    )}
+                    {isApprovalView(view) && (
+                      <ApprovalsView
+                        type={view}
+                        onNavigate={setView}
+                        emps={emps}
+                        onOpenSettings={(moduleId, tab) => {
+                          setSettingsSelectedId(moduleId)
+                          setSettingsInitialTab(tab)
+                          setView("settings")
+                        }}
                       />
                     )}
                     {view === "payslips" && (
