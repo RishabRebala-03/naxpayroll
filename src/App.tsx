@@ -10,7 +10,6 @@ import {
   CloudUploadIcon,
   ZapIcon,
   ColumnsIcon,
-  DownloadIcon,
   MessageSquareIcon,
   CalendarIcon,
   BarChartIcon,
@@ -34,6 +33,20 @@ import {
   EyeIcon,
 } from "./icons"
 import { apiClient } from "./api/client"
+import {
+  SEED_ORGS,
+  SEED_EMPLOYEES,
+  SEED_SALARY_STRUCTURES,
+  SEED_PAYRUNS,
+  SEED_ORG_DOCUMENTS,
+  SEED_AUDIT_LOGS,
+  SEED_ERROR_LOGS,
+  SEED_ORG_FOLDERS,
+  SEED_FOLDER_DOCUMENTS,
+  SEED_EMPLOYEE_FOLDERS,
+  SEED_EMPLOYEE_DOCUMENTS,
+  SEED_SCHEDULED_REPORTS,
+} from "./data/seedData"
 import React, {
   useState,
   createContext,
@@ -50,6 +63,14 @@ import AccessUsers from "./AccessUsers"
 import type { AccessUser } from "./AccessUsers"
 import { loadRoles, ROLE_STORAGE, USER_STORAGE } from "./access-permissions"
 import type { AccessRole } from "./access-permissions"
+import Loans, { readLoans } from "./Loans"
+import type { Loan } from "./Loans"
+import LoanIllustration from "./LoanIllustration"
+import ApprovalsNav, {
+  ApprovalsView,
+  APPROVALS_NAV_ITEMS,
+  isApprovalView,
+} from "./approvals"
 
 
 const F = {
@@ -614,6 +635,7 @@ type PayrunStatus = "Draft" | "Calculated" | "Under Review" | "Approved" | "Comp
 
 interface Employee {
   id: string
+  orgId?: string
   code?: string
   name: string
   email: string
@@ -667,12 +689,15 @@ interface PayrunInputRow {
   totalEarnings: number
   totalDeductions: number
   netSalary: number
+  skippedReason?: string
 }
 interface Payrun {
   id: string
+  orgId?: string
   period: string
   month: number
   year: number
+  quarter?: "Q1" | "Q2" | "Q3" | "Q4"
   status: PayrunStatus
   scope?: "All Employees" | "Specific Employees" | "Department Batch"
   employeeIds?: string[]
@@ -711,6 +736,7 @@ interface ErrorLog {
 }
 interface OrgDocument {
   id: string
+  orgId?: string
   title: string
   category: "Policy" | "Payroll" | "Compliance" | "HR Letter" | "Tax"
   assignedTo: "All Employees" | string
@@ -749,252 +775,8 @@ interface Organization {
   adminEmail?: string
 }
 
-const INIT_SS: SalaryStructure[] = [
-  {
-    id: "SS-001",
-    name: "Senior Engineer",
-    basic: 60000,
-    hra: 24000,
-    fixedAllowance: 12000,
-    specialAllowance: 14000,
-    gross: 110000,
-  },
-  {
-    id: "SS-002",
-    name: "Junior Engineer",
-    basic: 30000,
-    hra: 12000,
-    fixedAllowance: 6000,
-    specialAllowance: 7000,
-    gross: 55000,
-  },
-  {
-    id: "SS-003",
-    name: "Manager",
-    basic: 80000,
-    hra: 32000,
-    fixedAllowance: 16000,
-    specialAllowance: 22000,
-    gross: 150000,
-  },
-  {
-    id: "SS-004",
-    name: "Associate",
-    basic: 20000,
-    hra: 8000,
-    fixedAllowance: 4000,
-    specialAllowance: 3000,
-    gross: 35000,
-  },
-  {
-    id: "SS-005",
-    name: "Director",
-    basic: 150000,
-    hra: 60000,
-    fixedAllowance: 30000,
-    specialAllowance: 50000,
-    gross: 290000,
-  },
-]
-
-const INIT_EMPS: Employee[] = [
-  {
-    id: "EMP-001",
-    name: "Priya Nair",
-    email: "priya.nair@globaltech.in",
-    department: "Engineering",
-    designation: "Senior Software Engineer",
-    doj: "2021-03-15",
-    empType: "Full-Time",
-    manager: "Rajesh Kumar",
-    location: "Bangalore",
-    mobile: "+91 98765 43210",
-    status: "Active",
-    portalStatus: "Enabled",
-    salaryStructure: "Senior Engineer",
-    grossSalary: 110000,
-  },
-  {
-    id: "EMP-002",
-    name: "Arjun Sharma",
-    email: "arjun.sharma@globaltech.in",
-    department: "Engineering",
-    designation: "Junior Software Engineer",
-    doj: "2023-06-01",
-    empType: "Full-Time",
-    manager: "Priya Nair",
-    location: "Bangalore",
-    status: "Active",
-    portalStatus: "Enabled",
-    salaryStructure: "Junior Engineer",
-    grossSalary: 55000,
-  },
-  {
-    id: "EMP-003",
-    name: "Meena Iyer",
-    email: "meena.iyer@globaltech.in",
-    department: "HR",
-    designation: "HR Manager",
-    doj: "2020-01-10",
-    empType: "Full-Time",
-    manager: "Rajesh Kumar",
-    location: "Mumbai",
-    status: "Active",
-    portalStatus: "Enabled",
-    salaryStructure: "Manager",
-    grossSalary: 150000,
-  },
-  {
-    id: "EMP-004",
-    name: "Suresh Pillai",
-    email: "suresh.pillai@globaltech.in",
-    department: "Finance",
-    designation: "Finance Associate",
-    doj: "2022-09-20",
-    empType: "Full-Time",
-    manager: "Meena Iyer",
-    location: "Hyderabad",
-    status: "Active",
-    portalStatus: "Yet to Accept Invite",
-    salaryStructure: "Associate",
-    grossSalary: 35000,
-  },
-  {
-    id: "EMP-005",
-    name: "Anita Desai",
-    email: "anita.desai@globaltech.in",
-    department: "Sales",
-    designation: "Sales Manager",
-    doj: "2019-07-01",
-    empType: "Full-Time",
-    manager: "Rajesh Kumar",
-    location: "Delhi",
-    status: "Active",
-    portalStatus: "Enabled",
-    salaryStructure: "Manager",
-    grossSalary: 150000,
-  },
-  {
-    id: "EMP-006",
-    name: "Vikram Reddy",
-    email: "vikram.reddy@globaltech.in",
-    department: "Engineering",
-    designation: "Senior Software Engineer",
-    doj: "2020-11-15",
-    empType: "Full-Time",
-    manager: "Priya Nair",
-    location: "Bangalore",
-    status: "On Leave",
-    portalStatus: "Enabled",
-    salaryStructure: "Senior Engineer",
-    grossSalary: 110000,
-  },
-  {
-    id: "EMP-007",
-    name: "Kavitha Rao",
-    email: "kavitha.rao@globaltech.in",
-    department: "Design",
-    designation: "Senior Designer",
-    doj: "2022-02-28",
-    empType: "Full-Time",
-    manager: "Anita Desai",
-    location: "Bangalore",
-    status: "Active",
-    portalStatus: "Disabled",
-    salaryStructure: "Senior Engineer",
-    grossSalary: 110000,
-  },
-  {
-    id: "EMP-008",
-    name: "Rahul Mehta",
-    email: "rahul.mehta@globaltech.in",
-    department: "Engineering",
-    designation: "Junior Software Engineer",
-    doj: "2024-01-08",
-    empType: "Contract",
-    manager: "Priya Nair",
-    location: "Remote",
-    status: "Active",
-    portalStatus: "Yet to Accept Invite",
-    salaryStructure: "Junior Engineer",
-    grossSalary: 55000,
-  },
-  {
-    id: "EMP-009",
-    name: "Rajesh Kumar",
-    email: "rajesh.kumar@globaltech.in",
-    department: "Management",
-    designation: "Director - Technology",
-    doj: "2018-04-01",
-    empType: "Full-Time",
-    manager: "-",
-    location: "Mumbai",
-    status: "Active",
-    portalStatus: "Enabled",
-    salaryStructure: "Director",
-    grossSalary: 290000,
-  },
-  {
-    id: "EMP-010",
-    name: "abc - abc",
-    email: "abc@naxrita.in",
-    department: "AI/ML",
-    designation: "Packaged App Development Associate",
-    doj: "2026-09-01",
-    empType: "Full-Time",
-    manager: "Meena Iyer",
-    location: "Bangalore",
-    status: "Incomplete",
-    portalStatus: "Disabled",
-    salaryStructure: "Junior Engineer",
-    grossSalary: 0,
-  },
-  {
-    id: "EMP-011",
-    name: "cde - 123",
-    email: "cde@naxrita.in",
-    department: "AI/ML",
-    designation: "Packaged App Development Associate",
-    doj: "2026-09-01",
-    empType: "Full-Time",
-    manager: "Meena Iyer",
-    location: "Bangalore",
-    status: "Incomplete",
-    portalStatus: "Disabled",
-    salaryStructure: "Junior Engineer",
-    grossSalary: 0,
-  },
-  {
-    id: "EMP-012",
-    name: "Rohan Verma",
-    email: "rohan.verma@globaltech.in",
-    department: "Engineering",
-    designation: "Software Engineer",
-    doj: "2019-05-10",
-    empType: "Full-Time",
-    manager: "Priya Nair",
-    location: "Bangalore",
-    status: "Exited",
-    portalStatus: "Disabled",
-    salaryStructure: "Senior Engineer",
-    grossSalary: 95000,
-  },
-  {
-    id: "EMP-013",
-    name: "Sneha Kapoor",
-    email: "sneha.kapoor@globaltech.in",
-    department: "HR",
-    designation: "HR Executive",
-    doj: "2021-08-15",
-    empType: "Full-Time",
-    manager: "Meena Iyer",
-    location: "Mumbai",
-    status: "Exited",
-    portalStatus: "Disabled",
-    salaryStructure: "Associate",
-    grossSalary: 45000,
-  },
-]
+const INIT_SS: SalaryStructure[] = SEED_SALARY_STRUCTURES
+const INIT_EMPS: Employee[] = SEED_EMPLOYEES
 
 function calcRows(
   emps: Employee[],
@@ -1051,261 +833,12 @@ function createPayrun(
   }
 }
 
-const INIT_PAYRUNS: Payrun[] = [
-  createPayrun({
-    id: "PR-2026-07",
-    period: "July 2026",
-    month: 7,
-    year: 2026,
-    status: "Paid",
-    paymentDate: "31/07/2026",
-    scope: "All Employees",
-    generatedBy: "Meena Iyer",
-    generatedOn: "2026-07-28",
-    rows: calcRows(INIT_EMPS, INIT_SS, { "EMP-001": 10000, "EMP-005": 15000 }, {
-      "EMP-006": 2,
-    }),
-  }),
-  createPayrun({
-    id: "PR-2026-08",
-    period: "August 2026",
-    month: 8,
-    year: 2026,
-    status: "Payment Due",
-    paymentDate: "29/08/2026",
-    scope: "All Employees",
-    generatedBy: "Meena Iyer",
-    generatedOn: "2026-08-28",
-    rows: calcRows(INIT_EMPS, INIT_SS, { "EMP-003": 5000 }, { "EMP-006": 1 }),
-  }),
-  createPayrun({
-    id: "PR-2026-06",
-    period: "June 2026",
-    month: 6,
-    year: 2026,
-    status: "Completed",
-    scope: "All Employees",
-    generatedBy: "Meena Iyer",
-    generatedOn: "2026-06-27",
-    rows: calcRows(INIT_EMPS, INIT_SS),
-  }),
-]
+const INIT_PAYRUNS: Payrun[] = SEED_PAYRUNS
+const INIT_ORGS: Organization[] = SEED_ORGS
+const INIT_AUDIT: AuditLog[] = SEED_AUDIT_LOGS
 
-const INIT_ORGS: Organization[] = [
-  {
-    id: "ORG-001",
-    name: "Naxrita Solutions Pvt. Ltd.",
-    code: "GTS",
-    legalName: "Naxrita Solutions Private Limited",
-    country: "India",
-    currency: "INR",
-    financialYear: "April-March",
-    status: "Active",
-    employees: 9,
-    admin: "Meena Iyer",
-  },
-  {
-    id: "ORG-002",
-    name: "NovaSoft Technologies",
-    code: "NST",
-    legalName: "NovaSoft Technologies Pvt. Ltd.",
-    country: "India",
-    currency: "INR",
-    financialYear: "April-March",
-    status: "Active",
-    employees: 24,
-    admin: "Rohan Gupta",
-  },
-  {
-    id: "ORG-003",
-    name: "BrightEdge Consulting",
-    code: "BEC",
-    legalName: "BrightEdge Consulting LLP",
-    country: "India",
-    currency: "INR",
-    financialYear: "Jan-Dec",
-    status: "Draft",
-    employees: 0,
-    admin: "-",
-  },
-]
-
-const INIT_AUDIT: AuditLog[] = [
-  {
-    id: "AL-001",
-    user: "Meena Iyer",
-    org: "Naxrita Solutions",
-    action: "Payroll Approved",
-    module: "Payroll",
-    oldValue: "Under Review",
-    newValue: "Approved",
-    timestamp: "2026-08-29 10:42:15",
-  },
-  {
-    id: "AL-002",
-    user: "Meena Iyer",
-    org: "Naxrita Solutions",
-    action: "Employee Updated",
-    module: "Employees",
-    oldValue: "Status: Active",
-    newValue: "Status: On Leave",
-    timestamp: "2026-08-27 14:18:33",
-  },
-  {
-    id: "AL-003",
-    user: "Meena Iyer",
-    org: "Naxrita Solutions",
-    action: "Salary Structure Changed",
-    module: "Salary",
-    oldValue: "Gross: 95000",
-    newValue: "Gross: 110000",
-    timestamp: "2026-08-20 09:05:11",
-  },
-  {
-    id: "AL-004",
-    user: "Meena Iyer",
-    org: "Naxrita Solutions",
-    action: "Payroll Generated",
-    module: "Payroll",
-    oldValue: "Draft",
-    newValue: "Calculated",
-    timestamp: "2026-08-28 17:30:00",
-  },
-  {
-    id: "AL-005",
-    user: "Rajesh Kumar",
-    org: "Naxrita Solutions",
-    action: "Access Role Changed",
-    module: "Access",
-    oldValue: "Role: Associate",
-    newValue: "Role: Manager",
-    timestamp: "2026-08-15 11:22:44",
-  },
-  {
-    id: "AL-006",
-    user: "Meena Iyer",
-    org: "Naxrita Solutions",
-    action: "Employee Created",
-    module: "Employees",
-    oldValue: "-",
-    newValue: "EMP-008: Rahul Mehta",
-    timestamp: "2026-08-08 08:55:02",
-  },
-  {
-    id: "AL-007",
-    user: "Product Admin",
-    org: "Naxrita Solutions",
-    action: "Payroll Completed",
-    module: "Payroll",
-    oldValue: "Approved",
-    newValue: "Completed",
-    timestamp: "2026-07-31 18:00:00",
-  },
-  {
-    id: "AL-008",
-    user: "Meena Iyer",
-    org: "Naxrita Solutions",
-    action: "Payslip Generated",
-    module: "Payslips",
-    oldValue: "-",
-    newValue: "9 payslips Jul 2026",
-    timestamp: "2026-07-31 18:05:30",
-  },
-]
-
-const INIT_ERROR_LOGS: ErrorLog[] = [
-  {
-    id: "ERR-001",
-    timestamp: "2026-08-29 10:45:12",
-    role: "org_admin",
-    user: "Meena Iyer",
-    module: "Payroll / Pay Runs",
-    severity: "High",
-    issue: "Payroll approval recalculation detected mismatched deduction totals for EMP-006.",
-    route: "/payruns/PR-2026-08",
-    status: "Investigating",
-  },
-  {
-    id: "ERR-002",
-    timestamp: "2026-08-28 17:38:20",
-    role: "org_admin",
-    user: "Meena Iyer",
-    module: "Payslips",
-    severity: "Medium",
-    issue: "Payslip preview was requested before a completed pay run was available.",
-    route: "/payslips",
-    status: "Resolved",
-  },
-  {
-    id: "ERR-003",
-    timestamp: "2026-08-27 15:04:44",
-    role: "org_admin",
-    user: "Meena Iyer",
-    module: "Salary Management",
-    severity: "Medium",
-    issue: "Salary structure assignment attempted for an incomplete employee profile.",
-    route: "/salary/assignment",
-    status: "Open",
-  },
-  {
-    id: "ERR-004",
-    timestamp: "2026-08-24 09:19:05",
-    role: "product_admin",
-    user: "Platform Admin",
-    module: "Organizations",
-    severity: "Critical",
-    issue: "Organization provisioning returned duplicate legal entity code GTS.",
-    route: "/organizations/ORG-001",
-    status: "Investigating",
-  },
-  {
-    id: "ERR-005",
-    timestamp: "2026-08-21 11:33:50",
-    role: "product_admin",
-    user: "Platform Admin",
-    module: "Access Management",
-    severity: "High",
-    issue: "Admin role update was blocked because MFA verification was pending.",
-    route: "/access/users",
-    status: "Resolved",
-  },
-]
-
-const INIT_ORG_DOCUMENTS: OrgDocument[] = [
-  {
-    id: "DOC-001",
-    title: "Employee Handbook 2026",
-    category: "Policy",
-    assignedTo: "All Employees",
-    assignedCount: INIT_EMPS.length,
-    owner: "Meena Iyer",
-    createdOn: "2026-08-05",
-    status: "Published",
-    description: "Company policy, leave, conduct, and workplace guidelines.",
-  },
-  {
-    id: "DOC-002",
-    title: "PF Declaration Guide",
-    category: "Compliance",
-    assignedTo: "Finance",
-    assignedCount: INIT_EMPS.filter((e) => e.department === "Finance").length,
-    owner: "Meena Iyer",
-    createdOn: "2026-08-12",
-    status: "Published",
-    description: "Instructions for provident fund declaration and verification.",
-  },
-  {
-    id: "DOC-003",
-    title: "Payroll Cutoff Calendar",
-    category: "Payroll",
-    assignedTo: "All Employees",
-    assignedCount: INIT_EMPS.length,
-    owner: "Meena Iyer",
-    createdOn: "2026-08-20",
-    status: "Draft",
-    description: "Monthly payroll input and approval cutoff schedule.",
-  },
-]
+const INIT_ERROR_LOGS: ErrorLog[] = SEED_ERROR_LOGS as ErrorLog[]
+const INIT_ORG_DOCUMENTS: OrgDocument[] = SEED_ORG_DOCUMENTS
 
 const INIT_SALARY_COMPONENTS: SalaryComponent[] = [
   { id: "SC-001", name: "Basic", kind: "earning", type: "Fixed", calculation: "40% of monthly gross", basis: "Gross salary", frequency: "Monthly", effectiveFrom: "2026-04-01", rounding: "Nearest rupee", taxable: "Yes", active: true },
@@ -1341,7 +874,13 @@ const PAYRUN_STEPS: PayrunStatus[] = [
   "Locked",
 ]
 const isFinalizedPayrun = (status: PayrunStatus) =>
-  status === "Completed" || status === "Locked"
+  status === "Completed" ||
+  status === "Locked" ||
+  status === "Paid" ||
+  status === "PAID" ||
+  status === "Payment Due" ||
+  status === "PAYMENT DUE" ||
+  status === "Approved"
 
 function Badge({
   label,
@@ -2618,7 +2157,7 @@ function downloadPayslipsPdf(entries: PayslipPdfEntry[]) {
     <section class="payslip">
       <div class="header">
         <div>
-          <h1>Naxpayroll</h1>
+          <h1>NaxPayroll</h1>
           <div>Naxrita Solutions Pvt. Ltd.</div>
         </div>
         <div style="text-align:right;">
@@ -2766,7 +2305,7 @@ function PayslipSheet({
           }}
         >
           <div>
-            <div style={{ fontSize: 18, fontWeight: 800 }}>Naxpayroll</div>
+            <div style={{ fontSize: 18, fontWeight: 800 }}>NaxPayroll</div>
             <div style={{ fontSize: 12, color: "rgba(255,255,255,0.68)" }}>
               Naxrita Solutions Pvt. Ltd.
             </div>
@@ -6973,12 +6512,14 @@ function EmployeeDetailPage({
   emps,
   setEmps,
   onBack,
+  onNavigateToCreateLoan,
 }: {
   emp: Employee
   ss: SalaryStructure[]
   emps: Employee[]
   setEmps: React.Dispatch<React.SetStateAction<Employee[]>>
   onBack: () => void
+  onNavigateToCreateLoan?: (employeeId?: string) => void
 }) {
   const toast = useToast()
   const [editing, setEditing] = useState(false)
@@ -7317,6 +6858,10 @@ function EmployeeDetailPage({
   ])
   const [editingInvestments, setEditingInvestments] = useState(false)
   const [loanRows, setLoanRows] = useState([{ type: "Salary advance", principal: 0, outstanding: 0, installment: 0, status: "No active loan" }])
+  const [empLoans, setEmpLoans] = useState<Loan[]>(() => readLoans().filter((loan) => loan.employeeId === emp.id))
+  useEffect(() => {
+    if (activeTab === "loans") setEmpLoans(readLoans().filter((loan) => loan.employeeId === emp.id))
+  }, [activeTab, emp.id])
   const [editingLoans, setEditingLoans] = useState(false)
   const [editingStatutory, setEditingStatutory] = useState(false)
   const [editingPersonal, setEditingPersonal] = useState(false)
@@ -9675,51 +9220,28 @@ function EmployeeDetailPage({
       )}
 
       {activeTab === "loans" && (
-        <div
-          style={{
-            background: F.card,
-            border: `1px solid ${F.border}`,
-            borderRadius: 10,
-            padding: "80px 24px",
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            justifyContent: "center",
-            minHeight: 380,
-            textAlign: "center",
-          }}
-        >
-          <div
-            style={{
-              fontSize: 22,
-              fontWeight: 500,
-              color: "#111827",
-              marginBottom: 24,
-            }}
-          >
-            This employee hasn't taken any loans yet.
+        empLoans.length === 0 ? (
+          <div style={{ background: F.card, border: "1px solid #D5DADD", borderRadius: 8, padding: "60px 24px 70px", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: 380, textAlign: "center" }}>
+            <LoanIllustration width={250} height={155} />
+            <div style={{ fontSize: 14, fontWeight: 500, color: "#374151", marginTop: 18, marginBottom: 20 }}>This employee hasn't taken any loans yet.</div>
+            <button type="button" onClick={() => onNavigateToCreateLoan ? onNavigateToCreateLoan(emp.id) : toast("Redirecting to Create Loan page...", "info")} style={{ background: "#1E293B", color: "#FFFFFF", border: "none", borderRadius: 6, padding: "9px 22px", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>Create Loan</button>
           </div>
-          <button
-            type="button"
-            onClick={() => toast("Redirecting to Create Loan page...", "info")}
-            style={{
-              background: "#3B82F6",
-              color: "#FFFFFF",
-              border: "none",
-              borderRadius: 8,
-              padding: "10px 24px",
-              fontSize: 15,
-              fontWeight: 600,
-              cursor: "pointer",
-              transition: "background 0.2s",
-              boxShadow: "0 1px 2px rgba(0,0,0,0.05)",
-            }}
-            onMouseOver={(e) => (e.currentTarget.style.background = "#2563EB")}
-            onMouseOut={(e) => (e.currentTarget.style.background = "#3B82F6")}
-          >
-            Create Loan
-          </button>
-        </div>
+        ) : (
+          <div style={{ background: F.card, border: "1px solid #D5DADD", borderRadius: 8, padding: 20 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+              <div><h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: F.text1 }}>Active Loans</h3><p style={{ margin: "4px 0 0", fontSize: 12, color: F.text2 }}>Loans and salary advances availed by this employee.</p></div>
+              <button type="button" onClick={() => onNavigateToCreateLoan ? onNavigateToCreateLoan(emp.id) : toast("Redirecting to Create Loan page...", "info")} style={{ background: "#1E293B", color: "#FFFFFF", border: "none", borderRadius: 6, padding: "8px 18px", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>+ Create Loan</button>
+            </div>
+            <div style={{ overflowX: "auto" }}><table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13, minWidth: 640 }}>
+              <thead><tr style={{ borderBottom: "1px solid #D5DADD", background: "#F8FAFC" }}>
+                <th style={{ padding: "10px 14px", textAlign: "left", color: F.text2, fontSize: 11, fontWeight: 700 }}>LOAN NAME</th><th style={{ padding: "10px 14px", textAlign: "left", color: F.text2, fontSize: 11, fontWeight: 700 }}>TYPE</th><th style={{ padding: "10px 14px", textAlign: "right", color: F.text2, fontSize: 11, fontWeight: 700 }}>LOAN AMOUNT</th><th style={{ padding: "10px 14px", textAlign: "right", color: F.text2, fontSize: 11, fontWeight: 700 }}>OUTSTANDING</th><th style={{ padding: "10px 14px", textAlign: "center", color: F.text2, fontSize: 11, fontWeight: 700 }}>STATUS</th>
+              </tr></thead>
+              <tbody>{empLoans.map((loan) => <tr key={loan.id} style={{ borderBottom: "1px solid #EDF0F2" }}>
+                <td style={{ padding: "12px 14px", fontWeight: 600 }}>{loan.name}</td><td style={{ padding: "12px 14px", color: F.text2 }}>{loan.type}</td><td style={{ padding: "12px 14px", textAlign: "right" }}>{inr(loan.amount)}</td><td style={{ padding: "12px 14px", textAlign: "right", fontWeight: 600 }}>{inr(loan.outstanding)}</td><td style={{ padding: "12px 14px", textAlign: "center" }}><span style={{ padding: "3px 8px", borderRadius: 12, fontSize: 11, background: loan.status === "Open" ? "#F5FAE5" : "#FFF8D6", color: loan.status === "Open" ? "#188918" : "#E76500" }}>{loan.status}</span></td>
+              </tr>)}</tbody>
+            </table></div>
+          </div>
+        )
       )}
 
       {activeTab === "history" && (
@@ -9795,7 +9317,7 @@ function EmployeeDetailPage({
                     Payslip for {viewingPayslip.period}
                   </div>
                   <div style={{ fontSize: 12, color: "#64748B", marginTop: 2 }}>
-                    Naxpayroll Platform · Naxrita Solutions Pvt. Ltd. · Issued on {fmtD(payslipGeneratedDate(viewingPayslip.period))}
+                    NaxPayroll Platform · Naxrita Solutions Pvt. Ltd. · Issued on {fmtD(payslipGeneratedDate(viewingPayslip.period))}
                   </div>
                 </div>
                 <button
@@ -13949,10 +13471,16 @@ function EmployeesView({
   emps,
   setEmps,
   ss,
+  openEmployeeId,
+  onEmployeeProfileOpened,
+  onNavigateToCreateLoan,
 }: {
   emps: Employee[]
   setEmps: React.Dispatch<React.SetStateAction<Employee[]>>
   ss: SalaryStructure[]
+  openEmployeeId?: string | null
+  onEmployeeProfileOpened?: () => void
+  onNavigateToCreateLoan?: (employeeId?: string) => void
 }) {
   const toast = useToast()
   const [search, setSearch] = useState("")
@@ -14211,6 +13739,14 @@ function EmployeesView({
     setSubPage({ type: "detail", emp: currentEmployee })
   }
 
+  useEffect(() => {
+    if (!openEmployeeId) return
+    const employee = emps.find((item) => item.id === openEmployeeId)
+    if (!employee) return
+    openEmployeeDetail(employee)
+    onEmployeeProfileOpened?.()
+  }, [openEmployeeId, emps])
+
   // When employee list changes, refresh the selected employee if viewing detail
   const selEmp =
     subPage?.type === "detail"
@@ -14251,6 +13787,7 @@ function EmployeesView({
         emps={emps}
         setEmps={setEmps}
         onBack={() => setSubPage(null)}
+        onNavigateToCreateLoan={onNavigateToCreateLoan}
       />
     )
 
@@ -19150,12 +18687,14 @@ function PayRunsView({
   emps,
   setEmps,
   ss,
+  onNavigateToPayoutSetup,
 }: {
   payruns: Payrun[]
   setPayruns: React.Dispatch<React.SetStateAction<Payrun[]>>
   emps: Employee[]
   setEmps: React.Dispatch<React.SetStateAction<Employee[]>>
   ss: SalaryStructure[]
+  onNavigateToPayoutSetup?: () => void
 }) {
   const toast = useToast()
 
@@ -19252,6 +18791,10 @@ function PayRunsView({
 
   const [selectedRows, setSelectedRows] = useState<string[]>([])
   const [skippedEmpIds, setSkippedEmpIds] = useState<string[]>([])
+  const [skippedReasons, setSkippedReasons] = useState<Record<string, string>>({})
+  const [skipModalOpen, setSkipModalOpen] = useState(false)
+  const [skipReasonText, setSkipReasonText] = useState("")
+  const [skipReasonError, setSkipReasonError] = useState("")
   const [withheldEmpIds, setWithheldEmpIds] = useState<string[]>([])
   const [showMoreMenu, setShowMoreMenu] = useState<boolean>(false)
   const [showHeaderDotsMenu, setShowHeaderDotsMenu] = useState<boolean>(false)
@@ -19730,7 +19273,13 @@ function PayRunsView({
         p.status === appliedStatus;
       if (!matchStatus) return false;
     }
-    if (appliedMonth !== "all" && String(p.month) !== appliedMonth) return false
+    if (appliedMonth !== "all") {
+      if (appliedMonth === "q1" && ![1, 2, 3].includes(p.month)) return false;
+      if (appliedMonth === "q2" && ![4, 5, 6].includes(p.month)) return false;
+      if (appliedMonth === "q3" && ![7, 8, 9].includes(p.month)) return false;
+      if (appliedMonth === "q4" && ![10, 11, 12].includes(p.month)) return false;
+      if (!["q1", "q2", "q3", "q4"].includes(appliedMonth) && String(p.month) !== appliedMonth) return false;
+    }
     if (appliedMinAmount !== "all" && p.netPayroll < Number(appliedMinAmount)) return false
     return true
   })
@@ -19811,11 +19360,46 @@ function PayRunsView({
     toast(`Downloaded TDS worksheets for ${activeRun?.period || "May 2026"}`, "success")
   }
 
-  const handleSkipFromPayroll = () => {
+  const handleOpenSkipModal = () => {
     if (selectedRows.length === 0) return
+    setSkipReasonText("")
+    setSkipReasonError("")
+    setSkipModalOpen(true)
+  }
+
+  const handleConfirmSkip = () => {
+    const trimmedReason = skipReasonText.trim()
+    if (!trimmedReason) {
+      setSkipReasonError("Reason is mandatory to skip employee(s) from payroll")
+      return
+    }
+
     setSkippedEmpIds((prev) => Array.from(new Set([...prev, ...selectedRows])))
+    setSkippedReasons((prev) => {
+      const next = { ...prev }
+      selectedRows.forEach((id) => {
+        next[id] = trimmedReason
+      })
+      return next
+    })
+
+    if (activeRun) {
+      setPayruns((prev) =>
+        prev.map((pr) => {
+          if (pr.id !== activeRun.id) return pr
+          const updatedRows = pr.rows.map((r) =>
+            selectedRows.includes(r.empId)
+              ? { ...r, skippedReason: trimmedReason }
+              : r
+          )
+          return { ...pr, rows: updatedRows }
+        })
+      )
+    }
+
     toast(`Skipped ${selectedRows.length} employee(s) from this payroll`, "info")
     setSelectedRows([])
+    setSkipModalOpen(false)
   }
 
   const handleWithholdSalary = () => {
@@ -19828,6 +19412,26 @@ function PayRunsView({
   const handleAddToPayroll = () => {
     if (selectedRows.length === 0) return
     setSkippedEmpIds((prev) => prev.filter((id) => !selectedRows.includes(id)))
+    setSkippedReasons((prev) => {
+      const next = { ...prev }
+      selectedRows.forEach((id) => {
+        delete next[id]
+      })
+      return next
+    })
+    if (activeRun) {
+      setPayruns((prev) =>
+        prev.map((pr) => {
+          if (pr.id !== activeRun.id) return pr
+          const updatedRows = pr.rows.map((r) =>
+            selectedRows.includes(r.empId)
+              ? { ...r, skippedReason: undefined }
+              : r
+          )
+          return { ...pr, rows: updatedRows }
+        })
+      )
+    }
     setShowMoreMenu(false)
     toast(`Re-added ${selectedRows.length} employee(s) to payroll`, "success")
     setSelectedRows([])
@@ -20499,7 +20103,7 @@ function PayRunsView({
               {selectedRows.length > 0 ? (
                 <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "2px 0", position: "relative" }}>
                   <button
-                    onClick={handleSkipFromPayroll}
+                    onClick={handleOpenSkipModal}
                     style={{
                       background: Z.card,
                       border: `1px solid ${Z.border}`,
@@ -21214,12 +20818,27 @@ function PayRunsView({
                                 />
                               </td>
                               <td style={{ padding: "12px 14px" }}>
-                                <span style={{ fontWeight: 600, color: Z.text1 }}>
-                                  {row.empName}
-                                </span>
-                                <span style={{ color: Z.text3, marginLeft: 6, fontSize: 12 }}>
-                                  ({emp?.id ? `${emp.id}` : email})
-                                </span>
+                                <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 6 }}>
+                                  <span style={{ fontWeight: 600, color: Z.text1 }}>
+                                    {row.empName}
+                                  </span>
+                                  <span style={{ color: Z.text3, fontSize: 12 }}>
+                                    ({emp?.id ? `${emp.id}` : email})
+                                  </span>
+                                  {isSkipped && (
+                                    <span style={{ fontSize: 10, background: "#FEF2F2", color: "#B91C1C", border: "1px solid #FECACA", padding: "1px 6px", borderRadius: 4, fontWeight: 700 }}>
+                                      SKIPPED
+                                    </span>
+                                  )}
+                                </div>
+                                {isSkipped && (
+                                  <div style={{ marginTop: 4, fontSize: 11, color: "#C2410C", display: "flex", alignItems: "center", gap: 4 }}>
+                                    <span style={{ fontWeight: 600, color: "#9A3412" }}>Reason:</span>
+                                    <span style={{ background: "#FFF7ED", border: "1px solid #FFEDD5", padding: "1px 6px", borderRadius: 4 }}>
+                                      {skippedReasons[row.empId] || row.skippedReason || "Skipped from this payroll"}
+                                    </span>
+                                  </div>
+                                )}
                               </td>
                               <td style={{ padding: "12px 14px", textAlign: "right", color: Z.text1 }}>
                                 {paidDays}
@@ -21274,9 +20893,25 @@ function PayRunsView({
                                     Withheld
                                   </span>
                                 ) : isSkipped ? (
-                                  <span style={{ color: "#6b7280", fontWeight: 600 }}>
-                                    Skipped
-                                  </span>
+                                  <div>
+                                    <span style={{ color: "#DC2626", fontWeight: 700, fontSize: 12 }}>
+                                      Skipped
+                                    </span>
+                                    <div
+                                      style={{
+                                        fontSize: 11,
+                                        color: "#64748B",
+                                        marginTop: 2,
+                                        maxWidth: 160,
+                                        overflow: "hidden",
+                                        textOverflow: "ellipsis",
+                                        whiteSpace: "nowrap",
+                                      }}
+                                      title={skippedReasons[row.empId] || row.skippedReason || "Skipped from this payroll"}
+                                    >
+                                      {skippedReasons[row.empId] || row.skippedReason || "Skipped from this payroll"}
+                                    </div>
+                                  </div>
                                 ) : (
                                   <span style={{ color: Z.text1, fontWeight: 500 }}>
                                     Yet To Pay
@@ -21471,21 +21106,31 @@ function PayRunsView({
                                 />
                               </td>
                               <td style={{ padding: "12px 14px" }}>
-                                <span style={{ fontWeight: 600, color: Z.text1 }}>
-                                  {row.empName}
-                                </span>
-                                <span style={{ color: Z.text3, marginLeft: 6, fontSize: 12 }}>
-                                  ({emp?.id ? `${emp.id}` : email})
-                                </span>
+                                <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 6 }}>
+                                  <span style={{ fontWeight: 600, color: Z.text1 }}>
+                                    {row.empName}
+                                  </span>
+                                  <span style={{ color: Z.text3, fontSize: 12 }}>
+                                    ({emp?.id ? `${emp.id}` : email})
+                                  </span>
+                                  {isSkipped && (
+                                    <span style={{ fontSize: 10, background: "#FEF2F2", color: "#B91C1C", border: "1px solid #FECACA", padding: "1px 6px", borderRadius: 4, fontWeight: 700 }}>
+                                      SKIPPED
+                                    </span>
+                                  )}
+                                  {isWithheld && (
+                                    <span style={{ fontSize: 10, background: Z.warningBg, color: Z.warning, padding: "1px 6px", borderRadius: 3, fontWeight: 700 }}>
+                                      WITHHELD
+                                    </span>
+                                  )}
+                                </div>
                                 {isSkipped && (
-                                  <span style={{ marginLeft: 8, fontSize: 10, background: "#F0F2F4", color: Z.text3, padding: "1px 6px", borderRadius: 3, fontWeight: 700 }}>
-                                    SKIPPED
-                                  </span>
-                                )}
-                                {isWithheld && (
-                                  <span style={{ marginLeft: 8, fontSize: 10, background: Z.warningBg, color: Z.warning, padding: "1px 6px", borderRadius: 3, fontWeight: 700 }}>
-                                    WITHHELD
-                                  </span>
+                                  <div style={{ marginTop: 4, fontSize: 11, color: "#C2410C", display: "flex", alignItems: "center", gap: 4 }}>
+                                    <span style={{ fontWeight: 600, color: "#9A3412" }}>Reason:</span>
+                                    <span style={{ background: "#FFF7ED", border: "1px solid #FFEDD5", padding: "1px 6px", borderRadius: 4 }}>
+                                      {skippedReasons[row.empId] || row.skippedReason || "Skipped from this payroll"}
+                                    </span>
+                                  </div>
                                 )}
                               </td>
                               <td style={{ padding: "12px 14px", textAlign: "right", color: Z.text1 }}>
@@ -22744,6 +22389,51 @@ function PayRunsView({
                   <>
                     <button
                       onClick={() => {
+                        const earningsBreakdown: { label: string; amount: number }[] = [
+                          { label: "Basic", amount: curBasic },
+                          ...(curHra > 0 ? [{ label: "House Rent Allowance", amount: curHra }] : []),
+                          ...(curSpecial > 0 ? [{ label: "Special Allowance", amount: curSpecial }] : []),
+                          ...(drawerBonus > 0 ? [{ label: "Bonus", amount: drawerBonus }] : []),
+                          ...(drawerCommission > 0 ? [{ label: "Commission", amount: drawerCommission }] : []),
+                          ...(drawerLeaveEncashment > 0 ? [{ label: "Leave Encashment", amount: drawerLeaveEncashment }] : []),
+                        ]
+
+                        const deductionsBreakdown: { label: string; amount: number }[] = [
+                          ...(drawerTds > 0 ? [{ label: "Income Tax (TDS)", amount: drawerTds }] : []),
+                          ...(curPt > 0 ? [{ label: "Professional Tax", amount: curPt }] : []),
+                          ...(curPf > 0 ? [{ label: "EPF Contribution", amount: curPf }] : []),
+                          ...(calculatedLopDed > 0 ? [{ label: `Loss of Pay (${drawerLopDays} days)`, amount: calculatedLopDed }] : []),
+                        ]
+
+                        downloadPayslipPdf(
+                          {
+                            grossSalary: baseGross,
+                            totalEarnings: totalEarningsCalc,
+                            pf: curPf,
+                            tds: drawerTds,
+                            profTax: curPt,
+                            totalDeductions: totalDedCalc,
+                            netSalary: computedDrawerNet,
+                            bonus: drawerBonus,
+                            incentive: drawerCommission,
+                            lopDeduction: calculatedLopDed,
+                            status: isPaid ? "Paid" : "Pending",
+                            netInWords: numberToWordsIndian(computedDrawerNet),
+                            earningsBreakdown,
+                            deductionsBreakdown,
+                          },
+                          {
+                            period: activeRun?.period || "January 2025",
+                            generatedOn: activeRun?.generatedOn || new Date().toISOString().slice(0, 10),
+                          },
+                          emp || {
+                            id: drawerRow.empId,
+                            name: drawerRow.empName,
+                            department: "General",
+                            designation: "Employee",
+                            salaryStructure: "Standard",
+                          }
+                        )
                         toast(`Downloaded payslip for ${drawerRow.empName}`, "success")
                       }}
                       style={{
@@ -22902,7 +22592,53 @@ function PayRunsView({
                 </div>
               </div>
               <div style={{ padding: "14px 24px", borderTop: `1px solid ${Z.border}`, display: "flex", justifyContent: "flex-end", gap: 10 }}>
-                <button onClick={() => { toast(`Downloaded payslip for ${viewingPayslipRow.empName}`, "success"); setViewingPayslipRow(null); }} style={{ background: Z.brand, color: "#fff", border: "none", borderRadius: 6, padding: "8px 18px", fontSize: 13, fontWeight: 600, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6 }}><DownloadIcon size={14} color="#fff" /> Download PDF</button>
+                <button
+                  onClick={() => {
+                    const emp = emps.find((e) => e.id === viewingPayslipRow.empId)
+                    const basic = getComponentAmount("basic", viewingPayslipRow)
+                    const hra = getComponentAmount("hra", viewingPayslipRow)
+                    const special = getComponentAmount("special", viewingPayslipRow)
+                    const epf = getComponentAmount("epf", viewingPayslipRow)
+                    downloadPayslipPdf(
+                      {
+                        grossSalary: viewingPayslipRow.grossSalary || 30000,
+                        totalEarnings: viewingPayslipRow.grossSalary || 30000,
+                        pf: epf,
+                        tds: 0,
+                        profTax: 200,
+                        totalDeductions: epf + 200,
+                        netSalary: viewingPayslipRow.netSalary || ((viewingPayslipRow.grossSalary || 30000) - epf - 200),
+                        status: "Paid",
+                        netInWords: numberToWordsIndian(viewingPayslipRow.netSalary || ((viewingPayslipRow.grossSalary || 30000) - epf - 200)),
+                        earningsBreakdown: [
+                          { label: "Basic", amount: basic },
+                          { label: "House Rent Allowance", amount: hra },
+                          { label: "Special Allowance", amount: special },
+                        ],
+                        deductionsBreakdown: [
+                          { label: "EPF Contribution", amount: epf },
+                          { label: "Professional Tax", amount: 200 },
+                        ],
+                      },
+                      {
+                        period: activeRun?.period || "January 2025",
+                        generatedOn: activeRun?.generatedOn || new Date().toISOString().slice(0, 10),
+                      },
+                      emp || {
+                        id: viewingPayslipRow.empId,
+                        name: viewingPayslipRow.empName,
+                        department: "General",
+                        designation: "Employee",
+                        salaryStructure: "Standard",
+                      }
+                    )
+                    toast(`Downloaded payslip for ${viewingPayslipRow.empName}`, "success")
+                    setViewingPayslipRow(null)
+                  }}
+                  style={{ background: Z.brand, color: "#fff", border: "none", borderRadius: 6, padding: "8px 18px", fontSize: 13, fontWeight: 600, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6 }}
+                >
+                  <DownloadIcon size={14} color="#fff" /> Download PDF
+                </button>
                 <button onClick={() => setViewingPayslipRow(null)} style={{ background: "#fff", border: `1px solid ${Z.border}`, borderRadius: 6, padding: "8px 18px", fontSize: 13, color: Z.text1, cursor: "pointer" }}>Close</button>
               </div>
             </div>
@@ -22959,6 +22695,251 @@ function PayRunsView({
               </div>
               <div style={{ padding: "12px 20px", borderTop: `1px solid ${Z.border}`, display: "flex", justifyContent: "flex-end" }}>
                 <button onClick={() => setViewingTdsRow(null)} style={{ background: Z.brand, color: "#fff", border: "none", borderRadius: 6, padding: "7px 18px", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>Close</button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── SKIP FROM PAYROLL CONFIRMATION MODAL WITH MANDATORY REASON ── */}
+        {skipModalOpen && (
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="skip-payroll-modal-title"
+            style={{
+              position: "fixed",
+              inset: 0,
+              zIndex: 10000,
+              background: "rgba(15, 23, 42, 0.55)",
+              backdropFilter: "blur(2px)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              padding: 16,
+            }}
+            onClick={() => setSkipModalOpen(false)}
+          >
+            <div
+              style={{
+                background: "#FFFFFF",
+                borderRadius: 10,
+                boxShadow: "0 20px 40px rgba(15, 23, 42, 0.2)",
+                width: "min(520px, 95vw)",
+                overflow: "hidden",
+                border: "1px solid #E2E8F0",
+                animation: "fadeIn 0.15s ease-out",
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Modal Header */}
+              <div
+                style={{
+                  padding: "18px 24px",
+                  borderBottom: "1px solid #E2E8F0",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  background: "#FAFBFD",
+                }}
+              >
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <div
+                    style={{
+                      width: 36,
+                      height: 36,
+                      borderRadius: 8,
+                      background: "#FEE2E2",
+                      color: "#DC2626",
+                      display: "grid",
+                      placeItems: "center",
+                      flexShrink: 0,
+                    }}
+                  >
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                      <circle cx="12" cy="12" r="10" />
+                      <line x1="4.93" y1="4.93" x2="19.07" y2="19.07" />
+                    </svg>
+                  </div>
+                  <div>
+                    <h3
+                      id="skip-payroll-modal-title"
+                      style={{ margin: 0, fontSize: 16, fontWeight: 700, color: "#1E293B" }}
+                    >
+                      Skip from this Payroll
+                    </h3>
+                    <p style={{ margin: "2px 0 0", fontSize: 12, color: "#64748B" }}>
+                      Exclude selected employee(s) from {activeRun?.period || "this pay run"}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  aria-label="Close dialog"
+                  onClick={() => setSkipModalOpen(false)}
+                  style={{
+                    border: "none",
+                    background: "transparent",
+                    color: "#94A3B8",
+                    cursor: "pointer",
+                    fontSize: 22,
+                    lineHeight: 1,
+                    padding: 4,
+                  }}
+                >
+                  &times;
+                </button>
+              </div>
+
+              {/* Modal Body */}
+              <div style={{ padding: "20px 24px", display: "flex", flexDirection: "column", gap: 16 }}>
+                {/* Employee Info Box */}
+                <div
+                  style={{
+                    background: "#F8FAFC",
+                    border: "1px solid #E2E8F0",
+                    borderRadius: 6,
+                    padding: "10px 14px",
+                    fontSize: 13,
+                    color: "#334155",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 8,
+                  }}
+                >
+                  <span style={{ fontSize: 16 }}>ℹ️</span>
+                  <div>
+                    <strong style={{ color: "#0F172A" }}>
+                      {selectedRows.length === 1
+                        ? calculationRows.find((r) => r.empId === selectedRows[0])?.empName || "1 Employee"
+                        : `${selectedRows.length} Employees Selected`}
+                    </strong>{" "}
+                    will be skipped and will not receive salary payout for this period.
+                  </div>
+                </div>
+
+                {/* Reason Input Field */}
+                <div>
+                  <label
+                    htmlFor="skip-payroll-reason-input"
+                    style={{
+                      display: "block",
+                      fontSize: 13,
+                      fontWeight: 600,
+                      color: "#1E293B",
+                      marginBottom: 6,
+                    }}
+                  >
+                    Reason for Skipping <span style={{ color: "#DC2626" }}>*</span>
+                  </label>
+
+                  {/* Preset Shortcut Buttons */}
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 8 }}>
+                    {[
+                      "Unpaid Leave / LOP",
+                      "Notice Period",
+                      "Attendance Dispute",
+                      "Audit Hold",
+                      "Settlement Outside Payroll",
+                    ].map((preset) => (
+                      <button
+                        key={preset}
+                        type="button"
+                        onClick={() => {
+                          setSkipReasonText(preset)
+                          setSkipReasonError("")
+                        }}
+                        style={{
+                          background: skipReasonText === preset ? "#EFF6FF" : "#FFFFFF",
+                          border: `1px solid ${skipReasonText === preset ? "#3B82F6" : "#E2E8F0"}`,
+                          color: skipReasonText === preset ? "#1D4ED8" : "#475569",
+                          borderRadius: 14,
+                          padding: "3px 10px",
+                          fontSize: 11,
+                          fontWeight: 500,
+                          cursor: "pointer",
+                          transition: "all 0.1s",
+                        }}
+                      >
+                        {preset}
+                      </button>
+                    ))}
+                  </div>
+
+                  <textarea
+                    id="skip-payroll-reason-input"
+                    rows={3}
+                    autoFocus
+                    placeholder="Enter the mandatory reason for skipping (e.g. Employee on extended leave without pay or pending attendance clearance)..."
+                    value={skipReasonText}
+                    onChange={(e) => {
+                      setSkipReasonText(e.target.value)
+                      if (e.target.value.trim()) setSkipReasonError("")
+                    }}
+                    style={{
+                      width: "100%",
+                      boxSizing: "border-box",
+                      border: `1px solid ${skipReasonError ? "#DC2626" : "#CBD5E1"}`,
+                      borderRadius: 6,
+                      padding: "10px 12px",
+                      fontSize: 13,
+                      fontFamily: "inherit",
+                      outline: "none",
+                      resize: "vertical",
+                      minHeight: 76,
+                    }}
+                  />
+                  {skipReasonError && (
+                    <div role="alert" style={{ color: "#DC2626", fontSize: 12, marginTop: 5, fontWeight: 500 }}>
+                      ⚠️ {skipReasonError}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Modal Footer */}
+              <div
+                style={{
+                  padding: "14px 24px",
+                  borderTop: "1px solid #E2E8F0",
+                  background: "#FAFBFD",
+                  display: "flex",
+                  justifyContent: "flex-end",
+                  gap: 10,
+                }}
+              >
+                <button
+                  type="button"
+                  onClick={() => setSkipModalOpen(false)}
+                  style={{
+                    background: "#FFFFFF",
+                    border: "1px solid #CBD5E1",
+                    color: "#475569",
+                    borderRadius: 6,
+                    padding: "8px 16px",
+                    fontSize: 13,
+                    fontWeight: 500,
+                    cursor: "pointer",
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleConfirmSkip}
+                  style={{
+                    background: "#DC2626",
+                    border: "none",
+                    color: "#FFFFFF",
+                    borderRadius: 6,
+                    padding: "8px 18px",
+                    fontSize: 13,
+                    fontWeight: 600,
+                    cursor: "pointer",
+                    boxShadow: "0 1px 2px rgba(220, 38, 38, 0.2)",
+                  }}
+                >
+                  Skip from Payroll
+                </button>
               </div>
             </div>
           </div>
@@ -23224,10 +23205,16 @@ function PayRunsView({
             }}>
               <SparklesIcon size={18} color="#EA580C" strokeWidth={2} />
               <span style={{ color: "#7C2D12", fontWeight: 500 }}>
-                Pay salaries from any bank account without switching to your bank portal using Payouts by Zoho Payments.
+                Pay salaries from any bank account without switching to your bank portal using Payouts by NaxPayroll Payments.
               </span>
               <button
-                onClick={() => toast("Setup direct deposit transfer integration", "info")}
+                onClick={() => {
+                  if (onNavigateToPayoutSetup) {
+                    onNavigateToPayoutSetup()
+                  } else {
+                    toast("Directing to Direct Deposits setup...", "info")
+                  }
+                }}
                 style={{
                   background: "none",
                   border: "none",
@@ -23394,11 +23381,28 @@ function PayRunsView({
               {showHistoryFilterBar && (
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 10, paddingTop: 10, borderTop: `1px solid ${Z.borderLight}` }}>
                   <Fld label="Period"><input value={periodDraft} onChange={(e) => setPeriodDraft(e.target.value)} placeholder="e.g. May 2026" style={iSt} /></Fld>
+                  <Fld label="Year">
+                    <select value={yearDraft} onChange={(e) => setYearDraft(e.target.value)} style={iSt}>
+                      <option value="all">All Years (2025-2026)</option>
+                      <option value="2026">2026</option>
+                      <option value="2025">2025</option>
+                    </select>
+                  </Fld>
+                  <Fld label="Quarter">
+                    <select value={monthDraft} onChange={(e) => setMonthDraft(e.target.value)} style={iSt}>
+                      <option value="all">All Quarters</option>
+                      <option value="q1">Q1 (Jan - Mar)</option>
+                      <option value="q2">Q2 (Apr - Jun)</option>
+                      <option value="q3">Q3 (Jul - Sep)</option>
+                      <option value="q4">Q4 (Oct - Dec)</option>
+                    </select>
+                  </Fld>
                   <Fld label="Status">
                     <select value={statusDraft} onChange={(e) => setStatusDraft(e.target.value)} style={iSt}>
                       <option value="all">All Statuses</option>
                       <option value="Paid">Paid</option>
                       <option value="Payment Due">Payment Due</option>
+                      <option value="Approved">Approved</option>
                       <option value="Draft">Draft</option>
                     </select>
                   </Fld>
@@ -24196,7 +24200,7 @@ function PayslipsView({
   const [sortBy, setSortBy] = useState<"period" | "net" | "gross">("period")
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc")
   const [payslipPage, setPayslipPage] = useState(1)
-  const [hasRunPayslipSearch, setHasRunPayslipSearch] = useState(false)
+  const [hasRunPayslipSearch, setHasRunPayslipSearch] = useState(true)
   const [appliedPayslipListFilters, setAppliedPayslipListFilters] = useState({
     empSearch: myEmp?.name ?? "",
     selPeriod: "All",
@@ -24280,7 +24284,7 @@ function PayslipsView({
     })
   }
   const clearAll = () => {
-    setHasRunPayslipSearch(false)
+    setHasRunPayslipSearch(true)
     setPayslipPage(1)
     setEmpSearch(myEmp?.name ?? "")
     setSelPeriod("All")
@@ -25727,7 +25731,7 @@ function ReportsView({
       recipients: string;
       format: string;
     }>
-  >([]);
+  >(SEED_SCHEDULED_REPORTS);
   const [scheduleFrequency, setScheduleFrequency] = useState("Weekly");
   const [scheduleDate, setScheduleDate] = useState(
     new Date().toISOString().slice(0, 10),
@@ -28457,73 +28461,82 @@ function AccessManagementView({ emps }: { emps: Employee[] }) {
         ? "Self-Service Only"
         : `Role: ${role}`
 
-  const [users, setUsers] = useState<AccessUser[]>(() => {
-    try {
-      const saved = JSON.parse(localStorage.getItem(USER_STORAGE) || "null")
-      if (
-        Array.isArray(saved) &&
-        saved.every(
-          (user) =>
-            user &&
-            typeof user.name === "string" &&
-            typeof user.role === "string" &&
-            ["Active", "Locked"].includes(user.status),
-        )
-      ) {
-        return saved.map((user, index) => ({
-          ...user,
-          id:
-            user.id ||
-            `access-user-${index}-${user.name
-              .toLowerCase()
-              .replace(/[^a-z0-9]+/g, "-")}`,
-          email:
-            user.email ||
-            emps.find((employee) => employee.name === user.name)?.email ||
-            `${user.name
-              .toLowerCase()
-              .replace(/[^a-z0-9]+/g, ".")}@naxpayroll.com`,
-        }))
-      }
-    } catch {
-      // Use the application roster when stored user data is unavailable.
+  // Helper to build the complete roster of users guaranteeing all 200+ employees of active org
+  const buildRosterUsers = (employeeList: Employee[], savedUsers: AccessUser[] = []): AccessUser[] => {
+    const isOrg2 = employeeList[0]?.orgId === "ORG-002" || employeeList[0]?.id?.startsWith("NST")
+    const primaryAdminName = isOrg2 ? "Rohan Gupta" : "Meena Iyer"
+
+    const savedMap = new Map<string, AccessUser>()
+    if (Array.isArray(savedUsers)) {
+      savedUsers.forEach((u) => {
+        if (u && u.email) savedMap.set(u.email.toLowerCase(), u)
+        if (u && u.name) savedMap.set(u.name.toLowerCase(), u)
+      })
     }
 
-    return [
-      {
-        id: "access-admin-meena-iyer",
-        name: "Meena Iyer",
-        email:
-          emps.find((employee) => employee.name === "Meena Iyer")?.email ||
-          "meena.iyer@naxpayroll.com",
-        role: "Org Admin",
-        status: "Active",
-        department: "Executive & Admin",
-        scope: "Full Admin Access",
-        isOrganizationAdmin: true,
-      },
-      ...emps
-        .filter((employee) => employee.id !== "EMP-003")
-        .map((employee) => ({
-          id: `access-${employee.id.toLowerCase()}`,
-          name: employee.name,
-          email: employee.email,
-          role: "Employee",
-          status:
-            employee.id === "EMP-006"
-              ? ("Locked" as const)
-              : ("Active" as const),
-          department: employee.department || "Operations",
-          scope: "Self-Service Only",
-        })),
-    ]
-  })
+    return employeeList.map((employee, idx) => {
+      const isPrimary = employee.name === primaryAdminName
+      const saved = savedMap.get(employee.email?.toLowerCase()) || savedMap.get(employee.name?.toLowerCase())
+
+      let role = "Employee"
+      let scope = "Self-Service Only"
+
+      if (isPrimary) {
+        role = "Org Admin"
+        scope = "Full Admin Access"
+      } else if (employee.department === "Finance & Accounts" || employee.department === "Finance") {
+        role = "Payroll Specialist"
+        scope = "Manage payroll runs, salary calculations, and tax worksheets"
+      } else if (employee.department === "Human Resources" || employee.department === "HR") {
+        role = "HR Operations"
+        scope = "Employee directory maintenance, leave approvals, and policy documents"
+      } else if (employee.designation.includes("Director") || employee.designation.includes("VP") || employee.designation.includes("Manager")) {
+        role = "Manager"
+        scope = "Access to all modules except organisation settings"
+      } else if (employee.designation.includes("Lead") || employee.department.includes("QA")) {
+        role = "Department Team Lead"
+        scope = "Approve team attendance, loss-of-pay adjustments, and view team payroll reports"
+      } else if (employee.designation.includes("Architect") || employee.designation.includes("Security") || employee.department.includes("Compliance")) {
+        role = "Statutory Compliance Officer"
+        scope = "Access to EPF, ESIC, TDS returns, and statutory reports"
+      }
+
+      return {
+        id: `access-${employee.id.toLowerCase()}`,
+        name: employee.name,
+        email: employee.email,
+        role: saved?.role || role,
+        status: (saved?.status as "Active" | "Locked") || ((idx === 25 || idx === 75 || idx === 145) ? ("Locked" as const) : ("Active" as const)),
+        department: employee.department || "Operations",
+        scope: saved?.scope || scope,
+        isOrganizationAdmin: saved?.isOrganizationAdmin !== undefined ? saved.isOrganizationAdmin : isPrimary,
+      }
+    })
+  }
+
+  const loadSavedUsers = (): AccessUser[] => {
+    try {
+      const raw = localStorage.getItem(USER_STORAGE)
+      if (!raw) return []
+      const parsed = JSON.parse(raw)
+      return Array.isArray(parsed) ? parsed : []
+    } catch {
+      return []
+    }
+  }
+
+  const [users, setUsers] = useState<AccessUser[]>(() => buildRosterUsers(emps, loadSavedUsers()))
+
+  // Re-sync users whenever active organization employees change
+  useEffect(() => {
+    setUsers(buildRosterUsers(emps, loadSavedUsers()))
+  }, [emps])
 
   useEffect(() => {
     try {
       localStorage.setItem(USER_STORAGE, JSON.stringify(users))
     } catch {
-      toast("User changes could not be saved in this browser.", "error")
+      // Ignore quota error
     }
   }, [users])
 
@@ -28579,15 +28592,14 @@ function AccessManagementView({ emps }: { emps: Employee[] }) {
         JSON.stringify(nextRoles.filter((item) => !item.builtin)),
       )
     } catch {
-      toast("Unable to delete this role from browser storage.", "error")
+      toast("Unable to delete role from browser storage.", "error")
       return false
     }
 
     setRoles(nextRoles)
-    toast("Role deleted", "success")
+    toast("Role deleted", "info")
     return true
   }
-
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
       <PH
@@ -28675,7 +28687,7 @@ function AuditHistoryView({
   const toast = useToast()
   const [tab, setTab] = useState<"audit" | "errors">("audit")
   const [auditPage, setAuditPage] = useState(1)
-  const [hasRunAuditSearch, setHasRunAuditSearch] = useState(false)
+  const [hasRunAuditSearch, setHasRunAuditSearch] = useState(true)
   const [filterDraft, setFilterDraft] = useState({
     search: "",
     module: "All",
@@ -28720,7 +28732,8 @@ function AuditHistoryView({
     ? filteredErrors.slice((auditPage - 1) * 10, auditPage * 10)
     : []
   const clearFilters = () => {
-    setHasRunAuditSearch(false)
+    setHasRunAuditSearch(true)
+    setAuditPage(1)
     const empty = {
       search: "",
       module: "All",
@@ -28962,6 +28975,7 @@ function AuditHistoryView({
             ))}
           </tbody>
         </table>
+          <Pagination page={auditPage} pageSize={10} total={filtered.length} onPageChange={setAuditPage} />
         </div>
       ) : (
         <div
@@ -29232,7 +29246,7 @@ function PlatformDashboard({
             >
               <span>Super Administrator</span>
               <span>&bull;</span>
-              <span>Naxpayroll Global Control Center</span>
+              <span>NaxPayroll Global Control Center</span>
               <span>&bull;</span>
               <span style={{ color: F.text3 }}>ID: PLT-ADM-01</span>
             </div>
@@ -29722,7 +29736,7 @@ function PlatformAccessManagementView({
     fy: "All",
     sort: "name-asc",
   })
-  const [hasRunPlatformOrgSearch, setHasRunPlatformOrgSearch] = useState(false)
+  const [hasRunPlatformOrgSearch, setHasRunPlatformOrgSearch] = useState(true)
   const [searchDraft, setSearchDraft] = useState("")
   const [roleDraft, setRoleDraft] = useState("All")
   const [statusDraft, setStatusDraft] = useState("All")
@@ -29733,7 +29747,7 @@ function PlatformAccessManagementView({
     status: "All",
     sort: "name-asc",
   })
-  const [hasRunPlatformAdminSearch, setHasRunPlatformAdminSearch] = useState(false)
+  const [hasRunPlatformAdminSearch, setHasRunPlatformAdminSearch] = useState(true)
   const [showInvite, setShowInvite] = useState(false)
   const [inviteDraft, setInviteDraft] = useState({
     name: "",
@@ -29801,9 +29815,19 @@ function PlatformAccessManagementView({
     ),
   )
   const [activity, setActivity] = useState([
-    "Security Admin reviewed MFA coverage across active tenants",
-    "Naxrita Solutions access policy synchronized",
-    "BrightEdge Consulting remains in draft workspace mode",
+    "Today: Platform-wide SOC 2 Type II audit compliance verification completed",
+    "Oct 2026: Naxrita Solutions (GTS) bulk user access synchronized (210 active accounts)",
+    "Oct 2026: NovaSoft Technologies (NST) tenant permissions verified for Q4 festive payroll (205 active accounts)",
+    "Sep 2026: Security Admin audited MFA coverage across all enterprise tenant workspaces (100% compliant)",
+    "Sep 2026: Platform-wide TDS 24Q filing verification service executed without errors",
+    "Aug 2026: High-volume bank batch payout integration tested for HDFC Corporate & ICICI Direct",
+    "Jul 2026: Automated database replication and disaster recovery drill successfully completed",
+    "Jun 2026: Annual TRACES digital signature integration renewed for Form 16 batches",
+    "Apr 2026: FY 2026-27 statutory tax slab rules updated platform-wide",
+    "Mar 2026: Fiscal year end annual performance bonus calculation engine scale test passed",
+    "Jan 2026: Tenant NovaSoft Technologies authorized for enterprise multi-location payroll",
+    "Oct 2025: Platform performance scale test executed for Diwali bonus processing",
+    "Jan 2025: Tenant Naxrita Solutions onboarded with multi-location payroll capability",
   ])
 
   const selectedOrg = orgs.find((o) => o.id === selectedOrgId) ?? orgs[0]
@@ -31713,7 +31737,7 @@ function UnifiedProfileView({
     {
       id: "sess-2",
       device: "iPhone 15 Pro",
-      browser: "Naxpayroll iOS App v2.4",
+      browser: "NaxPayroll iOS App v2.4",
       location: "Mumbai, India",
       ip: "49.37.112.90",
       current: false,
@@ -33225,7 +33249,7 @@ function UnifiedProfileView({
                   Active Sessions & Devices
                 </span>
                 <div style={{ fontSize: 11, color: F.text2 }}>
-                  Devices currently authorized to access this Naxpayroll account
+                  Devices currently authorized to access this NaxPayroll account
                 </div>
               </div>
               <Btn
@@ -33343,7 +33367,7 @@ function UnifiedProfileView({
             </div>
             <div style={{ fontSize: 13, color: F.text1, marginTop: 6, lineHeight: 1.5 }}>
               {persona === "product_admin" &&
-                "As a Platform Administrator, you hold unrestricted root-level access across the entire multi-tenant Naxpayroll cluster, tenant provisioning, system health monitoring, and global audit enforcement."}
+                "As a Platform Administrator, you hold unrestricted root-level access across the entire multi-tenant NaxPayroll cluster, tenant provisioning, system health monitoring, and global audit enforcement."}
               {persona === "org_admin" &&
                 "As an Organization Administrator for Naxrita Solutions Pvt. Ltd., you have full authority to process and approve pay runs, configure statutory salary structures, manage the employee directory, and generate compliance reports."}
               {persona === "employee" &&
@@ -34668,6 +34692,13 @@ function NavIcon({ id }: { id: string }) {
         <polyline points="10 9 9 9 8 9" />
       </svg>
     )
+  if (id === "loans")
+    return (
+      <svg style={s} viewBox="0 0 24 24" aria-hidden="true">
+        <circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" strokeWidth="1.8" />
+        <text x="12" y="16" textAnchor="middle" fill="currentColor" fontFamily="Arial, sans-serif" fontSize="12" fontWeight="600">&#8377;</text>
+      </svg>
+    )
   if (id === "reports")
     return (
       <svg style={s} viewBox="0 0 24 24" {...p}>
@@ -34762,6 +34793,7 @@ const ORG_NAV = [
   { id: "salary", label: "Salary Management" },
   { id: "payruns", label: "Payroll / Pay Runs" },
   { id: "payslips", label: "Payslips" },
+  { id: "loans", label: "Loans" },
   { id: "documents", label: "Documents" },
   { id: "reports", label: "Reports" },
   { id: "access", label: "Access Management" },
@@ -34785,7 +34817,7 @@ const EMP_NAV = [
 const MY_EMP_ID = "EMP-001"
 function navLabelForView(id: string) {
   return (
-    [...ORG_NAV, ...PROD_NAV, ...EMP_NAV].find((item) => item.id === id)?.label ??
+    [...ORG_NAV, ...PROD_NAV, ...EMP_NAV, ...APPROVALS_NAV_ITEMS].find((item) => item.id === id)?.label ??
     id
   )
 }
@@ -38354,7 +38386,7 @@ function EmployeePayslipsView({
   const [deductionFilter, setDeductionFilter] = useState("all")
   const [sortOrder, setSortOrder] = useState<"desc" | "asc">("desc")
   const [selectedRunIds, setSelectedRunIds] = useState<string[]>([])
-  const [hasRunEmployeePayslipSearch, setHasRunEmployeePayslipSearch] = useState(false)
+  const [hasRunEmployeePayslipSearch, setHasRunEmployeePayslipSearch] = useState(true)
   const [appliedPayslipFilters, setAppliedPayslipFilters] = useState({
     periodSearch: "",
     selectedYear: "all",
@@ -38785,7 +38817,7 @@ function OrgDocumentsView({
   const [category, setCategory] = useState("All")
   const [status, setStatus] = useState("All")
   const [docSort, setDocSort] = useState("created-desc")
-  const [hasRunOrgDocumentSearch, setHasRunOrgDocumentSearch] = useState(false)
+  const [hasRunOrgDocumentSearch, setHasRunOrgDocumentSearch] = useState(true)
   const [appliedOrgDocFilters, setAppliedOrgDocFilters] = useState({
     search: "",
     category: "All",
@@ -38806,7 +38838,7 @@ function OrgDocumentsView({
   const [folderName, setFolderName] = useState("")
   const [folderDescription, setFolderDescription] = useState("")
   const [orgFolderFieldErrors, setOrgFolderFieldErrors] = useState<{ name?: string; description?: string }>({})
-  const [orgFolders, setOrgFolders] = useState<Array<{ id: number; name: string; description: string }>>([])
+  const [orgFolders, setOrgFolders] = useState<Array<{ id: number; name: string; description: string }>>(SEED_ORG_FOLDERS)
   const [editingFolderId, setEditingFolderId] = useState<number | null>(null)
   const [openFolderMenuId, setOpenFolderMenuId] = useState<number | null>(null)
   const [deletingFolder, setDeletingFolder] = useState<{ id: number; name: string } | null>(null)
@@ -38815,7 +38847,7 @@ function OrgDocumentsView({
   const [selectedUploadFile, setSelectedUploadFile] = useState<File | null>(null)
   const [showOrgFolderUploadModal, setShowOrgFolderUploadModal] = useState(false)
   const [folderUploadError, setFolderUploadError] = useState("")
-  const [folderDocuments, setFolderDocuments] = useState<Array<{ id: number; folderId: number; fileName: string; fileSize: number; file: File; showInPortal: boolean; uploadedOn: string }>>([])
+  const [folderDocuments, setFolderDocuments] = useState<Array<{ id: number; folderId: number; fileName: string; fileSize: number; file: File; showInPortal: boolean; uploadedOn: string }>>(SEED_FOLDER_DOCUMENTS)
   const [trashedDocuments, setTrashedDocuments] = useState<Array<(typeof folderDocuments)[number] & { originalFolderName: string }>>([])
   const [selectedTrashDocumentIds, setSelectedTrashDocumentIds] = useState<number[]>([])
   const [isTrashPermanentDeleteConfirmOpen, setIsTrashPermanentDeleteConfirmOpen] = useState(false)
@@ -39919,7 +39951,7 @@ function EmployeeDocumentsView({ active, employees, employeeDocumentSearch, setE
     uploadedOn: string
     showInPortal: boolean
   }
-  const [folders, setFolders] = useState<Array<{ id: number; name: string; description: string }>>([])
+  const [folders, setFolders] = useState<Array<{ id: number; name: string; description: string }>>(SEED_EMPLOYEE_FOLDERS)
   const [selectedFolderId, setSelectedFolderId] = useState<number | null>(null)
   const selectedFolder = folders.find((folder) => folder.id === selectedFolderId) ?? null
   const [folderMenuId, setFolderMenuId] = useState<number | null>(null)
@@ -39929,7 +39961,7 @@ function EmployeeDocumentsView({ active, employees, employeeDocumentSearch, setE
   const [folderDescription, setFolderDescription] = useState("")
   const [fieldErrors, setFieldErrors] = useState<{ name?: string; description?: string }>({})
   const [folderToDelete, setFolderToDelete] = useState<{ id: number; name: string } | null>(null)
-  const [employeeFolderDocuments, setEmployeeFolderDocuments] = useState<EmployeeFolderDocument[]>([])
+  const [employeeFolderDocuments, setEmployeeFolderDocuments] = useState<EmployeeFolderDocument[]>(SEED_EMPLOYEE_DOCUMENTS as any)
   const [trashedEmployeeDocuments, setTrashedEmployeeDocuments] = useState<Array<EmployeeFolderDocument & { originalFolderName: string }>>([])
   const [isEmployeeTrashOpen, setIsEmployeeTrashOpen] = useState(false)
   const [selectedEmployeeTrashDocumentIds, setSelectedEmployeeTrashDocumentIds] = useState<number[]>([])
@@ -40698,7 +40730,7 @@ function DocumentsView({
   const documentStatuses = Array.from(new Set(docs.map((d) => d.status)))
   const downloadDocument = (doc: typeof docs[number]) => {
     const content = [
-      "Naxpayroll Employee Document",
+      "NaxPayroll Employee Document",
       `Document: ${doc.name}`,
       `Issue Date: ${doc.date}`,
       `Category: ${doc.type}`,
@@ -41635,7 +41667,7 @@ function LoginPage({ onLogin }: { onLogin: (persona: Persona) => void }) {
               letterSpacing: "-0.01em",
             }}
           >
-            Sign in to Naxpayroll
+            Sign in to NaxPayroll
           </h1>
           <p style={{ fontSize: 13, color: F.text2, margin: "5px 0 0 0" }}>
             Select your portal to continue
@@ -41931,7 +41963,7 @@ function LoginPage({ onLogin }: { onLogin: (persona: Persona) => void }) {
           gap: 16,
         }}
       >
-        <span>© 2026 Naxpayroll Inc.</span>
+        <span>© 2026 NaxPayroll Inc.</span>
         <span>•</span>
         <span style={{ cursor: "pointer", color: F.text2 }}>Privacy</span>
         <span>•</span>
@@ -42096,7 +42128,7 @@ function SettingsTopBar({ onBack, search, setSearch, onClose }: { onBack?: () =>
       {onBack && <button onClick={onBack} aria-label="Back to settings" style={{ width: 38, height: 38, border: `1px solid ${F.border}`, borderRadius: 7, background: "#fff", cursor: "pointer", fontSize: 22, color: F.text2 }}>‹</button>}
       <div style={{ minWidth: 250 }}>
         {/* Keep the Settings workspace name constant on every Settings page. */}
-        <div style={{ fontSize: 16, fontWeight: 800, color: "#20364D", lineHeight: 1.1 }}>Naxpayroll</div>
+        <div style={{ fontSize: 16, fontWeight: 800, color: "#20364D", lineHeight: 1.1 }}>NaxPayroll</div>
         <div style={{ fontSize: 10, letterSpacing: ".12em", fontWeight: 600, color: "#607A96", marginTop: 4 }}>PAYROLL PLATFORM · ALL SETTINGS</div>
       </div>
       <div style={{ flex: 1, display: "flex", justifyContent: "center" }}>
@@ -45600,7 +45632,7 @@ You are yet to enable the submission of Proof Of Investments for your employees 
     const finishTag = () => { const values=reportingTagOptions.map(v=>v.trim()).filter(Boolean); if(!values.length){showToast("Please add at least one option value.","error");return} const usedBy=[["Employees",reportingTagEmployees],["Pay Runs",reportingTagPayRuns],["Salary Components",reportingTagSalaryComponents],["Departments",reportingTagDepartments]].filter(x=>x[1]).map(x=>x[0]).join(", ")||"None"; const updatedRow=[reportingTagName.trim(),reportingTagDescription.trim()||"-","Active",reportingTagEmployees?"Yes":"No",values.join(", "),usedBy,reportingTagVisibilityEnabled?`Conditional: ${reportingTagConditionTags.join(", ")||"selected tags"}`:"All options visible"]; if(reportingTagEditIndex!==null){setReportingTagRows(prev=>prev.map((row,i)=>i===reportingTagEditIndex?updatedRow:row));showToast("Reporting tag updated successfully.","success")}else{setReportingTagRows(prev=>[...prev,updatedRow]);showToast("Reporting tag created successfully.","success")} resetReportingTagForm() }
     if (reportingTagCreateOpen) return shell(<div style={{margin:0,background:"#fff",minHeight:500,border:`1px solid ${F.border}`,borderRadius:8,overflow:"hidden",position:"relative",paddingBottom:76}}>
       <div style={{padding:"20px 32px 0",borderBottom:"1px solid #E5EAF1"}}><div style={{fontSize:22,fontWeight:500,color:"#26384A",marginBottom:20}}>Adding New Reporting Tag</div>{stepHeader(reportingTagStep)}</div>
-      {reportingTagStep===1 && <div style={{padding:"26px 36px 34px",maxWidth:1000}}><div style={{display:"grid",gridTemplateColumns:"100px minmax(250px,535px)",gap:"24px 14px",alignItems:"start"}}><label htmlFor="rt-name" style={{paddingTop:8,fontSize:14}}>Name <span style={{color:"#E5484D"}}>*</span></label><input id="rt-name" value={reportingTagName} onChange={e=>setReportingTagName(e.target.value)} style={inputStyle}/><label htmlFor="rt-description" style={{paddingTop:8,fontSize:14}}>Description</label><textarea id="rt-description" value={reportingTagDescription} onChange={e=>setReportingTagDescription(e.target.value)} style={{...inputStyle,height:118,padding:12,resize:"vertical",fontFamily:"inherit"}}/></div><div style={{borderTop:"1px solid #E5EAF1",marginTop:38,paddingTop:20}}><div style={{fontSize:17,fontWeight:600,marginBottom:18}}>Associate This Reporting Tag To</div>{[["Employees",reportingTagEmployees,setReportingTagEmployees],["Pay Runs",reportingTagPayRuns,setReportingTagPayRuns],["Salary Components",reportingTagSalaryComponents,setReportingTagSalaryComponents],["Departments",reportingTagDepartments,setReportingTagDepartments]].map(([label,checked,setter])=><label key={String(label)} style={{display:"flex",alignItems:"center",gap:8,marginBottom:12,color:"#475569",fontSize:14,cursor:"pointer"}}><input type="checkbox" checked={Boolean(checked)} onChange={e=>(setter as (v:boolean)=>void)(e.target.checked)}/>{String(label)}</label>)}<div style={{marginTop:14,background:"#F1F6FD",color:"#263E57",borderRadius:8,padding:"12px 14px",maxWidth:665,fontSize:14,lineHeight:1.55}}>If the same organization exists across multiple Zoho Finance apps, this preference will be applied universally. However, you can manually update it later within any specific app if needed.</div></div></div>}
+      {reportingTagStep===1 && <div style={{padding:"26px 36px 34px",maxWidth:1000}}><div style={{display:"grid",gridTemplateColumns:"100px minmax(250px,535px)",gap:"24px 14px",alignItems:"start"}}><label htmlFor="rt-name" style={{paddingTop:8,fontSize:14}}>Name <span style={{color:"#E5484D"}}>*</span></label><input id="rt-name" value={reportingTagName} onChange={e=>setReportingTagName(e.target.value)} style={inputStyle}/><label htmlFor="rt-description" style={{paddingTop:8,fontSize:14}}>Description</label><textarea id="rt-description" value={reportingTagDescription} onChange={e=>setReportingTagDescription(e.target.value)} style={{...inputStyle,height:118,padding:12,resize:"vertical",fontFamily:"inherit"}}/></div><div style={{borderTop:"1px solid #E5EAF1",marginTop:38,paddingTop:20}}><div style={{fontSize:17,fontWeight:600,marginBottom:18}}>Associate This Reporting Tag To</div>{[["Employees",reportingTagEmployees,setReportingTagEmployees],["Pay Runs",reportingTagPayRuns,setReportingTagPayRuns],["Salary Components",reportingTagSalaryComponents,setReportingTagSalaryComponents],["Departments",reportingTagDepartments,setReportingTagDepartments]].map(([label,checked,setter])=><label key={String(label)} style={{display:"flex",alignItems:"center",gap:8,marginBottom:12,color:"#475569",fontSize:14,cursor:"pointer"}}><input type="checkbox" checked={Boolean(checked)} onChange={e=>(setter as (v:boolean)=>void)(e.target.checked)}/>{String(label)}</label>)}<div style={{marginTop:14,background:"#F1F6FD",color:"#263E57",borderRadius:8,padding:"12px 14px",maxWidth:665,fontSize:14,lineHeight:1.55}}>If the same organization exists across multiple NaxPayroll apps, this preference will be applied universally. However, you can manually update it later within any specific app if needed.</div></div></div>}
       {reportingTagStep===2 && <div style={{display:"grid",gridTemplateColumns:"minmax(500px,1.35fr) minmax(320px,.9fr)",minHeight:530}}><div style={{padding:"18px 22px 36px"}}><div style={{fontSize:18,fontWeight:500,marginBottom:18}}>Configure Tag Options</div><div style={{border:"1px solid #E5E9F3",borderRadius:8,boxShadow:"0 2px 5px rgba(20,40,70,.08)",overflow:"hidden",maxWidth:730}}><div style={{padding:"18px 16px",color:"#50648A",fontSize:11,fontWeight:700,borderBottom:"1px solid #D9E0EF",textTransform:"uppercase"}}>{reportingTagEmployees?"EMPLOYEE OPTIONS":reportingTagPayRuns?"PAY RUN OPTIONS":reportingTagSalaryComponents?"SALARY COMPONENT OPTIONS":reportingTagDepartments?"DEPARTMENT OPTIONS":"TAG OPTIONS"}</div>{reportingTagOptions.map((v,i)=><div key={i} style={{display:"grid",gridTemplateColumns:"30px 1fr 30px",alignItems:"center",minHeight:54,padding:"0 14px",borderBottom:"1px solid #E8ECF5",gap:8}}><span style={{color:"#64748B",fontSize:17}}>⠿</span><input aria-label={`Option value ${i+1}`} placeholder="Add a New Option Value" value={v} onChange={e=>setReportingTagOptions(prev=>prev.map((x,j)=>j===i?e.target.value:x))} style={{border:0,outline:0,height:46,minWidth:0,fontSize:14,fontFamily:"inherit"}}/><button type="button" aria-label="Remove option" onClick={()=>setReportingTagOptions(prev=>prev.length>1?prev.filter((_,j)=>j!==i):[""])} style={{border:0,background:"transparent",color:"#7B879B",cursor:"pointer",fontSize:18}}>×</button></div>)}<button type="button" onClick={()=>setReportingTagOptions(prev=>[...prev,""])} style={{display:"flex",alignItems:"center",gap:9,padding:16,color:blue,border:0,background:"#fff",fontSize:14,cursor:"pointer"}}>⊕ Add New Option</button></div></div><aside style={{background:"#FAFAFE",borderLeft:"1px solid #F0F1F8",padding:"24px 20px",color:"#50648A"}}><div style={{fontSize:12,fontWeight:700,marginBottom:24}}>💡　HOW OPTIONS WORK</div><div style={{border:"1px solid #ECEFFA",borderRadius:18,background:"#fff",padding:22,marginBottom:30}}><div style={{border:"1px solid #E2E6F5",borderRadius:6,padding:11,background:"#F8F8FF",fontSize:13,marginBottom:14}}>Selected Options <span style={{float:"right"}}>⌄</span></div>{(reportingTagOptions.filter(Boolean).length?reportingTagOptions.filter(Boolean):["Option values appear here"]).map((v,i)=><div key={`${v}-${i}`} style={{padding:"10px 12px",marginBottom:5,background:i===1?"#F0F0FC":"#FAFAFF",borderRadius:6,fontSize:13,overflowWrap:"anywhere"}}>{v}</div>)}</div><ul style={{margin:0,paddingLeft:16,fontSize:14,lineHeight:1.7}}><li style={{marginBottom:16}}>Reporting tag options are labels assigned to transactions to categorize them for financial analysis, tracking, and reporting.</li><li>You can organize options hierarchically by adding child options under a parent option.</li></ul></aside></div>}
       {reportingTagStep===3 && <div style={{padding:"28px 32px 36px"}}><div style={{border:"1px solid #E6EAF4",borderRadius:12,maxWidth:1000,overflow:"hidden",boxShadow:"0 2px 4px rgba(20,40,70,.06)"}}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:16,padding:"20px 22px",borderBottom:"1px solid #EDF0F6"}}><strong style={{fontSize:16}}>Configure when tag options should be visible</strong><button type="button" role="switch" aria-checked={reportingTagVisibilityEnabled} onClick={()=>setReportingTagVisibilityEnabled(v=>!v)} style={{width:44,height:24,borderRadius:20,border:0,background:reportingTagVisibilityEnabled?blue:"#CBD5E1",padding:3,cursor:"pointer"}}><span style={{display:"block",width:18,height:18,borderRadius:"50%",background:"#fff",marginLeft:reportingTagVisibilityEnabled?20:0}}/></button></div><div style={{padding:"20px 22px"}}><p style={{margin:"0 0 24px",color:"#64748B",fontSize:14,lineHeight:1.6}}>Once enabled, you can use other Reporting Tags as filters to control when the options in this tag should appear.</p>{reportingTagVisibilityEnabled && <><div style={{fontSize:16,fontWeight:500,marginBottom:18}}>Select Tags</div><div style={{display:"flex",flexWrap:"wrap",gap:12,marginBottom:28}}>{[...new Set([reportingTagName||"tag",...reportingTagRows.map(r=>r[0])])].map(tag=><label key={tag} style={{display:"flex",alignItems:"center",gap:8,border:"1px solid #DDE3F0",borderRadius:6,padding:"10px 12px",cursor:"pointer",background:reportingTagConditionTags.includes(tag)?"#F7FAFF":"#fff",color:"#52627A"}}><input type="checkbox" checked={reportingTagConditionTags.includes(tag)} onChange={e=>setReportingTagConditionTags(prev=>e.target.checked?[...prev,tag]:prev.filter(t=>t!==tag))}/>{tag}</label>)}</div><div style={{borderTop:"1px solid #E5EAF1",paddingTop:24}}><div style={{fontSize:16,fontWeight:500,marginBottom:18}}>Configure Criteria</div><p style={{color:"#718096",fontSize:14,marginBottom:16}}>Add or remove values from the selection criteria based on which you need to show the reporting tag values.</p><div style={{display:"grid",gridTemplateColumns:"1fr 1fr",background:"#F6F6FC",border:"1px solid #E1E5F0",fontSize:12,fontWeight:700}}><div style={{padding:13,borderRight:"1px solid #E1E5F0"}}>Selection Criteria</div><div style={{padding:13}}>Options</div></div><div style={{display:"grid",gridTemplateColumns:"1fr 1fr",border:"1px solid #E1E5F0",borderTop:0,fontSize:14}}><div style={{padding:13,borderRight:"1px solid #E1E5F0",fontWeight:600}}>{(reportingTagConditionTags[0]||reportingTagName||"TAG").toUpperCase()}</div><div style={{padding:13,fontWeight:600}}>{reportingTagConditionTags[1]||"EMPLOYEE"}</div><div style={{padding:13,borderRight:"1px solid #E1E5F0"}}><select value={reportingTagConditionValue} onChange={e=>setReportingTagConditionValue(e.target.value)} style={{...inputStyle,height:38}}><option>All Values</option><option>Is</option><option>Is Not</option><option>Contains</option></select></div><div style={{padding:13}}><input value={reportingTagConditionOption} onChange={e=>setReportingTagConditionOption(e.target.value)} placeholder="Enter option value" style={{...inputStyle,height:38}}/></div></div></div></>}</div></div></div>}
       <div style={{position:"sticky",bottom:0,display:"flex",alignItems:"center",gap:10,padding:"14px 24px",background:"#fff",borderTop:"1px solid #E5EAF1",boxShadow:"0 -3px 10px rgba(20,40,70,.03)",zIndex:2}}>{reportingTagStep===1?<><Btn onClick={()=>{if(!reportingTagName.trim()){showToast("Please enter a reporting tag name.","error");return}setReportingTagStep(2)}}>Save &amp; Proceed</Btn><Btn variant="secondary" onClick={resetReportingTagForm}>Cancel</Btn></>:reportingTagStep===2?<><Btn onClick={()=>{if(!reportingTagOptions.some(v=>v.trim())){showToast("Please add at least one option value.","error");return}setReportingTagStep(3)}}>Save &amp; Proceed</Btn><Btn variant="secondary" onClick={()=>setReportingTagStep(1)}>Back</Btn><Btn variant="secondary" onClick={resetReportingTagForm}>Cancel</Btn></>:<><Btn onClick={finishTag}>Save &amp; Complete</Btn><Btn variant="secondary" onClick={()=>setReportingTagStep(2)}>Back</Btn><Btn variant="secondary" onClick={resetReportingTagForm}>Cancel</Btn></>}<span style={{marginLeft:"auto",color:"#E5484D",fontSize:13}}>* indicates mandatory fields</span></div>
@@ -45765,7 +45797,7 @@ You are yet to enable the submission of Proof Of Investments for your employees 
         <thead><tr style={{ height: 44, borderTop: "1px solid #D5DADD", borderBottom: "1px solid #D5DADD" }}><th style={{ padding: "0 34px", width: "260px", fontSize: 12, fontWeight: 600 }}>CONNECTIONS</th><th style={{ padding: "0 28px", fontSize: 12, fontWeight: 600 }}>DESCRIPTION</th></tr></thead>
         <tbody>
           <tr style={{ height: 58, borderBottom: "1px solid #D5DADD" }}><td style={{ padding: "0 34px" }}><button type="button" onClick={() => showToast("Your created connections will be listed here.", "info")} style={{ border: 0, background: "transparent", padding: 0, color: "#1677FF", fontSize: 14, cursor: "pointer" }}>My Connections</button></td><td style={{ padding: "0 28px" }}>Connections that you've created will be listed here.</td></tr>
-          <tr style={{ height: 58, borderBottom: "1px solid #D5DADD" }}><td style={{ padding: "0 34px" }}><button type="button" onClick={() => showToast("Internal connections created by built-in integration tasks will be listed here.", "info")} style={{ border: 0, background: "transparent", padding: 0, color: "#1677FF", fontSize: 14, cursor: "pointer" }}>Internal Connections</button></td><td style={{ padding: "0 28px" }}>Connections that are created with other Zoho products by built-in integration tasks in a deluge script, will be listed here.</td></tr>
+          <tr style={{ height: 58, borderBottom: "1px solid #D5DADD" }}><td style={{ padding: "0 34px" }}><button type="button" onClick={() => showToast("Internal connections created by built-in integration tasks will be listed here.", "info")} style={{ border: 0, background: "transparent", padding: 0, color: "#1677FF", fontSize: 14, cursor: "pointer" }}>Internal Connections</button></td><td style={{ padding: "0 28px" }}>Connections that are created with other NaxPayroll products by built-in integration tasks, will be listed here.</td></tr>
         </tbody>
       </table>
     </div>
@@ -45934,6 +45966,10 @@ export default function App() {
   const [adminViewBeforePortal, setAdminViewBeforePortal] = useState("dashboard")
   const [persona, setPersona] = useState<Persona>("org_admin")
   const [view, setView] = useState("dashboard")
+  const [loanEmployeeProfileId, setLoanEmployeeProfileId] = useState<string | null>(null)
+  const [createLoanEmployeeId, setCreateLoanEmployeeId] = useState<string | null>(null)
+  const [openCreateLoan, setOpenCreateLoan] = useState(false)
+  const [settingsInitialTab, setSettingsInitialTab] = useState<string | null>(null)
   const [activeDocumentsTab, setActiveDocumentsTab] = useState<"organization" | "employee">("organization")
   const [employeeDocumentSearch, setEmployeeDocumentSearch] = useState("")
   const [rangeFrom, setRangeFrom] = useState("")
@@ -46037,12 +46073,31 @@ export default function App() {
     setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), 3200)
   }, [adminProfiles, persona, view])
 
+  const [currentOrgId, setCurrentOrgId] = useState<string>("ORG-001")
+  const [showOrgDropdown, setShowOrgDropdown] = useState(false)
+  const orgDropdownRef = useRef<HTMLDivElement | null>(null)
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (orgDropdownRef.current && !orgDropdownRef.current.contains(e.target as Node)) {
+        setShowOrgDropdown(false)
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside)
+    return () => document.removeEventListener("mousedown", handleClickOutside)
+  }, [])
+
+  const activeOrg = orgs.find((o) => o.id === currentOrgId) || orgs[0]
+  const orgEmps = emps.filter((e) => (e.orgId || "ORG-001") === currentOrgId)
+  const orgPayruns = payruns.filter((p) => (p.orgId || "ORG-001") === currentOrgId)
+  const orgDocsFiltered = orgDocs.filter((d) => (d.orgId || "ORG-001") === currentOrgId)
+
   const [sidebarOpen, setSidebarOpen] = useState(true)
   // Settings has two navigation levels:
   // 1) All Settings is a standalone page with no application sidebar.
   // 2) Selecting a module opens the detail page inside the normal app shell.
   const [settingsSelectedId, setSettingsSelectedId] = useState<string | null>(null)
-  const myEmp = emps.find((e) => e.id === MY_EMP_ID)!
+  const myEmp = emps.find((e) => e.id === (currentOrgId === "ORG-002" ? "NST-001" : MY_EMP_ID)) || orgEmps[0] || emps[0]
   const nav =
     persona === "product_admin"
       ? PROD_NAV
@@ -46248,7 +46303,7 @@ export default function App() {
                   lineHeight: 1.1,
                 }}
               >
-                Naxpayroll
+                NaxPayroll
               </div>
               <div
                 style={{
@@ -46262,6 +46317,137 @@ export default function App() {
               </div>
             </div>
           </div>
+
+          {/* Enterprise Organization / Tenant Switcher */}
+          <div style={{ position: "relative", marginLeft: 8 }} ref={orgDropdownRef}>
+            <button
+              type="button"
+              onClick={() => setShowOrgDropdown((prev) => !prev)}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                padding: "4px 10px",
+                borderRadius: 6,
+                background: "#F0F4F8",
+                border: "1px solid #CFD8E3",
+                cursor: "pointer",
+                fontFamily: "inherit",
+                fontSize: 12.5,
+                fontWeight: 600,
+                color: F.text1,
+                transition: "all 0.15s ease",
+              }}
+              title="Switch Organization / Tenant"
+            >
+              <BuildingIcon size={14} color={F.brand} />
+              <span style={{ maxWidth: 190, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                {activeOrg.name}
+              </span>
+              <span
+                style={{
+                  background: "#E2E8F0",
+                  color: "#334155",
+                  padding: "1px 6px",
+                  borderRadius: 10,
+                  fontSize: 10.5,
+                  fontWeight: 700,
+                }}
+              >
+                {orgEmps.length} Emps
+              </span>
+              <ChevronDownIcon size={12} color={F.text2} />
+            </button>
+
+            {showOrgDropdown && (
+              <div
+                style={{
+                  position: "absolute",
+                  top: 36,
+                  left: 0,
+                  width: 330,
+                  background: "#FFFFFF",
+                  borderRadius: 8,
+                  boxShadow: "0 10px 25px -5px rgba(0,0,0,0.18), 0 8px 10px -6px rgba(0,0,0,0.12)",
+                  border: "1px solid #D9E0E7",
+                  zIndex: 1000,
+                  overflow: "hidden",
+                }}
+              >
+                <div style={{ padding: "10px 14px", background: "#F8FAFC", borderBottom: "1px solid #E2E8F0" }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                    Select Organization
+                  </div>
+                  <div style={{ fontSize: 11, color: "#94A3B8", marginTop: 2 }}>
+                    2 enterprise tenants loaded with 2 full years (2025-2026) data
+                  </div>
+                </div>
+                <div style={{ padding: 6 }}>
+                  {orgs.map((o) => {
+                    const isSelected = o.id === currentOrgId
+                    const count = emps.filter((e) => (e.orgId || "ORG-001") === o.id).length
+                    return (
+                      <div
+                        key={o.id}
+                        onClick={() => {
+                          setCurrentOrgId(o.id)
+                          setShowOrgDropdown(false)
+                          showToast(`Switched organization to ${o.name} (${count} employees)`, "success")
+                        }}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "space-between",
+                          padding: "8px 10px",
+                          borderRadius: 6,
+                          background: isSelected ? "#EFF6FF" : "transparent",
+                          border: isSelected ? "1px solid #BFDBFE" : "1px solid transparent",
+                          cursor: "pointer",
+                          marginBottom: 4,
+                          transition: "background 0.1s ease",
+                        }}
+                        onMouseEnter={(e) => {
+                          if (!isSelected) e.currentTarget.style.background = "#F1F5F9"
+                        }}
+                        onMouseLeave={(e) => {
+                          if (!isSelected) e.currentTarget.style.background = "transparent"
+                        }}
+                      >
+                        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                          <div
+                            style={{
+                              width: 32,
+                              height: 32,
+                              borderRadius: 6,
+                              background: isSelected ? F.brand : "#E2E8F0",
+                              color: isSelected ? "#fff" : "#475569",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              fontWeight: 700,
+                              fontSize: 12,
+                            }}
+                          >
+                            {o.code || o.name.slice(0, 2).toUpperCase()}
+                          </div>
+                          <div>
+                            <div style={{ fontSize: 12.5, fontWeight: isSelected ? 700 : 500, color: F.text1 }}>
+                              {o.name}
+                            </div>
+                            <div style={{ fontSize: 11, color: F.text3 }}>
+                              {count} Employees · {o.country} · FY {o.financialYear}
+                            </div>
+                          </div>
+                        </div>
+                        {isSelected && <CheckIcon size={14} color={F.brand} />}
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+
           <div style={{ flex: 1 }} />
           <LiveClock />
           <NotificationBell showToast={showToast} onNavigate={setView} />
@@ -46307,64 +46493,76 @@ export default function App() {
             {nav.map((item) => {
               const active = view === item.id || (item.id === "payruns" && view === "history")
               return (
-                <div
-                  key={item.id}
-                  title={!sidebarOpen ? item.label : undefined}
-                  style={{ position: "relative" }}
-                >
-                  <button
-                    className={`sap-nav-item${active ? " is-active" : ""}`}
-                    onClick={() => {
-                      if (item.id === "settings") setSettingsSelectedId(null)
-                      setView(item.id)
-                    }}
-                    title={item.label}
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 12,
-                      padding: sidebarOpen ? "10px 16px" : "11px 0",
-                      justifyContent: sidebarOpen ? "flex-start" : "center",
-                      background: active ? F.highlight : "transparent",
-                      border: "none",
-                      borderLeft: `3px solid ${
-                        active ? F.brand : "transparent"
-                      }`,
-                      cursor: "pointer",
-                      color: active ? F.brandHover : F.text2,
-                      textAlign: "left",
-                      fontSize: 13,
-                      fontWeight: active ? 600 : 400,
-                      width: "100%",
-                      fontFamily: "inherit",
-                      transition: "all 0.12s ease",
-                      whiteSpace: "nowrap",
-                      overflow: "hidden",
-                    }}
-                    onMouseEnter={(e) => {
-                      if (!active)
-                        e.currentTarget.style.background =
-                            F.pageBg
-                    }}
-                    onMouseLeave={(e) => {
-                      if (!active)
-                        e.currentTarget.style.background = "transparent"
-                    }}
+                <Fragment key={item.id}>
+                  <div
+                    title={!sidebarOpen ? item.label : undefined}
+                    style={{ position: "relative" }}
                   >
-                    <NavIcon id={item.id} />
-                    {sidebarOpen && (
-                      <span
-                        style={{
-                          overflow: "hidden",
-                          textOverflow: "ellipsis",
-                          whiteSpace: "nowrap",
-                        }}
-                      >
-                        {item.label}
-                      </span>
-                    )}
-                  </button>
-                </div>
+                    <button
+                      className={`sap-nav-item${active ? " is-active" : ""}`}
+                      onClick={() => {
+                        if (item.id === "settings") setSettingsSelectedId(null)
+                        if (item.id === "loans") {
+                          setOpenCreateLoan(false)
+                          setCreateLoanEmployeeId(null)
+                        }
+                        setView(item.id)
+                      }}
+                      title={item.label}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 12,
+                        padding: sidebarOpen ? "10px 16px" : "11px 0",
+                        justifyContent: sidebarOpen ? "flex-start" : "center",
+                        background: active ? F.highlight : "transparent",
+                        border: "none",
+                        borderLeft: `3px solid ${
+                          active ? F.brand : "transparent"
+                        }`,
+                        cursor: "pointer",
+                        color: active ? F.brandHover : F.text2,
+                        textAlign: "left",
+                        fontSize: 13,
+                        fontWeight: active ? 600 : 400,
+                        width: "100%",
+                        fontFamily: "inherit",
+                        transition: "all 0.12s ease",
+                        whiteSpace: "nowrap",
+                        overflow: "hidden",
+                      }}
+                      onMouseEnter={(e) => {
+                        if (!active)
+                          e.currentTarget.style.background =
+                              F.pageBg
+                      }}
+                      onMouseLeave={(e) => {
+                        if (!active)
+                          e.currentTarget.style.background = "transparent"
+                      }}
+                    >
+                      <NavIcon id={item.id} />
+                      {sidebarOpen && (
+                        <span
+                          style={{
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                            whiteSpace: "nowrap",
+                          }}
+                        >
+                          {item.label}
+                        </span>
+                      )}
+                    </button>
+                  </div>
+                  {item.id === "payruns" && persona === "org_admin" && (
+                    <ApprovalsNav
+                      currentView={view}
+                      onNavigate={setView}
+                      sidebarOpen={sidebarOpen}
+                    />
+                  )}
+                </Fragment>
               )
             })}
             <div style={{ flex: 1 }} />
@@ -46418,18 +46616,29 @@ export default function App() {
                   <>
                     {view === "dashboard" && (
                       <DashboardView
-                        emps={emps}
-                        payruns={payruns}
+                        emps={orgEmps}
+                        payruns={orgPayruns}
                         ss={ss}
                         onNav={setView}
                       />
                     )}
                     {view === "employees" && (
-                      <EmployeesView emps={emps} setEmps={setEmps} ss={ss} />
+                      <EmployeesView
+                        emps={orgEmps}
+                        setEmps={setEmps}
+                        ss={ss}
+                        openEmployeeId={loanEmployeeProfileId}
+                        onEmployeeProfileOpened={() => setLoanEmployeeProfileId(null)}
+                        onNavigateToCreateLoan={(employeeId) => {
+                          setCreateLoanEmployeeId(employeeId ?? null)
+                          setOpenCreateLoan(true)
+                          setView("loans")
+                        }}
+                      />
                     )}
                     {view === "salary" && (
                       <SalaryManagementView
-                        emps={emps}
+                        emps={orgEmps}
                         ss={ss}
                         setSS={setSS}
                         setEmps={setEmps}
@@ -46437,21 +46646,52 @@ export default function App() {
                     )}
                     {(view === "payruns" || view === "history") && (
                       <PayRunsView
-                        emps={emps}
+                        emps={orgEmps}
                         setEmps={setEmps}
                         ss={ss}
-                        payruns={payruns}
+                        payruns={orgPayruns}
                         setPayruns={setPayruns}
+                        onNavigateToPayoutSetup={() => {
+                          setSettingsSelectedId("direct-deposits")
+                          setView("settings")
+                        }}
+                      />
+                    )}
+                    {isApprovalView(view) && (
+                      <ApprovalsView
+                        type={view}
+                        onNavigate={setView}
+                        emps={orgEmps}
+                        onOpenSettings={(moduleId, tab) => {
+                          setSettingsSelectedId(moduleId)
+                          setSettingsInitialTab(tab ?? null)
+                          setView("settings")
+                        }}
                       />
                     )}
                     {view === "payslips" && (
-                      <PayslipsView emps={emps} payruns={payruns} />
+                      <PayslipsView emps={orgEmps} payruns={orgPayruns} />
+                    )}
+                    {view === "loans" && (
+                      <Loans
+                        employees={orgEmps.map(({ id, name }) => ({ id, name }))}
+                        onOpenEmployee={(employeeId) => {
+                          setLoanEmployeeProfileId(employeeId)
+                          setView("employees")
+                        }}
+                        initialOpenCreate={openCreateLoan}
+                        initialCreateEmployeeId={createLoanEmployeeId}
+                        onCloseCreate={() => {
+                          setOpenCreateLoan(false)
+                          setCreateLoanEmployeeId(null)
+                        }}
+                      />
                     )}
                     {view === "documents" && (
                       <OrgDocumentsView
-                        docs={orgDocs}
+                        docs={orgDocsFiltered}
                         setDocs={setOrgDocs}
-                        emps={emps}
+                        emps={orgEmps}
                         activeDocumentsTab={activeDocumentsTab}
                         setActiveDocumentsTab={setActiveDocumentsTab}
                         employeeDocumentSearch={employeeDocumentSearch}
@@ -46459,12 +46699,12 @@ export default function App() {
                       />
                     )}
                     {view === "reports" && (
-                      <ReportsView emps={emps} ss={ss} payruns={payruns} />
+                      <ReportsView emps={orgEmps} ss={ss} payruns={orgPayruns} />
                     )}
-                    {view === "access" && <AccessManagementView emps={emps} />}
+                    {view === "access" && <AccessManagementView emps={orgEmps} />}
                     {view === "audit" && (
                       <AuditHistoryView
-                        logs={auditLogs}
+                        logs={auditLogs.filter((a) => !a.org || a.org === "All" || a.org.toLowerCase().includes(activeOrg.name.toLowerCase().split(" ")[0]) || ["Platform", "Access", "Organizations"].includes(a.module))}
                         errorLogs={errorLogs.filter((e) => e.role === "org_admin")}
                       />
                     )}
@@ -46505,7 +46745,7 @@ export default function App() {
                     {view === "dashboard" && (
                       <EmployeeDashboardView
                         emp={myEmp}
-                        payruns={payruns}
+                        payruns={orgPayruns}
                         structures={ss}
                         onNav={setView}
                       />
@@ -46514,16 +46754,16 @@ export default function App() {
                       <MySalaryView emp={myEmp} structures={ss} onNav={setView} />
                     )}
                     {(view === "payruns" || view === "history") && (
-                      <PayrollHistoryView emp={myEmp} payruns={payruns} onNav={setView} />
+                      <PayrollHistoryView emp={myEmp} payruns={orgPayruns} onNav={setView} />
                     )}
                     {view === "payslips" && (
-                      <EmployeePayslipsView emp={myEmp} payruns={payruns} />
+                      <EmployeePayslipsView emp={myEmp} payruns={orgPayruns} />
                     )}
                     {view === "documents" && (
-                      <DocumentsView orgDocs={orgDocs} emp={myEmp} />
+                      <DocumentsView orgDocs={orgDocsFiltered} emp={myEmp} />
                     )}
                     {view === "financial" && (
-                      <FinancialDataView emp={myEmp} payruns={payruns} />
+                      <FinancialDataView emp={myEmp} payruns={orgPayruns} />
                     )}
                   </>
                 )}
