@@ -5,6 +5,36 @@
    ZOHO PAYROLL DESIGN SYSTEM — Complete Token Set
    ══════════════════════════════════════════════════════════════════ */
 :root {
+  /* Fiori Design System Tokens */
+  --fiori-shell: #FFFFFF;
+  --fiori-shell-text: #1D2D3E;
+  --fiori-brand: #0B6ED0;
+  --fiori-brand-hover: #085CAF;
+  --fiori-brand-active: #064987;
+  --fiori-page-bg: #F5F7F9;
+  --fiori-card: #FFFFFF;
+  --fiori-text-1: #1D2D3E;
+  --fiori-text-2: #475E75;
+  --fiori-text-3: #5B738B;
+  --fiori-border: #D9E0E7;
+  --fiori-border-strong: #AAB7C4;
+  --fiori-success: #188918;
+  --fiori-success-bg: #F5FAE5;
+  --fiori-warning: #E76500;
+  --fiori-warning-bg: #FFF8D6;
+  --fiori-error: #AA0808;
+  --fiori-error-bg: #FFEAF4;
+  --fiori-info: #0B6ED0;
+  --fiori-info-bg: #EAF3FC;
+  --fiori-highlight: #EAF3FC;
+  --fiori-focus: #0B6ED0;
+  --fiori-tile-bg: #FFFFFF;
+  --fiori-nav-item-hover: #F5F6F7;
+  --fiori-nav-item-active: #EAF3FC;
+  --fiori-sidebar-width: 220px;
+  --fiori-shell-height: 48px;
+
+  /* Zoho Design System Tokens */
   /* Brand */
   --z-brand:          #306FD1;
   --z-brand-hover:    #2459AD;
@@ -62,6 +92,24 @@
 
   /* Transition */
   --z-transition: all 0.18s cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* SAP / Fiori Compatibility Tokens (mapped to Zoho design tokens) */
+  --fiori-brand:          var(--z-brand, #306FD1);
+  --fiori-brand-hover:    var(--z-brand-hover, #2459AD);
+  --fiori-brand-active:   var(--z-brand-active, #1A4280);
+  --fiori-card:           var(--z-card, #FFFFFF);
+  --fiori-page-bg:        var(--z-app-bg, #F4F6F9);
+  --fiori-border:         var(--z-border, #DDE3EC);
+  --fiori-border-strong:  var(--z-border-strong, #BAC4D3);
+  --fiori-focus:          var(--z-border-focus, #306FD1);
+  --fiori-text-1:         var(--z-text-primary, #1A2B4B);
+  --fiori-text-2:         var(--z-text-secondary, #455A71);
+  --fiori-text-3:         var(--z-text-muted, #7A8DA0);
+  --fiori-highlight:      var(--z-brand-bg, #EEF4FE);
+  --fiori-info-bg:        var(--z-info-bg, #EEF4FE);
+  --fiori-error:          var(--z-error, #C00000);
+  --fiori-success:        var(--z-success, #107E3E);
+  --fiori-warning:        var(--z-warning, #E2680A);
 }
 
 /* ══════════════════════════════════════════════════════════════════
@@ -838,7 +886,7 @@ div[style*="width: 330px"][style*="z-index: 5"] {
   color: var(--fiori-text-1);
   font-size: 15px;
   font-weight: 600;
-  content: "Naxpayroll  |  Payroll Management";
+  content: "NaxPayroll  |  Payroll Management";
 }
 .sap-login-card {
   z-index: 1;
@@ -1045,4 +1093,5 @@ body { font-size: 14px; line-height: 1.45; }
   .employee-portal-preferences, .employee-portal-web-tabs { padding: 18px 14px 22px !important; }
   .employee-portal-tab-list > div { align-items: flex-start !important; padding: 13px !important; }
 }
+
 @media (max-width: 720px) { .universal-column-trigger { right: 16px; bottom: 16px; } }

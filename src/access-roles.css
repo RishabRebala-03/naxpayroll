@@ -4,10 +4,10 @@
 .access-roles p { margin: 5px 0 0; color: var(--fiori-text-2); }
 .ar-card { background: var(--fiori-card); border: 1px solid var(--fiori-border); border-radius: 8px; box-shadow: 0 1px 3px #00000008; }
 .ar-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 20px 24px; border-bottom: 1px solid var(--fiori-border); }
-.ar-button { border: 1px solid var(--fiori-border); border-radius: 6px; background: var(--fiori-card); color: var(--fiori-text-1); padding: 8px 16px; font: inherit; font-weight: 600; cursor: pointer; white-space: nowrap; }
+.ar-button { border: 1px solid var(--fiori-border); border-radius: 6px; background: var(--fiori-card); color: var(--fiori-text-1); padding: 8px 16px; font: inherit; font-weight: 600; cursor: pointer; white-space: nowrap; transition: all 0.15s ease; }
 .ar-button:hover { background: var(--fiori-highlight); }
-.ar-primary { color: white; background: var(--fiori-brand); border-color: var(--fiori-brand); }
-.ar-primary:hover { background: var(--fiori-brand-hover); }
+.ar-primary { color: #FFFFFF !important; background-color: var(--z-brand, #306FD1) !important; border-color: var(--z-brand, #306FD1) !important; font-weight: 600; box-shadow: 0 1px 2px rgba(48, 111, 209, 0.2); }
+.ar-primary:hover { background-color: var(--z-brand-hover, #2459AD) !important; border-color: var(--z-brand-hover, #2459AD) !important; box-shadow: 0 2px 6px rgba(48, 111, 209, 0.3); }
 .ar-link { background: none; border: 0; padding: 0; color: var(--fiori-brand); cursor: pointer; font: inherit; text-align: left; }
 .ar-link:hover { text-decoration: underline; }
 .ar-table-wrap { overflow-x: auto; }
@@ -26,8 +26,8 @@
 .ar-menu button { display: block; border: 0; background: none; width: 100%; padding: 9px; text-align: left; cursor: pointer; font: inherit; }
 .ar-menu button:hover { background: var(--fiori-page-bg); }
 .ar-danger { color: var(--fiori-error); }
-.ar-editor { display: flex; flex-direction: column; background: white; border: 1px solid var(--fiori-border); border-radius: 8px; height: calc(100dvh - 210px); min-height: 420px; }
-.ar-editor-body { overflow-y: auto; padding: 24px; min-height: 0; }
+.ar-editor { display: flex; flex-direction: column; background: white; border: 1px solid var(--fiori-border); border-radius: 8px; box-shadow: 0 1px 4px rgba(26, 43, 75, 0.06); }
+.ar-editor-body { padding: 24px; }
 .ar-editor-body > .ar-card { margin-bottom: 20px; }
 .ar-fields { display: grid; grid-template-columns: 170px minmax(200px, 540px); gap: 20px; align-items: start; padding: 0 0 24px; border-bottom: 1px solid var(--fiori-border); }
 .ar-fields > label { padding-top: 10px; font-weight: 600; }
@@ -54,11 +54,11 @@
 .ar-report-toggle { border: 0; background: none; font: inherit; font-weight: 600; width: 100%; display: flex; align-items: center; gap: 10px; text-align: left; cursor: pointer; color: var(--fiori-text-1); }
 .ar-report-toggle > span { display: inline-flex; transition: transform .15s ease; }
 .ar-report-toggle > span.is-expanded { transform: rotate(90deg); }
-.ar-footer { padding: 14px 24px; background: white; border-top: 1px solid var(--fiori-border); border-radius: 0 0 8px 8px; }
+.ar-footer { position: sticky; bottom: 0; z-index: 10; padding: 16px 24px; background: white; border-top: 1px solid var(--fiori-border); border-radius: 0 0 8px 8px; box-shadow: 0 -2px 8px rgba(26, 43, 75, 0.05); }
 .ar-footer > div { display: flex; gap: 10px; }
 .ar-footer .ar-error { color: var(--fiori-error); margin: 0 0 10px; }
 .ar-dialog { border: 1px solid var(--fiori-border); border-radius: 8px; width: 560px; max-width: calc(100vw - 32px); padding: 0; margin: auto; color: var(--fiori-text-1); }
 .ar-dialog::backdrop { background: #1d2d3e66; }
 .ar-info { color: var(--fiori-text-3); cursor: help; }
-@media (max-width: 700px) { .ar-fields { grid-template-columns: 1fr; gap: 10px; } .ar-heading, .ar-editor-body { padding: 16px; } .ar-editor { height: calc(100dvh - 180px); } }
+@media (max-width: 700px) { .ar-fields { grid-template-columns: 1fr; gap: 10px; } .ar-heading, .ar-editor-body { padding: 16px; } }
 .ar-role-list tr:last-child .ar-menu > div { top: auto; bottom: 0; }
