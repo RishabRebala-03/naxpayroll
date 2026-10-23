@@ -198,7 +198,12 @@ export default function AccessRoles({
               <h2>Roles</h2>
               <p>Define what each role can access and manage.</p>
             </div>
-            <button className="ar-button ar-primary" onClick={() => open()}>
+            <button
+              type="button"
+              id="btn-new-role"
+              className="ar-button ar-primary"
+              onClick={() => open()}
+            >
               + New Role
             </button>
           </div>
