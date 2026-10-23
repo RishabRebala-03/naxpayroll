@@ -42,9 +42,17 @@ import { flushSync } from "react-dom"
 
 import AccessRoles from "./AccessRoles"
 import AccessUsers from "./AccessUsers"
+import Loans, { readLoans } from "./Loans"
+import type { Loan } from "./Loans"
+import LoanIllustration from "./LoanIllustration"
 import type { AccessUser } from "./AccessUsers"
 import { loadRoles, ROLE_STORAGE, USER_STORAGE } from "./access-permissions"
 import type { AccessRole } from "./access-permissions"
+import ApprovalsNav, {
+  ApprovalsView,
+  APPROVALS_NAV_ITEMS,
+  isApprovalView,
+} from "./approvals"
 
 
 const F = {
@@ -3507,6 +3515,18 @@ function DashboardView({
     .sort((a, b) => (a.year !== b.year ? a.year - b.year : a.month - b.month))
   const cur = months[months.length - 1] ?? payruns[0]
   const prev = months[months.length - 2]
+  const [benefitsPeriodId, setBenefitsPeriodId] = useState(() =>
+    months[months.length - 2]?.id ?? months[months.length - 1]?.id ?? "",
+  )
+  const [benefitsPeriodOpen, setBenefitsPeriodOpen] = useState(false)
+  const benefitsRun = months.find((run) => run.id === benefitsPeriodId) ?? prev ?? cur
+  const benefitsTotals = benefitsRun
+    ? {
+        pf: benefitsRun.rows.reduce((sum, row) => sum + row.pf, 0),
+        esi: benefitsRun.rows.reduce((sum, row) => sum + row.esi, 0),
+        tds: benefitsRun.rows.reduce((sum, row) => sum + row.tds, 0),
+      }
+    : { pf: 0, esi: 0, tds: 0 }
   const activeCount = emps.filter((e) => e.status === "Active").length
   const onLeave = emps.filter((e) => e.status === "On Leave").length
   const depts = [...new Set(emps.map((e) => e.department))]
@@ -3594,6 +3614,42 @@ function DashboardView({
     },
   ].filter((x) => x.value > 0)
 
+  const dashboardTodoGroups = [
+    {
+      id: "employee",
+      title: "Employee",
+      detail: "Employee profiles need completion",
+      count: incompleteCount,
+      target: "employees",
+      icon: "employee",
+      tone: F.brand,
+      bg: F.infoBg,
+      action: "Review employees",
+    },
+    {
+      id: "payroll",
+      title: "Payroll",
+      detail: "Pay runs are awaiting review",
+      count: payruns.filter((run) => run.status === "Under Review").length,
+      target: "payruns",
+      icon: "payroll",
+      tone: F.warning,
+      bg: F.warningBg,
+      action: "Review pay runs",
+    },
+    {
+      id: "errors",
+      title: "Error Logs",
+      detail: "Open or investigating logs need attention",
+      count: INIT_ERROR_LOGS.filter((log) => log.role === "org_admin" && (log.status === "Open" || log.status === "Investigating")).length,
+      target: "audit",
+      icon: "errors",
+      tone: F.error,
+      bg: F.errorBg,
+      action: "Review error logs",
+    },
+  ].filter((task) => task.count > 0)
+  const dashboardTodoCount = dashboardTodoGroups.reduce((total, task) => total + task.count, 0)
   // Activity feed (recent audit-style events)
   const activityFeed = [
     {
@@ -3971,63 +4027,16 @@ function DashboardView({
           display: "grid",
           gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
           gap: 16,
+          order: 1,
         }}
       >
-        <section style={{ ...cardStyle, minHeight: 250 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, marginBottom: 14 }}>
-            <div>
-              <h2 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: F.text1 }}>Payroll Readiness Trend</h2>
-              <p style={{ margin: "4px 0 0", fontSize: 12, color: F.text2 }}>Payroll approval readiness across recent cycles</p>
-            </div>
-            <Badge label={`${readinessTrend[readinessTrend.length - 1]?.value ?? 0}% ready`} color="#D97706" bg="#FEF3C7" />
-          </div>
-          <div style={{ width: "100%", padding: "8px 8px 0" }}>
-            <svg viewBox="0 0 560 190" role="img" aria-label="Payroll readiness trend chart" style={{ display: "block", width: "100%", height: "auto", overflow: "visible" }}>
-              {[25, 75, 125, 175].map((y) => <line key={y} x1="24" y1={y} x2="536" y2={y} stroke="#D7DEE8" strokeDasharray="4 5" />)}
-              <polygon points={`24,175 ${readinessTrend.map((point, i) => `${24 + (i * 512 / Math.max(1, readinessTrend.length - 1))},${175 - point.value * 1.45}`).join(" ")} 536,175`} fill="#DBEAFE" opacity="0.7" />
-              <polyline points={readinessTrend.map((point, i) => `${24 + (i * 512 / Math.max(1, readinessTrend.length - 1))},${175 - point.value * 1.45}`).join(" ")} fill="none" stroke="#0875F5" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" />
-              {readinessTrend.map((point, i) => {
-                const x = 24 + (i * 512 / Math.max(1, readinessTrend.length - 1));
-                const y = 175 - point.value * 1.45;
-                return <g key={`${point.label}-${i}`}><circle cx={x} cy={y} r="5" fill="#FFFFFF" stroke="#0875F5" strokeWidth="3" /><text x={x} y={y - 12} textAnchor="middle" fontSize="11" fontWeight="700" fill="#334155">{point.value}%</text><text x={x} y="189" textAnchor="middle" fontSize="10" fill="#64748B">{point.label}</text></g>;
-              })}
-            </svg>
-          </div>
-        </section>
-
-        <section style={cardStyle}>
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "flex-start",
-              gap: 12,
-              marginBottom: 14,
-            }}
-          >
-            <div>
-              <h2 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: F.text1 }}>
-                Employee Status Mix
-              </h2>
-              <p style={{ margin: "4px 0 0", fontSize: 12, color: F.text2 }}>
-                Donut chart by active, leave, and inactive workforce status
-              </p>
-            </div>
-            <Badge label={`${emps.length} employees`} color={F.brand} bg={F.infoBg} />
-          </div>
-          <AnalyticsDonutChart
-            segments={statusSegs}
-            size={150}
-            strokeWidth={24}
-            centerLabel="Employees"
-            valueFormatter={(value) => String(value)}
-          />
-        </section>
-
         <section
           style={{
             ...cardStyle,
             minHeight: 250,
+            display: "flex",
+            flexDirection: "column",
+            order: 1,
             padding: 0,
             overflow: "hidden",
             border: "1px solid #BFDBFE",
@@ -4056,390 +4065,187 @@ function DashboardView({
               </p>
             </div>
             <div style={{ flexShrink: 0, padding: "6px 10px", borderRadius: 8, background: "#FFFFFF", border: "1px solid #C7DDFF", color: "#1D4ED8", fontSize: 12, fontWeight: 800 }}>
-              5 items
+              {dashboardTodoCount} items
             </div>
           </div>
 
-          <div style={{ padding: "12px 14px 8px", display: "grid", gridTemplateColumns: "1fr", gap: 9 }}>
-            {[
-              { id: "employee", title: "Employee", detail: "2 modules are incomplete", count: 2, target: "employees", icon: "👥", tone: "#1D4ED8", bg: "#EFF6FF", border: "#BFDBFE", action: "Review employees" },
-              { id: "payroll", title: "Payroll", detail: "1 payroll is pending", count: 1, target: "payruns", icon: "₹", tone: "#B45309", bg: "#FFFBEB", border: "#FDE68A", action: "Review pay runs" },
-              { id: "errors", title: "Error Logs", detail: "2 tasks are under work", count: 2, target: "audit", icon: "!", tone: "#B91C1C", bg: "#FEF2F2", border: "#FECACA", action: "Review error logs" },
-            ].map((task) => (
-              <div
-                key={task.id}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 12,
-                  padding: "12px",
-                  border: `1px solid ${task.border}`,
-                  borderRadius: 11,
-                  background: task.bg,
-                  transition: "transform 140ms ease, box-shadow 140ms ease",
-                }}
-              >
-                <div aria-hidden="true" style={{ width: 40, height: 40, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, color: task.tone, background: "#FFFFFF", border: `1px solid ${task.border}`, fontSize: 17, fontWeight: 800 }}>
-                  {task.icon}
-                </div>
-                <button
-                  type="button"
-                  onClick={() => onNav(task.target)}
-                  aria-label={`${task.action}: ${task.count} items`}
-                  style={{ flex: 1, minWidth: 0, textAlign: "left", background: "transparent", border: 0, padding: 0, font: "inherit", cursor: "pointer" }}
-                >
-                  <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                    <span style={{ fontSize: 13, fontWeight: 800, color: "#1F2937" }}>{task.title}</span>
-                    <span style={{ minWidth: 24, height: 22, padding: "0 7px", boxSizing: "border-box", display: "inline-flex", alignItems: "center", justifyContent: "center", borderRadius: 7, color: task.tone, background: "#FFFFFF", border: `1px solid ${task.border}`, fontSize: 11, fontWeight: 800 }}>{task.count}</span>
-                  </div>
-                  <div style={{ fontSize: 11, lineHeight: 1.5, color: "#4B5563", marginTop: 4 }}>{task.detail}</div>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => onNav(task.target)}
-                  style={{ background: "#FFFFFF", borderRadius: 7, padding: "7px 9px", color: task.tone, border: `1px solid ${task.border}`, fontSize: 11, fontWeight: 800, whiteSpace: "nowrap", cursor: "pointer", flexShrink: 0 }}
-                >
-                  {task.action} ↗
-                </button>
-              </div>
-            ))}
-          </div>
-          <div style={{ margin: "2px 14px 0", padding: "11px 4px 13px", borderTop: "1px solid #E5E7EB", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-            <span style={{ fontSize: 11, color: "#6B7280" }}>Prioritized items across key modules</span>
-            <span style={{ fontSize: 11, color: "#1D4ED8", fontWeight: 800 }}>5 items to review</span>
-          </div>
-        </section>
-      </div>
-
-      {/* ── Main Analytics Section: Dual Bar Trend + Donut Breakdown ── */}
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "minmax(0, 1.45fr) minmax(320px, 0.95fr)",
-          gap: 20,
-        }}
-      >
-        {/* Left Card: Monthly Trend Bar Graph */}
-        <section style={cardStyle}>
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "flex-start",
-              marginBottom: 16,
-              gap: 12,
-            }}
-          >
-            <div>
-              <h2
-                style={{
-                  margin: 0,
-                  fontSize: 16,
-                  fontWeight: 800,
-                  color: F.text1,
-                }}
-              >
-                Earnings & Net Pay Trend
-              </h2>
-              <p
-                style={{
-                  margin: "4px 0 0",
-                  fontSize: 12,
-                  color: F.text2,
-                }}
-              >
-                Monthly Gross salary vs Net Take-Home disbursement over recent pay cycles
-              </p>
-            </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <div
-                style={{
-                  fontSize: 11,
-                  color: F.text3,
-                  fontWeight: 600,
-                  background: F.pageBg,
-                  padding: "3px 8px",
-                  borderRadius: 4,
-                }}
-              >
-                Last 12 Months
-              </div>
-              <Btn small variant="ghost" onClick={() => onNav("payruns")}>
-                View Payruns &rarr;
-              </Btn>
-            </div>
-          </div>
-          <DualBarTrendChart data={trendData} />
-        </section>
-
-        {/* Right Card: Donut / Pie Chart Breakdown */}
-        <section style={cardStyle}>
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "flex-start",
-              marginBottom: 14,
-            }}
-          >
-            <div>
-              <h2
-                style={{
-                  margin: 0,
-                  fontSize: 16,
-                  fontWeight: 800,
-                  color: F.text1,
-                }}
-              >
-                Period Breakdown
-              </h2>
-              <p
-                style={{
-                  margin: "4px 0 0",
-                  fontSize: 12,
-                  color: F.text2,
-                }}
-              >
-                {cur.period} organization salary composition
-              </p>
-            </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <span
-                style={{
-                  fontSize: 11,
-                  fontWeight: 700,
-                  color: F.brand,
-                  background: F.infoBg,
-                  padding: "2px 8px",
-                  borderRadius: 4,
-                }}
-              >
-                {cur.period}
-              </span>
-              <Btn small variant="ghost" onClick={() => onNav("reports")}>
-                View Reports &rarr;
-              </Btn>
-            </div>
-          </div>
-          <AnalyticsDonutChart segments={donutSegments} />
-        </section>
-      </div>
-
-      {/* ── Lower Section: Current Pay Run Status + Department Payroll Ledger ── */}
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "minmax(0, 1.4fr) minmax(320px, 1fr)",
-          gap: 20,
-        }}
-      >
-        {/* Left: Current Pay Run Lifecycle Card */}
-        <section style={cardStyle}>
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              marginBottom: 14,
-            }}
-          >
-            <div>
-              <h2
-                style={{
-                  margin: 0,
-                  fontSize: 16,
-                  fontWeight: 800,
-                  color: F.text1,
-                }}
-              >
-                Current Pay Run Lifecycle
-              </h2>
-              <p
-                style={{
-                  margin: "3px 0 0",
-                  fontSize: 12,
-                  color: F.text2,
-                }}
-              >
-                {cur.period} pay run process and disbursement status
-              </p>
-            </div>
-            <Btn small variant="secondary" onClick={() => onNav("payruns")}>
-              View All Payruns
-            </Btn>
-          </div>
-
-          <Stepper current={cur.status} />
-
-          <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 14 }}>
-            {[
-              ["Gross Payroll", cur.grossPayroll, F.warning, "Total organization salary expense"],
-              ["Total Deductions", cur.totalDeductions, F.error, "Statutory EPF, TDS & Tax liabilities"],
-              ["Net Payout", cur.netPayroll, F.success, "Direct employee bank transfers"],
-            ].map(([l, v, c, desc]) => (
-              <div
-                key={l as string}
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  padding: "10px 14px",
-                  background: F.pageBg,
-                  borderRadius: 6,
-                  border: `1px solid ${F.border}`,
-                  borderLeft: `3px solid ${c as string}`,
-                }}
-              >
-                <div>
-                  <div style={{ fontSize: 12, fontWeight: 700, color: F.text1 }}>
-                    {l as string}
-                  </div>
-                  <div style={{ fontSize: 11, color: F.text3, marginTop: 1 }}>{desc as string}</div>
-                </div>
-                <span style={{ fontSize: 14, fontWeight: 800, color: F.text1 }}>
-                  {inr(v as number)}
-                </span>
-              </div>
-            ))}
-          </div>
-
-          <div
-            style={{
-              marginTop: 14,
-              paddingTop: 12,
-              borderTop: `1px solid ${F.border}`,
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              flexWrap: "wrap",
-              gap: 10,
-            }}
-          >
-            <div style={{ fontSize: 12, color: F.text3 }}>
-              Prepared by <strong style={{ color: F.text1 }}>{cur.generatedBy}</strong> · Due 31 Aug 2026
-            </div>
-            <div style={{ display: "flex", gap: 8 }}>
-              <Btn small onClick={() => onNav("payruns")}>
-                Review Pay Run &rarr;
-              </Btn>
-              <Btn
-                small
-                variant="secondary"
-                onClick={() => toast("Pay run summary exported", "success")}
-              >
-                Export
-              </Btn>
-            </div>
-          </div>
-        </section>
-
-        {/* Right: Payroll by Department */}
-        <section style={cardStyle}>
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              marginBottom: 14,
-            }}
-          >
-            <div>
-              <h2
-                style={{
-                  margin: 0,
-                  fontSize: 16,
-                  fontWeight: 800,
-                  color: F.text1,
-                }}
-              >
-                Payroll by Department
-              </h2>
-              <p
-                style={{
-                  margin: "3px 0 0",
-                  fontSize: 12,
-                  color: F.text2,
-                }}
-              >
-                Departmental net pay allocation for {cur.period}
-              </p>
-            </div>
-            <Btn small variant="secondary" onClick={() => onNav("employees")}>
-              Manage Staff
-            </Btn>
-          </div>
-
-          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-            {deptRows.map((x) => (
-              <div key={x.d}>
+          <div style={{ padding: "12px 14px 8px", display: "grid", gridTemplateColumns: "1fr", gap: 9, flex: 1 }}>
+            {dashboardTodoGroups.length > 0 ? (
+              dashboardTodoGroups.map((task) => (
                 <div
+                  key={task.id}
                   style={{
                     display: "flex",
-                    justifyContent: "space-between",
-                    marginBottom: 4,
                     alignItems: "center",
-                  }}
-                >
-                  <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
-                    <span
-                      style={{
-                        width: 8,
-                        height: 8,
-                        borderRadius: 2,
-                        background: x.color,
-                        display: "inline-block",
-                        flexShrink: 0,
-                      }}
-                    />
-                    <span style={{ fontSize: 12, fontWeight: 600, color: F.text1 }}>
-                      {x.d}
-                    </span>
-                  </div>
-                  <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-                    <span style={{ fontSize: 11, color: F.text3 }}>{x.count} emp</span>
-                    <span
-                      style={{
-                        fontSize: 11,
-                        fontWeight: 700,
-                        color: F.text1,
-                        background: F.pageBg,
-                        padding: "1px 6px",
-                        borderRadius: 4,
-                      }}
-                    >
-                      {x.pct}%
-                    </span>
-                    <span
-                      style={{
-                        fontSize: 12,
-                        fontWeight: 700,
-                        color: x.color,
-                        width: 76,
-                        textAlign: "right",
-                      }}
-                    >
-                      {inr(x.net)}
-                    </span>
-                  </div>
-                </div>
-                <div
-                  style={{
-                    height: 5,
-                    borderRadius: 3,
-                    background: F.border,
-                    overflow: "hidden",
+                    gap: 12,
+                    padding: "12px",
+                    border: `1px solid ${task.tone}40`,
+                    borderRadius: 11,
+                    background: task.bg,
+                    transition: "transform 140ms ease, box-shadow 140ms ease",
                   }}
                 >
                   <div
+                    aria-hidden="true"
                     style={{
-                      width: `${x.pct}%`,
-                      height: "100%",
-                      borderRadius: 3,
-                      background: `linear-gradient(90deg, ${x.color}88, ${x.color})`,
-                      transition: "width 0.4s ease",
+                      width: 40,
+                      height: 40,
+                      borderRadius: 10,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      flexShrink: 0,
+                      color: task.tone,
+                      background: "#FFFFFF",
+                      border: `1px solid ${task.tone}40`,
                     }}
-                  />
+                  >
+                    {task.icon === "employee" ? (
+                      <UsersIcon size={18} color={task.tone} />
+                    ) : task.icon === "payroll" ? (
+                      <IndianRupeeIcon size={18} color={task.tone} />
+                    ) : (
+                      <AlertCircleIcon size={18} color={task.tone} />
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => onNav(task.target)}
+                    aria-label={`${task.action}: ${task.count} items`}
+                    style={{ flex: 1, minWidth: 0, textAlign: "left", background: "transparent", border: 0, padding: 0, font: "inherit", cursor: "pointer" }}
+                  >
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                      <span style={{ fontSize: 13, fontWeight: 800, color: "#1F2937" }}>{task.title}</span>
+                      <span style={{ minWidth: 24, height: 22, padding: "0 7px", boxSizing: "border-box", display: "inline-flex", alignItems: "center", justifyContent: "center", borderRadius: 7, color: task.tone, background: "#FFFFFF", border: `1px solid ${task.tone}40`, fontSize: 11, fontWeight: 800 }}>{task.count}</span>
+                    </div>
+                    <div style={{ fontSize: 11, lineHeight: 1.5, color: "#4B5563", marginTop: 4 }}>{task.detail}</div>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onNav(task.target)}
+                    style={{ background: "#FFFFFF", borderRadius: 7, padding: "7px 9px", color: task.tone, border: `1px solid ${task.tone}40`, fontSize: 11, fontWeight: 800, whiteSpace: "nowrap", cursor: "pointer", flexShrink: 0, display: "inline-flex", alignItems: "center", gap: 4 }}
+                  >
+                    <span>{task.action}</span>
+                    <ArrowUpRightIcon size={12} color={task.tone} />
+                  </button>
                 </div>
+              ))
+            ) : (
+              <div style={{ padding: 20, border: `1px dashed ${F.border}`, borderRadius: 6, color: F.text3, textAlign: "center", fontSize: 13 }}>
+                No tasks need attention right now.
+              </div>
+            )}
+          </div>
+
+          <div style={{ margin: "2px 14px 0", padding: "11px 4px 13px", borderTop: "1px solid #E5E7EB", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+            <span style={{ fontSize: 11, color: "#6B7280" }}>Actionable items across key modules</span>
+            <span style={{ fontSize: 11, color: "#1D4ED8", fontWeight: 800 }}>{dashboardTodoCount} items to review</span>
+          </div>
+        </section>
+
+        <section style={{ ...cardStyle, minHeight: 250, order: 2 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, marginBottom: 14 }}>
+            <div>
+              <h2 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: F.text1 }}>Upcoming Payrun</h2>
+              <p style={{ margin: "4px 0 0", fontSize: 12, color: F.text2 }}>Current payroll period and disbursement details</p>
+            </div>
+            <Badge label={cur.status} color={isFinalizedPayrun(cur.status) ? F.success : F.warning} bg={isFinalizedPayrun(cur.status) ? F.successBg : F.warningBg} />
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: "14px 18px", padding: 14, border: `1px solid ${F.border}`, borderRadius: 6, background: F.pageBg }}>
+            <div><div style={{ fontSize: 11, color: F.text3 }}>PAY PERIOD</div><div style={{ marginTop: 3, fontSize: 14, fontWeight: 800, color: F.text1 }}>{cur.period}</div></div>
+            <div><div style={{ fontSize: 11, color: F.text3 }}>PAYMENT DATE</div><div style={{ marginTop: 3, fontSize: 14, fontWeight: 800, color: F.text1 }}>{cur.paymentDate || "Not scheduled"}</div></div>
+            <div><div style={{ fontSize: 11, color: F.text3 }}>EMPLOYEES</div><div style={{ marginTop: 3, fontSize: 14, fontWeight: 800, color: F.text1 }}>{cur.totalEmployees}</div></div>
+          </div>
+          <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 12 }}>
+            <Btn small onClick={() => onNav("payruns")}>{cur.status === "Under Review" ? "Review Payrun" : "View Payrun"} &rarr;</Btn>
+          </div>
+        </section>
+
+        <section style={{ ...cardStyle, order: 3 }}>
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "flex-start",
+              gap: 12,
+              marginBottom: 14,
+            }}
+          >
+            <div>
+              <h2 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: F.text1 }}>
+                Employee Summary
+              </h2>
+              <p style={{ margin: "4px 0 0", fontSize: 12, color: F.text2 }}>
+                Workforce status distribution
+              </p>
+            </div>
+          </div>
+          <AnalyticsDonutChart
+            segments={statusSegs}
+            size={128}
+            strokeWidth={24}
+            centerLabel="Employees"
+            valueFormatter={(value) => String(value)}
+          />
+        </section>
+      </div>
+
+      {/* ── Benefits & Deductions ── */}
+
+
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "minmax(0, 1fr)",
+          order: 2,
+        }}
+      >
+        <section style={{ ...cardStyle, padding: 0, overflow: "visible", position: "relative" }}>
+          <div style={{ minHeight: 50, padding: "0 22px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, borderBottom: `1px solid ${F.border}`, background: "#F8F8FC", position: "relative", zIndex: 2 }}>
+            <h2 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: F.text1 }}>Benefits and Deductions</h2>
+            <div style={{ position: "relative" }}>
+              <button
+                type="button"
+                aria-label="Choose benefits and deductions month"
+                aria-haspopup="listbox"
+                aria-expanded={benefitsPeriodOpen}
+                onClick={() => setBenefitsPeriodOpen((open) => !open)}
+                style={{ minWidth: 128, height: 32, padding: "0 9px 0 10px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, border: `1px solid ${F.brand}`, borderRadius: 9, background: "#fff", color: F.text2, fontSize: 13, cursor: "pointer" }}
+              >
+                <span>{benefitsRun?.period ?? "Select Month"}</span>
+                <span aria-hidden="true" style={{ fontSize: 11 }}>▾</span>
+              </button>
+              {benefitsPeriodOpen && (
+                <div role="listbox" aria-label="Payrun months" style={{ position: "absolute", top: "calc(100% + 4px)", right: 0, width: 190, maxHeight: 240, overflowY: "auto", padding: 4, border: `1px solid ${F.border}`, borderRadius: 7, background: F.card, boxShadow: "0 8px 24px rgba(15, 23, 42, 0.16)", zIndex: 20 }}>
+                  {months.map((run) => (
+                    <button
+                      key={run.id}
+                      type="button"
+                      role="option"
+                      aria-selected={run.id === benefitsPeriodId}
+                      onClick={() => { setBenefitsPeriodId(run.id); setBenefitsPeriodOpen(false) }}
+                      style={{ width: "100%", minHeight: 32, padding: "6px 9px", display: "block", border: 0, borderRadius: 4, background: run.id === benefitsPeriodId ? F.infoBg : "transparent", color: run.id === benefitsPeriodId ? F.brand : F.text1, textAlign: "left", fontSize: 13, cursor: "pointer" }}
+                    >
+                      {run.period}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 20, padding: "22px 24px 24px" }}>
+            {[
+              { label: "EPF", value: benefitsTotals.pf, color: "#8B5CF6", tint: "#F7F2FF", border: "#E9D5FF", icon: <><path d="M20.2 4.8c-7.7-.5-13.1 1.4-14.8 5.6-1.2 3 .2 6.1 2.9 7.1 3.3 1.2 6.8-.8 8.5-4.6 1.2-2.6 1.9-5.4 3.4-8.1Z"/><path d="M4 21c2.4-5.2 5.9-8.7 11-11"/></> },
+              { label: "ESI", value: benefitsTotals.esi, color: "#00875A", tint: "#F0FBF7", border: "#C8F1E2", icon: <><path d="M5 3.5h14v10.2a2 2 0 0 1-.7 1.5L12 21l-6.3-5.8a2 2 0 0 1-.7-1.5V3.5Z"/><path d="M12 8v5M9.5 10.5h5"/></> },
+              { label: "TDS", value: benefitsTotals.tds, color: "#E65100", tint: "#FFF6F1", border: "#FFE0D1", icon: <><path d="m18 5-12 14"/><circle cx="7.5" cy="7.5" r="2.5"/><circle cx="16.5" cy="16.5" r="2.5"/></> },
+            ].map((item) => (
+              <div key={item.label} style={{ minWidth: 0 }}>
+                <div style={{ width: 49, height: 49, display: "grid", placeItems: "center", border: `1px solid ${item.border}`, borderRadius: 10, background: item.tint, color: item.color }}>
+                  <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{item.icon}</svg>
+                </div>
+                <div style={{ marginTop: 10, color: F.text2, fontSize: 13 }}>{item.label}</div>
+                <div style={{ marginTop: 12, color: F.text1, fontSize: 14, fontWeight: 500 }}>{item.value > 0 ? inr(item.value) : "-"}</div>
+                <button type="button" onClick={() => onNav("salary")} style={{ marginTop: 14, padding: 0, border: 0, background: "none", color: F.brand, fontSize: 13, cursor: "pointer" }}>View Details</button>
               </div>
             ))}
           </div>
@@ -9616,7 +9422,6 @@ function EmployeeDetailPage({
           </button>
         </div>
       )}
-
       {activeTab === "history" && (
         <div style={{ background: F.card, border: `1px solid ${F.border}`, borderRadius: 10, padding: 20 }}>
           <div style={{ fontWeight: 800, marginBottom: 18 }}>Employee payroll timeline</div>
@@ -46448,6 +46253,21 @@ export default function App() {
                     )}
                     {view === "payslips" && (
                       <PayslipsView emps={emps} payruns={payruns} />
+                    )}
+                    {view === "loans" && (
+                      <Loans
+                        employees={emps.map(({ id, name }) => ({ id, name }))}
+                        onOpenEmployee={(employeeId) => {
+                          setLoanEmployeeProfileId(employeeId)
+                          setView("employees")
+                        }}
+                        initialOpenCreate={openCreateLoan}
+                        initialCreateEmployeeId={createLoanEmployeeId}
+                        onCloseCreate={() => {
+                          setOpenCreateLoan(false)
+                          setCreateLoanEmployeeId(null)
+                        }}
+                      />
                     )}
                     {view === "documents" && (
                       <OrgDocumentsView
